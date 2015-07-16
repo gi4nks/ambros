@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -43,7 +44,7 @@ func main() {
 	app.Commands = []cli.Command{
 		{
 			Name:    "run",
-			Aliases: []string{"r"},
+			Aliases: []string{"ru"},
 			Usage:   "run a command, remember to run the command with -- before. (./butler r -- ls -la)",
 			Action:  runCommand,
 		},
@@ -56,19 +57,19 @@ func main() {
 		{
 			Name:    "revive",
 			Aliases: []string{"e"},
-			Usage:   "revive butler",
+			Usage:   "revive ambros",
 			Action:  revive,
 		},
 		{
 			Name:    "logs",
-			Aliases: []string{"o"},
-			Usage:   "show me the logs of butler",
+			Aliases: []string{"lo"},
+			Usage:   "show me the logs of ambros",
 			Action:  logs,
 		},
 		{
 			Name:    "history",
 			Aliases: []string{"y"},
-			Usage:   "show the history of butler. followed with a valid number shows nummber of history ",
+			Usage:   "show the history of ambros. followed with a valid number shows nummber of history ",
 			Action:  history,
 		},
 		{
@@ -76,6 +77,18 @@ func main() {
 			Aliases: []string{"ll"},
 			Usage:   "show the last executed commands ",
 			Action:  last,
+		},
+		{
+			Name:    "output",
+			Aliases: []string{"o"},
+			Usage:   "show me the output of a command executed with ambros",
+			Action:  output,
+		},
+		{
+			Name:    "recall",
+			Aliases: []string{"re"},
+			Usage:   "srecall a command and execute again",
+			Action:  recall,
 		},
 	}
 
@@ -127,7 +140,7 @@ func history(ctx *cli.Context) {
 }
 
 func last(ctx *cli.Context) {
-	tracer.Notice("Amdros Last")
+	tracer.Notice("Ambros Last")
 
 	var count = settings.Configs.LastCountDefault
 	var err error
@@ -144,8 +157,7 @@ func last(ctx *cli.Context) {
 	var commands = repository.GetExecutedCommands(count)
 
 	for _, c := range commands {
-		//TODO structure the output n a readable way
-		tracer.News(c.String())
+		tracer.News(c.AsFlatCommand())
 	}
 }
 
@@ -153,17 +165,65 @@ func prepareEnvironment(ctx *cli.Context) {
 	tracer.Notice("Prepare the environment!!!!")
 }
 
-func runCommand(ctx *cli.Context) {
-	tracer.Notice("Run a command in the environment")
+func recall(ctx *cli.Context) {
+	if !ctx.Args().Present() {
 
-	var buffer bytes.Buffer
+		tracer.Warning("Id must be provided!")
+		return
+	}
+
+	id, err := strconv.Atoi(ctx.Args()[0])
+	if err != nil {
+		// handle error
+		tracer.Warning("Id provided is not valid!")
+		tracer.Warning(err.Error())
+		return
+	}
+
+	var command = repository.FindById(id)
+	execute(command)
+}
+
+func output(ctx *cli.Context) {
+	if !ctx.Args().Present() {
+
+		tracer.Warning("Id must be provided!")
+		return
+	}
+
+	id, err := strconv.Atoi(ctx.Args()[0])
+	if err != nil {
+		// handle error
+		tracer.Warning("Id provided is not valid!")
+		tracer.Warning(err.Error())
+		return
+	}
+
+	var command = repository.FindById(id)
+
+	tracer.News(command.Output)
+}
+
+func runCommand(ctx *cli.Context) {
 
 	var command = Command{}
 	command.Name = ctx.Args()[0]
-	command.Arguments = asJson(ctx.Args().Tail())
+	command.Arguments = strings.Join(ctx.Args().Tail(), " ")
 	command.CreatedAt = time.Now()
 
-	cmd := exec.Command(ctx.Args()[0], ctx.Args().Tail()...)
+	execute(command)
+}
+
+func listSettings(ctx *cli.Context) {
+	tracer.Notice("List of all the settings")
+	tracer.News(asJson(settings.Configs))
+	tracer.Notice("Command finished")
+}
+
+func execute(command Command) {
+	var buffer bytes.Buffer
+
+	cmd := exec.Command(command.Name, command.Arguments)
 
 	// Logging configuration
 	stdout, err := cmd.StdoutPipe()
@@ -182,7 +242,7 @@ func runCommand(ctx *cli.Context) {
 	for in.Scan() {
 		var ss = in.Text()
 		tracer.News(ss) // write each line to your log, or anything you need
-		buffer.WriteString(ss)
+		buffer.WriteString(ss + "\n")
 	}
 	if err := in.Err(); err != nil {
 		tracer.Error(err.Error())
@@ -193,12 +253,4 @@ func runCommand(ctx *cli.Context) {
 	command.Status = "Completed with SUCCESS"
 
 	repository.Put(command)
-	// ----------------------
-	tracer.Notice("Command finished with error: " + err.Error())
-}
-
-func listSettings(ctx *cli.Context) {
-	tracer.Notice("List of all the settings")
-	tracer.News(asJson(settings.Configs))
-	tracer.Notice("Command finished")
 }
