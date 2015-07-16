@@ -22,6 +22,7 @@ type Command struct {
 
 type ExecutedCommand struct {
 	Order   int
+	Id      uint
 	Command string
 	When    time.Time
 }
@@ -40,9 +41,10 @@ func (c *Command) AsHistory() string {
 }
 
 func (c *Command) AsExecutedCommand(order int) ExecutedCommand {
-	return ExecutedCommand{Order: order, Command: c.Name + " " + c.Arguments, When: c.CreatedAt}
+	s := c.Name + " " + c.Arguments
+	return ExecutedCommand{Order: order, Id: c.ID, Command: s, When: c.CreatedAt}
 }
 
-func (c ExecutedCommand) String() string {
-	return "(" + strconv.Itoa(c.Order) + ") " + c.Command + " [" + c.When.String() + "]"
+func (c ExecutedCommand) AsFlatCommand() string {
+	return "(" + strconv.Itoa(c.Order) + ") [" + strconv.Itoa(int(c.Id)) + "] " + c.Command + " {" + c.When.Format("02.01.2006 15:04:05") + "}"
 }

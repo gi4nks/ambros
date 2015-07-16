@@ -71,6 +71,12 @@ func (r *Repository) GetOne() Command {
 	return command
 }
 
+func (r *Repository) FindById(id int) Command {
+	command := Command{}
+	r.DB.Where("Id = ?", id).Find(&command)
+	return command
+}
+
 func (r *Repository) GetAllCommands() []Command {
 	commands := []Command{}
 	r.DB.Find(&commands)
