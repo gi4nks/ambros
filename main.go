@@ -40,12 +40,13 @@ func main() {
 	app.Name = "ambros"
 	app.Usage = "the personal command butler!!!!"
 	app.Version = "0.0.1"
+	app.Copyright = "gi4nks - 2015"
 
 	app.Commands = []cli.Command{
 		{
 			Name:    "run",
 			Aliases: []string{"ru"},
-			Usage:   "run a command, remember to run the command with -- before. (./butler r -- ls -la)",
+			Usage:   "run a command, remember to run the command with -- before. (./ambros r -- ls -la)",
 			Action:  runCommand,
 		},
 		{
@@ -87,8 +88,35 @@ func main() {
 		{
 			Name:    "recall",
 			Aliases: []string{"re"},
-			Usage:   "srecall a command and execute again",
+			Usage:   "recall a command and execute again",
 			Action:  recall,
+		},
+		{
+			Name:    "verbose",
+			Aliases: []string{"ve"},
+			Usage:   "set verbose level to ambros",
+			Action:  foo,
+			Flags: []cli.Flag{
+				cli.StringFlag{Name: "debug", Usage: "set verbosity to debug"},
+			},
+			/*
+				Subcommands: []cli.Command{
+					{
+						Name:  "add",
+						Usage: "add a new template",
+						Action: func(c *cli.Context) {
+							println("new task template: ", c.Args().First())
+						},
+					},
+					{
+						Name:  "remove",
+						Usage: "remove an existing template",
+						Action: func(c *cli.Context) {
+							println("removed task template: ", c.Args().First())
+						},
+					},
+				},
+			*/
 		},
 	}
 
@@ -219,6 +247,12 @@ func listSettings(ctx *cli.Context) {
 	tracer.News(asJson(settings.Configs))
 	tracer.Notice("Command finished")
 }
+
+func foo(ctx *cli.Context) {
+	tracer.Notice("foooo")
+}
+
+// ----------------
 
 func execute(command Command) {
 	var buffer bytes.Buffer
