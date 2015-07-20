@@ -22,7 +22,7 @@ type Settings struct {
 func (sts *Settings) LoadSettings() {
 	tracer.Notice("Load settings if provided")
 
-	file, e := ioutil.ReadFile("./conf.json")
+	file, e := ioutil.ReadFile("/home/gianluca/Projects/golang/bin/conf.json")
 	if e != nil {
 		tracer.Warning("File error: " + e.Error())
 		os.Exit(1)
