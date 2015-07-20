@@ -13,7 +13,7 @@ type Repository struct {
 
 // HELPER FUNCTIONS
 func repositoryFullName() string {
-	return "." + string(filepath.Separator) + settings.Configs.RepositoryDirectory + string(filepath.Separator) + settings.Configs.RepositoryFile
+	return settings.Configs.RepositoryDirectory + string(filepath.Separator) + settings.Configs.RepositoryFile
 }
 
 //
