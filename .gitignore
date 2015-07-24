@@ -23,6 +23,10 @@ _testmain.go
 *.test
 *.prof
 a.txt
+<<<<<<< HEAD
+=======
+ambros
+>>>>>>> master
 git.txt
 tmp/ambros.db
 tmp/ambros.db.bkp
