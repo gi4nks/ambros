@@ -16,7 +16,7 @@ type Command struct {
 	Entity
 	Name      string
 	Arguments string
-	Status    string
+	Status    bool
 	Output    string
 }
 
@@ -24,6 +24,7 @@ type ExecutedCommand struct {
 	Order   int
 	Id      uint
 	Command string
+	Status  bool
 	When    time.Time
 }
 
@@ -42,9 +43,9 @@ func (c *Command) AsHistory() string {
 
 func (c *Command) AsExecutedCommand(order int) ExecutedCommand {
 	s := c.Name + " " + c.Arguments
-	return ExecutedCommand{Order: order, Id: c.ID, Command: s, When: c.CreatedAt}
+	return ExecutedCommand{Order: order, Id: c.ID, Command: s, Status: c.Status, When: c.CreatedAt}
 }
 
 func (c ExecutedCommand) AsFlatCommand() string {
-	return "(" + strconv.Itoa(c.Order) + ") [" + strconv.Itoa(int(c.Id)) + "] " + c.Command + " {" + c.When.Format("02.01.2006 15:04:05") + "}"
+	return "{" + c.When.Format("02.01.2006 15:04:05") + "} [id: " + strconv.Itoa(int(c.Id)) + ", status: " + strconv.FormatBool(c.Status) + "] " + c.Command
 }
