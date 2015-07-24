@@ -119,8 +119,7 @@ func main() {
 
 // List of functions
 func revive(ctx *cli.Context) {
-	parrot.Info("Revive ambros!!!!")
-	parrot.Info("Reviving butler will reinitialize all the statistics.")
+	parrot.Info("==> Reviving ambros will reinitialize all the statistics.")
 
 	repository.BackupSchema()
 
@@ -128,8 +127,6 @@ func revive(ctx *cli.Context) {
 }
 
 func logs(ctx *cli.Context) {
-	parrot.Info("Ambros Logs")
-
 	var commands = repository.GetAllCommands()
 
 	for _, c := range commands {
@@ -139,8 +136,6 @@ func logs(ctx *cli.Context) {
 }
 
 func history(ctx *cli.Context) {
-	parrot.Info("Butler History")
-
 	var count = settings.Configs.HistoryCountDefault
 	var err error
 	if ctx.Args().Present() {
@@ -162,8 +157,6 @@ func history(ctx *cli.Context) {
 }
 
 func last(ctx *cli.Context) {
-	parrot.Info("Ambros Last")
-
 	var count = settings.Configs.LastCountDefault
 	var err error
 	if ctx.Args().Present() {
@@ -202,7 +195,12 @@ func recall(ctx *cli.Context) {
 		return
 	}
 
-	var command = repository.FindById(id)
+	var stored = repository.FindById(id)
+	var command = Command{}
+	command.Name = stored.Name
+	command.Arguments = stored.Arguments
+	command.CreatedAt = time.Now()
+	
 	execute(command)
 }
 
@@ -248,7 +246,7 @@ func foo(ctx *cli.Context) {
 
 // ----------------
 
-func finalizeCommand(command Command, output string, status string) {
+func finalizeCommand(command Command, output string, status bool) {
 	command.TerminatedAt = time.Now()
 	command.Output = output
 	command.Status = status
@@ -262,7 +260,7 @@ func execute(command Command) {
 	cmdReader, err := cmd.StdoutPipe()
 	if err != nil {
 		parrot.Error("Error creating StdoutPipe for Cmd", err)
-		finalizeCommand(command, err.Error(), "Completed with ERROR")
+		finalizeCommand(command, err.Error(), false)
 		return
 	} 
 
@@ -277,16 +275,16 @@ func execute(command Command) {
 	err = cmd.Start()
 	if err != nil {
 		parrot.Error("Error starting Cmd", err)
-		finalizeCommand(command, err.Error(), "Completed with ERROR")
+		finalizeCommand(command, err.Error(), false)
 		return
 	}
 
 	err = cmd.Wait()
 	if err != nil {
 		parrot.Error("Error waiting for Cmd", err)
-		finalizeCommand(command, err.Error(), "Completed with ERROR")
+		finalizeCommand(command, err.Error(), false)
 		return
 	}
 	
-	finalizeCommand(command, buffer.String(), "Completed with SUCCESS")
+	finalizeCommand(command, buffer.String(), true)
 }
