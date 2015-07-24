@@ -136,7 +136,7 @@ func logs(ctx *cli.Context) {
 }
 
 func history(ctx *cli.Context) {
-	var count = settings.Configs.HistoryCountDefault
+	var count = settings.HistoryCountDefault()
 	var err error
 	if ctx.Args().Present() {
 
@@ -144,7 +144,7 @@ func history(ctx *cli.Context) {
 		if err != nil {
 			// handle error
 			parrot.Info(err.Error())
-			count = settings.Configs.HistoryCountDefault
+			count = settings.HistoryCountDefault()
 		}
 	}
 
@@ -157,7 +157,7 @@ func history(ctx *cli.Context) {
 }
 
 func last(ctx *cli.Context) {
-	var count = settings.Configs.LastCountDefault
+	var count = settings.LastCountDefault()
 	var err error
 	if ctx.Args().Present() {
 
@@ -165,7 +165,7 @@ func last(ctx *cli.Context) {
 		if err != nil {
 			// handle error
 			parrot.Info(err.Error())
-			count = settings.Configs.LastCountDefault
+			count = settings.LastCountDefault()
 		}
 	}
 
@@ -200,7 +200,7 @@ func recall(ctx *cli.Context) {
 	command.Name = stored.Name
 	command.Arguments = stored.Arguments
 	command.CreatedAt = time.Now()
-	
+
 	execute(command)
 }
 
@@ -236,7 +236,6 @@ func runCommand(ctx *cli.Context) {
 
 func listSettings(ctx *cli.Context) {
 	parrot.Info("List of all the settings")
-	parrot.Info(asJson(settings.Configs))
 	parrot.Info("Command finished")
 }
 
@@ -251,7 +250,7 @@ func finalizeCommand(command Command, output string, status bool) {
 	command.Output = output
 	command.Status = status
 	repository.Put(command)
-} 
+}
 
 func execute(command Command) {
 	var buffer bytes.Buffer
@@ -262,7 +261,7 @@ func execute(command Command) {
 		parrot.Error("Error creating StdoutPipe for Cmd", err)
 		finalizeCommand(command, err.Error(), false)
 		return
-	} 
+	}
 
 	scanner := bufio.NewScanner(cmdReader)
 	go func() {
@@ -285,6 +284,6 @@ func execute(command Command) {
 		finalizeCommand(command, err.Error(), false)
 		return
 	}
-	
+
 	finalizeCommand(command, buffer.String(), true)
 }
