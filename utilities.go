@@ -2,11 +2,12 @@ package main
 
 import (
 	"encoding/json"
+	"github.com/kardianos/osext"
 	"os"
 	"path/filepath"
 )
 
-func exists(path string) (bool, error) {
+func ExistsPath(path string) (bool, error) {
 	_, err := os.Stat(path)
 	if err == nil {
 		return true, nil
@@ -17,11 +18,22 @@ func exists(path string) (bool, error) {
 	return true, err
 }
 
-func create(path string) {
-	os.Mkdir("."+string(filepath.Separator)+path, 0777)
+func CreatePath(path string) {
+	os.Mkdir(ExecutableFolder()+string(filepath.Separator)+path, 0777)
 }
 
-func asJson(o interface{}) string {
+func ExecutableFolder() string {
+	folder, err := osext.ExecutableFolder()
+	if err != nil {
+		parrot.Error("Warning", err)
+
+		return ""
+	}
+
+	return folder
+}
+
+func AsJson(o interface{}) string {
 	b, err := json.Marshal(o)
 	if err != nil {
 		parrot.Error("Warning", err)
