@@ -256,18 +256,33 @@ func execute(command Command) {
 	var buffer bytes.Buffer
 
 	cmd := exec.Command(command.Name, command.Arguments)
-	cmdReader, err := cmd.StdoutPipe()
+	outputReader, err := cmd.StdoutPipe()
 	if err != nil {
 		parrot.Error("Error creating StdoutPipe for Cmd", err)
 		finalizeCommand(command, err.Error(), false)
 		return
 	}
 
-	scanner := bufio.NewScanner(cmdReader)
+	errorReader, err := cmd.StderrPipe()
+	if err != nil {
+		parrot.Error("Error creating StderrPipe for Cmd", err)
+		finalizeCommand(command, err.Error(), false)
+		return
+	}
+
+	scannerOutput := bufio.NewScanner(outputReader)
 	go func() {
-		for scanner.Scan() {
-			parrot.Info(scanner.Text())
-			buffer.WriteString(scanner.Text() + "\n")
+		for scannerOutput.Scan() {
+			parrot.Info(scannerOutput.Text())
+			buffer.WriteString(scannerOutput.Text() + "\n")
+		}
+	}()
+
+	scannerError := bufio.NewScanner(errorReader)
+	go func() {
+		for scannerError.Scan() {
+			parrot.Info(scannerError.Text())
+			buffer.WriteString(scannerError.Text() + "\n")
 		}
 	}()
 
