@@ -20,8 +20,6 @@ type Settings struct {
 }
 
 func (sts *Settings) LoadSettings() {
-	parrot.Info("Load settings if provided")
-
 	file, err := ioutil.ReadFile("/home/gianluca/Projects/golang/bin/conf.json")
 	if err != nil {
 		parrot.Error("Warning", err)
