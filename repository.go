@@ -28,7 +28,7 @@ func (r *Repository) InitDB() {
 
 	r.DB, err = gorm.Open("sqlite3", repositoryFullName())
 	if err != nil {
-		tracer.Error("Got error when connect database, the error is " + err.Error())
+		parrot.Error("Got error when connect database", err)
 	}
 	r.DB.LogMode(settings.Configs.RepositoryLogMode)
 
@@ -55,7 +55,7 @@ func (r *Repository) BackupSchema() {
 	err := os.Rename(repositoryFullName(), repositoryFullName()+".bkp")
 
 	if err != nil {
-		tracer.Warning(err.Error())
+		parrot.Error("Warning", err)
 	}
 }
 
