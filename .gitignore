@@ -22,3 +22,8 @@ _testmain.go
 *.exe
 *.test
 *.prof
+a.txt
+ambros
+git.txt
+tmp/ambros.db
+tmp/ambros.db.bkp
