@@ -13,7 +13,7 @@ type Repository struct {
 
 // HELPER FUNCTIONS
 func repositoryFullName() string {
-	return settings.Configs.RepositoryDirectory + string(filepath.Separator) + settings.Configs.RepositoryFile
+	return settings.RepositoryDirectory() + string(filepath.Separator) + settings.RepositoryFile()
 }
 
 //
@@ -21,16 +21,20 @@ func repositoryFullName() string {
 func (r *Repository) InitDB() {
 	var err error
 
-	b, _ := exists(settings.Configs.RepositoryDirectory)
+	b, err := ExistsPath(settings.RepositoryDirectory())
+	if err != nil {
+		parrot.Error("Got error when reading repository directory", err)
+	}
+
 	if !b {
-		create(settings.Configs.RepositoryDirectory)
+		CreatePath(settings.RepositoryDirectory())
 	}
 
 	r.DB, err = gorm.Open("sqlite3", repositoryFullName())
 	if err != nil {
 		parrot.Error("Got error when connect database", err)
 	}
-	r.DB.LogMode(settings.Configs.RepositoryLogMode)
+	r.DB.LogMode(settings.RepositoryLogMode())
 
 	/*
 		r.DB.Ping()
@@ -47,7 +51,7 @@ func (r *Repository) InitSchema() {
 }
 
 func (r *Repository) BackupSchema() {
-	b, _ := exists(settings.Configs.RepositoryDirectory)
+	b, _ := ExistsPath(settings.RepositoryDirectory())
 	if !b {
 		return
 	}

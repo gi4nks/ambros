@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"io/ioutil"
-	"os"
 )
 
 type Configuration struct {
@@ -16,64 +15,66 @@ type Configuration struct {
 }
 
 type Settings struct {
-	Configs Configuration
+	configs Configuration
 }
 
 func (sts *Settings) LoadSettings() {
-	file, err := ioutil.ReadFile("/home/gianluca/Projects/golang/bin/conf.json")
+	folder := ExecutableFolder()
+
+	file, err := ioutil.ReadFile(folder + "/conf.json")
 	if err != nil {
 		parrot.Error("Warning", err)
-		os.Exit(1)
+		parrot.Info("==> Using default values")
+		sts.configs = Configuration{}
+		return
 	}
-	//m := new(Dispatch)
-	//var m interface{}
-	json.Unmarshal(file, &sts.Configs)
+	json.Unmarshal(file, &sts.configs)
 }
 
-func RepositoryDirectory(sts *Settings) string {
-	if sts.Configs == (Configuration{}) {
+func (sts Settings) RepositoryDirectory() string {
+	if sts.configs == (Configuration{}) {
 		return ConstRepositoryDirectory
 	}
 
-	if sts.Configs.RepositoryDirectory == "" {
+	if sts.configs.RepositoryDirectory == "" {
 		return ConstRepositoryDirectory
 	}
 
-	return sts.Configs.RepositoryDirectory
+	return sts.configs.RepositoryDirectory
 }
 
-func RepositoryFile(sts *Settings) string {
-	if sts.Configs == (Configuration{}) {
+func (sts Settings) RepositoryFile() string {
+	if sts.configs == (Configuration{}) {
 		return ConstRepositoryFile
 	}
 
-	if sts.Configs.RepositoryFile == "" {
+	if sts.configs.RepositoryFile == "" {
 		return ConstRepositoryFile
 	}
 
-	return sts.Configs.RepositoryFile
+	return sts.configs.RepositoryFile
 }
 
-func RepositoryLogMode(sts *Settings) bool {
-	if sts.Configs == (Configuration{}) {
+func (sts Settings) RepositoryLogMode() bool {
+	if sts.configs == (Configuration{}) {
 		return ConstRepositoryLogMode
 	}
 
-	return sts.Configs.RepositoryLogMode
+	return sts.configs.RepositoryLogMode
 }
 
-func HistoryCountDefault(sts *Settings) int {
-	if sts.Configs == (Configuration{}) {
+func (sts Settings) HistoryCountDefault() int {
+	if sts.configs == (Configuration{}) {
 		return ConstHistoryCountDefault
 	}
 
-	return sts.Configs.HistoryCountDefault
+	return sts.configs.HistoryCountDefault
 }
 
-func LastCountDefault(sts *Settings) int {
-	if sts.Configs == (Configuration{}) {
+func (sts Settings) LastCountDefault() int {
+	if sts.configs == (Configuration{}) {
 		return ConstLastCountDefault
 	}
 
-	return sts.Configs.LastCountDefault
+	return sts.configs.LastCountDefault
 }
