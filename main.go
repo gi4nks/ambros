@@ -12,15 +12,10 @@ import (
 	"time"
 )
 
-var tracer = quant.NewTrace("ambros")
+var parrot = quant.NewParrot("ambros")
 
 var settings = Settings{}
 var repository = Repository{}
-
-func configureTracer() {
-	// Configuring logger
-	tracer.Light()
-}
 
 func configureDB() {
 	repository.InitDB()
@@ -32,14 +27,13 @@ func readSettings() {
 
 func main() {
 	readSettings()
-	configureTracer()
 	configureDB()
 
 	// -------------------
 	app := cli.NewApp()
 	app.Name = "ambros"
 	app.Usage = "the personal command butler!!!!"
-	app.Version = "0.0.1"
+	app.Version = "0.0.1-alpha"
 	app.Copyright = "gi4nks - 2015"
 
 	app.Commands = []cli.Command{
@@ -125,8 +119,8 @@ func main() {
 
 // List of functions
 func revive(ctx *cli.Context) {
-	tracer.Notice("Revive butler!!!!")
-	tracer.Warning("Reviving butler will reinitialize all the statistics.")
+	parrot.Info("Revive ambros!!!!")
+	parrot.Info("Reviving butler will reinitialize all the statistics.")
 
 	repository.BackupSchema()
 
@@ -134,18 +128,18 @@ func revive(ctx *cli.Context) {
 }
 
 func logs(ctx *cli.Context) {
-	tracer.Notice("Butler Logs")
+	parrot.Info("Ambros Logs")
 
 	var commands = repository.GetAllCommands()
 
 	for _, c := range commands {
 		//TODO structure the output n a readable way
-		tracer.News(c.String())
+		parrot.Info(c.String())
 	}
 }
 
 func history(ctx *cli.Context) {
-	tracer.Notice("Butler History")
+	parrot.Info("Butler History")
 
 	var count = settings.Configs.HistoryCountDefault
 	var err error
@@ -154,7 +148,7 @@ func history(ctx *cli.Context) {
 		count, err = strconv.Atoi(ctx.Args()[0])
 		if err != nil {
 			// handle error
-			tracer.Warning(err.Error())
+			parrot.Info(err.Error())
 			count = settings.Configs.HistoryCountDefault
 		}
 	}
@@ -163,12 +157,12 @@ func history(ctx *cli.Context) {
 
 	for _, c := range commands {
 		//TODO structure the output n a readable way
-		tracer.News(c.AsHistory())
+		parrot.Info(c.AsHistory())
 	}
 }
 
 func last(ctx *cli.Context) {
-	tracer.Notice("Ambros Last")
+	parrot.Info("Ambros Last")
 
 	var count = settings.Configs.LastCountDefault
 	var err error
@@ -177,7 +171,7 @@ func last(ctx *cli.Context) {
 		count, err = strconv.Atoi(ctx.Args()[0])
 		if err != nil {
 			// handle error
-			tracer.Warning(err.Error())
+			parrot.Info(err.Error())
 			count = settings.Configs.LastCountDefault
 		}
 	}
@@ -185,26 +179,26 @@ func last(ctx *cli.Context) {
 	var commands = repository.GetExecutedCommands(count)
 
 	for _, c := range commands {
-		tracer.News(c.AsFlatCommand())
+		parrot.Info(c.AsFlatCommand())
 	}
 }
 
 func prepareEnvironment(ctx *cli.Context) {
-	tracer.Notice("Prepare the environment!!!!")
+	parrot.Info("Prepare the environment!!!!")
 }
 
 func recall(ctx *cli.Context) {
 	if !ctx.Args().Present() {
 
-		tracer.Warning("Id must be provided!")
+		parrot.Info("Id must be provided!")
 		return
 	}
 
 	id, err := strconv.Atoi(ctx.Args()[0])
 	if err != nil {
 		// handle error
-		tracer.Warning("Id provided is not valid!")
-		tracer.Warning(err.Error())
+		parrot.Info("Id provided is not valid!")
+		parrot.Info(err.Error())
 		return
 	}
 
@@ -215,21 +209,21 @@ func recall(ctx *cli.Context) {
 func output(ctx *cli.Context) {
 	if !ctx.Args().Present() {
 
-		tracer.Warning("Id must be provided!")
+		parrot.Info("Id must be provided!")
 		return
 	}
 
 	id, err := strconv.Atoi(ctx.Args()[0])
 	if err != nil {
 		// handle error
-		tracer.Warning("Id provided is not valid!")
-		tracer.Warning(err.Error())
+		parrot.Info("Id provided is not valid!")
+		parrot.Info(err.Error())
 		return
 	}
 
 	var command = repository.FindById(id)
 
-	tracer.News(command.Output)
+	parrot.Info(command.Output)
 }
 
 func runCommand(ctx *cli.Context) {
@@ -243,48 +237,56 @@ func runCommand(ctx *cli.Context) {
 }
 
 func listSettings(ctx *cli.Context) {
-	tracer.Notice("List of all the settings")
-	tracer.News(asJson(settings.Configs))
-	tracer.Notice("Command finished")
+	parrot.Info("List of all the settings")
+	parrot.Info(asJson(settings.Configs))
+	parrot.Info("Command finished")
 }
 
 func foo(ctx *cli.Context) {
-	tracer.Notice("foooo")
+	parrot.Info("foooo")
 }
 
 // ----------------
+
+func finalizeCommand(command Command, output string, status string) {
+	command.TerminatedAt = time.Now()
+	command.Output = output
+	command.Status = status
+	repository.Put(command)
+} 
 
 func execute(command Command) {
 	var buffer bytes.Buffer
 
 	cmd := exec.Command(command.Name, command.Arguments)
-
-	// Logging configuration
-	stdout, err := cmd.StdoutPipe()
+	cmdReader, err := cmd.StdoutPipe()
 	if err != nil {
-		tracer.Error(err.Error())
+		parrot.Error("Error creating StdoutPipe for Cmd", err)
+		finalizeCommand(command, err.Error(), "Completed with ERROR")
+		return
+	} 
+
+	scanner := bufio.NewScanner(cmdReader)
+	go func() {
+		for scanner.Scan() {
+			parrot.Info(scanner.Text())
+			buffer.WriteString(scanner.Text() + "\n")
+		}
+	}()
+
+	err = cmd.Start()
+	if err != nil {
+		parrot.Error("Error starting Cmd", err)
+		finalizeCommand(command, err.Error(), "Completed with ERROR")
+		return
 	}
 
-	// start the command after having set up the pipe
-	if err := cmd.Start(); err != nil {
-		tracer.Error(err.Error())
+	err = cmd.Wait()
+	if err != nil {
+		parrot.Error("Error waiting for Cmd", err)
+		finalizeCommand(command, err.Error(), "Completed with ERROR")
+		return
 	}
-
-	// read command's stdout line by line
-	in := bufio.NewScanner(stdout)
-
-	for in.Scan() {
-		var ss = in.Text()
-		tracer.News(ss) // write each line to your log, or anything you need
-		buffer.WriteString(ss + "\n")
-	}
-	if err := in.Err(); err != nil {
-		tracer.Error(err.Error())
-	}
-
-	command.TerminatedAt = time.Now()
-	command.Output = buffer.String()
-	command.Status = "Completed with SUCCESS"
-
-	repository.Put(command)
+	
+	finalizeCommand(command, buffer.String(), "Completed with SUCCESS")
 }

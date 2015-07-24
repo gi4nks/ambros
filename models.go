@@ -30,7 +30,7 @@ type ExecutedCommand struct {
 func (c Command) String() string {
 	b, err := json.Marshal(c)
 	if err != nil {
-		tracer.Warning(err.Error())
+		parrot.Error("Warning", err)
 		return "{}"
 	}
 	return string(b)
