@@ -24,7 +24,7 @@ func create(path string) {
 func asJson(o interface{}) string {
 	b, err := json.Marshal(o)
 	if err != nil {
-		tracer.Warning(err.Error())
+		parrot.Error("Warning", err)
 		return "{}"
 	}
 	return string(b)
