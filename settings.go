@@ -23,58 +23,43 @@ func (sts *Settings) LoadSettings() {
 
 	file, err := ioutil.ReadFile(folder + "/conf.json")
 	if err != nil {
-		parrot.Error("Warning", err)
-		parrot.Info("==> Using default values")
 		sts.configs = Configuration{}
-		return
+		sts.configs.RepositoryDirectory = ConstRepositoryDirectory
+		sts.configs.RepositoryFile = ConstRepositoryFile
+		sts.configs.RepositoryLogMode = ConstRepositoryLogMode
+		sts.configs.HistoryCountDefault = ConstHistoryCountDefault
+		sts.configs.LastCountDefault = ConstLastCountDefault
+
+	} else {
+		json.Unmarshal(file, &sts.configs)
 	}
-	json.Unmarshal(file, &sts.configs)
 }
 
 func (sts Settings) RepositoryDirectory() string {
-	if sts.configs == (Configuration{}) {
-		return ConstRepositoryDirectory
-	}
-
-	if sts.configs.RepositoryDirectory == "" {
-		return ConstRepositoryDirectory
-	}
-
 	return sts.configs.RepositoryDirectory
 }
 
 func (sts Settings) RepositoryFile() string {
-	if sts.configs == (Configuration{}) {
-		return ConstRepositoryFile
-	}
-
-	if sts.configs.RepositoryFile == "" {
-		return ConstRepositoryFile
-	}
-
 	return sts.configs.RepositoryFile
 }
 
 func (sts Settings) RepositoryLogMode() bool {
-	if sts.configs == (Configuration{}) {
-		return ConstRepositoryLogMode
-	}
-
 	return sts.configs.RepositoryLogMode
 }
 
-func (sts Settings) HistoryCountDefault() int {
-	if sts.configs == (Configuration{}) {
-		return ConstHistoryCountDefault
-	}
-
+func (sts Settings) HistoryLimitDefault() int {
 	return sts.configs.HistoryCountDefault
 }
 
-func (sts Settings) LastCountDefault() int {
-	if sts.configs == (Configuration{}) {
-		return ConstLastCountDefault
-	}
-
+func (sts Settings) LastLimitDefault() int {
 	return sts.configs.LastCountDefault
+}
+
+func (sts Settings) String() string {
+	b, err := json.Marshal(sts.configs)
+	if err != nil {
+		parrot.Error("Warning", err)
+		return "{}"
+	}
+	return string(b)
 }

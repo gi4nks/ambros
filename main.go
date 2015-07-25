@@ -41,76 +41,68 @@ func main() {
 			Name:    "run",
 			Aliases: []string{"ru"},
 			Usage:   "run a command, remember to run the command with -- before. (./ambros r -- ls -la)",
-			Action:  runCommand,
+			Action:  CmdRun,
 		},
 		{
 			Name:    "list",
-			Aliases: []string{"l"},
+			Aliases: []string{"li"},
 			Usage:   "list current configuration settings",
-			Action:  listSettings,
+			Action:  CmdListSettings,
 		},
 		{
 			Name:    "revive",
 			Aliases: []string{"e"},
 			Usage:   "revive ambros",
-			Action:  revive,
+			Action:  CmdRevive,
 		},
 		{
 			Name:    "logs",
 			Aliases: []string{"lo"},
 			Usage:   "show me the logs of ambros",
-			Action:  logs,
+			Subcommands: []cli.Command{
+				{
+					Name:   "id",
+					Usage:  "Get the log of specific id",
+					Action: CmdLogsById,
+				},
+				{
+					Name:   "all",
+					Usage:  "Get all the logs",
+					Action: CmdLogs,
+				},
+			},
 		},
-		{
-			Name:    "history",
-			Aliases: []string{"y"},
-			Usage:   "show the history of ambros. followed with a valid number shows nummber of history ",
-			Action:  history,
-		},
+		/*
+			{
+				Name:    "history",
+				Aliases: []string{"hi"},
+				Usage:   "show the history of ambros. followed with a valid number shows # of history ",
+				Action:  CmdHistory,
+			},
+		*/
 		{
 			Name:    "last",
 			Aliases: []string{"ll"},
 			Usage:   "show the last executed commands ",
-			Action:  last,
+			Action:  CmdLast,
 		},
 		{
 			Name:    "output",
-			Aliases: []string{"o"},
+			Aliases: []string{"ou"},
 			Usage:   "show me the output of a command executed with ambros",
-			Action:  output,
+			Action:  CmdOutput,
 		},
 		{
 			Name:    "recall",
 			Aliases: []string{"re"},
 			Usage:   "recall a command and execute again",
-			Action:  recall,
+			Action:  CmdRecall,
 		},
 		{
 			Name:    "verbose",
 			Aliases: []string{"ve"},
 			Usage:   "set verbose level to ambros",
-			Action:  foo,
-			Flags: []cli.Flag{
-				cli.StringFlag{Name: "debug", Usage: "set verbosity to debug"},
-			},
-			/*
-				Subcommands: []cli.Command{
-					{
-						Name:  "add",
-						Usage: "add a new template",
-						Action: func(c *cli.Context) {
-							println("new task template: ", c.Args().First())
-						},
-					},
-					{
-						Name:  "remove",
-						Usage: "remove an existing template",
-						Action: func(c *cli.Context) {
-							println("removed task template: ", c.Args().First())
-						},
-					},
-				},
-			*/
+			Action:  CmdVerbose,
 		},
 	}
 
@@ -118,69 +110,22 @@ func main() {
 }
 
 // List of functions
-func revive(ctx *cli.Context) {
+func CmdRevive(ctx *cli.Context) {
 	parrot.Info("==> Reviving ambros will reinitialize all the statistics.")
 
 	repository.BackupSchema()
-
 	repository.InitSchema()
 }
 
-func logs(ctx *cli.Context) {
+func CmdLogs(ctx *cli.Context) {
 	var commands = repository.GetAllCommands()
 
 	for _, c := range commands {
-		//TODO structure the output n a readable way
 		parrot.Info(c.String())
 	}
 }
 
-func history(ctx *cli.Context) {
-	var count = settings.HistoryCountDefault()
-	var err error
-	if ctx.Args().Present() {
-
-		count, err = strconv.Atoi(ctx.Args()[0])
-		if err != nil {
-			// handle error
-			parrot.Info(err.Error())
-			count = settings.HistoryCountDefault()
-		}
-	}
-
-	var commands = repository.GetHistory(count)
-
-	for _, c := range commands {
-		//TODO structure the output n a readable way
-		parrot.Info(c.AsHistory())
-	}
-}
-
-func last(ctx *cli.Context) {
-	var count = settings.LastCountDefault()
-	var err error
-	if ctx.Args().Present() {
-
-		count, err = strconv.Atoi(ctx.Args()[0])
-		if err != nil {
-			// handle error
-			parrot.Info(err.Error())
-			count = settings.LastCountDefault()
-		}
-	}
-
-	var commands = repository.GetExecutedCommands(count)
-
-	for _, c := range commands {
-		parrot.Info(c.AsFlatCommand())
-	}
-}
-
-func prepareEnvironment(ctx *cli.Context) {
-	parrot.Info("Prepare the environment!!!!")
-}
-
-func recall(ctx *cli.Context) {
+func CmdLogsById(ctx *cli.Context) {
 	if !ctx.Args().Present() {
 
 		parrot.Info("Id must be provided!")
@@ -190,8 +135,68 @@ func recall(ctx *cli.Context) {
 	id, err := strconv.Atoi(ctx.Args()[0])
 	if err != nil {
 		// handle error
-		parrot.Info("Id provided is not valid!")
-		parrot.Info(err.Error())
+		parrot.Info("Id provided is not valid!\n")
+		parrot.Error("Error...", err)
+		return
+	}
+
+	var command = repository.FindById(id)
+
+	parrot.Info(command.String())
+}
+
+func CmdHistory(ctx *cli.Context) {
+	var limit = settings.HistoryLimitDefault()
+	var err error
+	if ctx.Args().Present() {
+
+		limit, err = strconv.Atoi(ctx.Args()[0])
+		if err != nil {
+			// handle error
+			parrot.Info(err.Error())
+			limit = settings.HistoryLimitDefault()
+		}
+	}
+
+	var commands = repository.GetHistory(limit)
+
+	for _, c := range commands {
+		parrot.Info(c.AsHistory())
+	}
+}
+
+func CmdLast(ctx *cli.Context) {
+	var limit = settings.LastLimitDefault()
+	var err error
+	if ctx.Args().Present() {
+
+		limit, err = strconv.Atoi(ctx.Args()[0])
+		if err != nil {
+			// handle error
+			parrot.Info(err.Error())
+			limit = settings.LastLimitDefault()
+		}
+	}
+
+	var commands = repository.GetExecutedCommands(limit)
+
+	for _, c := range commands {
+		parrot.Info(c.AsFlatCommand())
+	}
+}
+
+func CmdRecall(ctx *cli.Context) {
+	if !ctx.Args().Present() {
+
+		parrot.Info("Id must be provided!")
+		return
+	}
+
+	id, err := strconv.Atoi(ctx.Args()[0])
+	if err != nil {
+		// handle error
+		parrot.Info("Id provided is not valid!\n")
+		parrot.Error("Error...", err)
 		return
 	}
 
@@ -204,7 +209,7 @@ func recall(ctx *cli.Context) {
 	execute(command)
 }
 
-func output(ctx *cli.Context) {
+func CmdOutput(ctx *cli.Context) {
 	if !ctx.Args().Present() {
 
 		parrot.Info("Id must be provided!")
@@ -214,8 +219,8 @@ func output(ctx *cli.Context) {
 	id, err := strconv.Atoi(ctx.Args()[0])
 	if err != nil {
 		// handle error
-		parrot.Info("Id provided is not valid!")
-		parrot.Info(err.Error())
+		parrot.Info("Id provided is not valid!\n")
+		parrot.Error("Error...", err)
 		return
 	}
 
@@ -224,7 +229,7 @@ func output(ctx *cli.Context) {
 	parrot.Info(command.Output)
 }
 
-func runCommand(ctx *cli.Context) {
+func CmdRun(ctx *cli.Context) {
 
 	var command = Command{}
 	command.Name = ctx.Args()[0]
@@ -234,13 +239,12 @@ func runCommand(ctx *cli.Context) {
 	execute(command)
 }
 
-func listSettings(ctx *cli.Context) {
-	parrot.Info("List of all the settings")
-	parrot.Info("Command finished")
+func CmdListSettings(ctx *cli.Context) {
+	parrot.Info(settings.String())
 }
 
-func foo(ctx *cli.Context) {
-	parrot.Info("foooo")
+func CmdVerbose(ctx *cli.Context) {
+	parrot.Info("Functionality not implemented yet!")
 }
 
 // ----------------
