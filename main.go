@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"github.com/codegangsta/cli"
 	"github.com/gi4nks/quant"
 	"os"
@@ -126,16 +127,8 @@ func CmdLogs(ctx *cli.Context) {
 }
 
 func CmdLogsById(ctx *cli.Context) {
-	if !ctx.Args().Present() {
-
-		parrot.Info("Id must be provided!")
-		return
-	}
-
-	id, err := strconv.Atoi(ctx.Args()[0])
+	id, err := intFromArguments(ctx)
 	if err != nil {
-		// handle error
-		parrot.Info("Id provided is not valid!\n")
 		parrot.Error("Error...", err)
 		return
 	}
@@ -148,14 +141,10 @@ func CmdLogsById(ctx *cli.Context) {
 func CmdHistory(ctx *cli.Context) {
 	var limit = settings.HistoryLimitDefault()
 	var err error
-	if ctx.Args().Present() {
-
-		limit, err = strconv.Atoi(ctx.Args()[0])
-		if err != nil {
-			// handle error
-			parrot.Info(err.Error())
-			limit = settings.HistoryLimitDefault()
-		}
+	limit, err = intFromArguments(ctx)
+	if err != nil {
+		parrot.Error("Error...", err)
+		return
 	}
 
 	var commands = repository.GetHistory(limit)
@@ -168,14 +157,11 @@ func CmdHistory(ctx *cli.Context) {
 func CmdLast(ctx *cli.Context) {
 	var limit = settings.LastLimitDefault()
 	var err error
-	if ctx.Args().Present() {
 
-		limit, err = strconv.Atoi(ctx.Args()[0])
-		if err != nil {
-			// handle error
-			parrot.Info(err.Error())
-			limit = settings.LastLimitDefault()
-		}
+	limit, err = intFromArguments(ctx)
+	if err != nil {
+		parrot.Error("Error...", err)
+		return
 	}
 
 	var commands = repository.GetExecutedCommands(limit)
@@ -186,16 +172,8 @@ func CmdLast(ctx *cli.Context) {
 }
 
 func CmdRecall(ctx *cli.Context) {
-	if !ctx.Args().Present() {
-
-		parrot.Info("Id must be provided!")
-		return
-	}
-
-	id, err := strconv.Atoi(ctx.Args()[0])
+	id, err := intFromArguments(ctx)
 	if err != nil {
-		// handle error
-		parrot.Info("Id provided is not valid!\n")
 		parrot.Error("Error...", err)
 		return
 	}
@@ -210,16 +188,8 @@ func CmdRecall(ctx *cli.Context) {
 }
 
 func CmdOutput(ctx *cli.Context) {
-	if !ctx.Args().Present() {
-
-		parrot.Info("Id must be provided!")
-		return
-	}
-
-	id, err := strconv.Atoi(ctx.Args()[0])
+	id, err := intFromArguments(ctx)
 	if err != nil {
-		// handle error
-		parrot.Info("Id provided is not valid!\n")
 		parrot.Error("Error...", err)
 		return
 	}
@@ -248,6 +218,18 @@ func CmdVerbose(ctx *cli.Context) {
 }
 
 // ----------------
+func intFromArguments(ctx *cli.Context) (int, error) {
+	if !ctx.Args().Present() {
+		return -1, errors.New("Value must be provided!")
+	}
+
+	id, err := strconv.Atoi(ctx.Args()[0])
+	if err != nil {
+		return -1, err
+	}
+
+	return id, nil
+}
 
 func finalizeCommand(command Command, output string, status bool) {
 	command.TerminatedAt = time.Now()
