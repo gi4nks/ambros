@@ -5,6 +5,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"os"
 	"path/filepath"
+	"strconv"
 )
 
 type Repository struct {
@@ -96,7 +97,9 @@ func (r *Repository) GetHistory(count int) []Command {
 func (r *Repository) GetExecutedCommands(count int) []ExecutedCommand {
 	commands := []Command{}
 
-	r.DB.Order("terminated_at desc").Find(&commands).Count(&count)
+	parrot.Info("Count is: " + strconv.Itoa(count))
+
+	r.DB.Limit(count).Order("terminated_at desc").Find(&commands)
 
 	executedCommands := make([]ExecutedCommand, len(commands))
 
