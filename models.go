@@ -7,7 +7,7 @@ import (
 )
 
 type Entity struct {
-	ID           uint `gorm:"primary_key"`
+	ID           string
 	CreatedAt    time.Time
 	TerminatedAt time.Time
 }
@@ -22,7 +22,7 @@ type Command struct {
 
 type ExecutedCommand struct {
 	Order   int
-	Id      uint
+	ID      string
 	Command string
 	Status  bool
 	When    time.Time
@@ -43,9 +43,31 @@ func (c *Command) AsHistory() string {
 
 func (c *Command) AsExecutedCommand(order int) ExecutedCommand {
 	s := c.Name + " " + c.Arguments
-	return ExecutedCommand{Order: order, Id: c.ID, Command: s, Status: c.Status, When: c.CreatedAt}
+	return ExecutedCommand{Order: order, ID: c.ID, Command: s, Status: c.Status, When: c.CreatedAt}
+}
+
+func (c Command) ToMap() map[string]interface{} {
+	return map[string]interface{}{
+		"ID":           c.ID,
+		"Name":         c.Name,
+		"Arguments":    c.Arguments,
+		"Status":       c.Status,
+		"Output":       c.Output,
+		"CreatedAt":    c.CreatedAt,
+		"TerminatedAt": c.TerminatedAt,
+	}
+}
+
+func (c *Command) FromMap(frommap map[string]interface{}) {
+	c.ID = frommap["ID"].(string)
+	c.Name = frommap["Name"].(string)
+	c.Arguments = frommap["Arguments"].(string)
+	c.Status = frommap["Status"].(bool)
+	c.Output = frommap["Output"].(string)
+	c.CreatedAt = frommap["CreatedAt"].(time.Time)
+	c.TerminatedAt = frommap["TerminatedAt"].(time.Time)
 }
 
 func (c ExecutedCommand) AsFlatCommand() string {
-	return "{" + c.When.Format("02.01.2006 15:04:05") + "} [id: " + strconv.Itoa(int(c.Id)) + ", status: " + strconv.FormatBool(c.Status) + "] " + c.Command
+	return "{" + c.When.Format("02.01.2006 15:04:05") + "} [id: " + c.ID + ", status: " + strconv.FormatBool(c.Status) + "] " + c.Command
 }
