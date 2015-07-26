@@ -1,15 +1,17 @@
 package main
 
 import (
-	"github.com/jinzhu/gorm"
-	_ "github.com/mattn/go-sqlite3"
-	"os"
+	"encoding/json"
+	"fmt"
+	"github.com/HouzuoGuo/tiedot/db"
+	"github.com/fatih/structs"
 	"path/filepath"
 	"strconv"
 )
 
 type Repository struct {
-	DB gorm.DB
+	DB       *db.DB
+	commands *db.Col
 }
 
 // HELPER FUNCTIONS
@@ -31,66 +33,113 @@ func (r *Repository) InitDB() {
 		CreatePath(settings.RepositoryDirectory())
 	}
 
-	r.DB, err = gorm.Open("sqlite3", repositoryFullName())
+	// (Create if not exist) open a database
+	r.DB, err = db.OpenDB(repositoryFullName())
 	if err != nil {
-		parrot.Error("Got error when connect database", err)
+		parrot.Error("Got error creating repository directory", err)
 	}
-	r.DB.LogMode(settings.RepositoryLogMode())
-
-	/*
-		r.DB.Ping()
-		r.DB.SetMaxIdleConns(10)
-		r.DB.SetMaxOpenConns(100)
-	*/
-
-	// Disable table name's pluralization
-	r.DB.SingularTable(true)
 }
 
 func (r *Repository) InitSchema() {
-	r.DB.AutoMigrate(&Command{})
+	// Drop (delete) collection "Commands"
+	if err := r.DB.Drop("Commands"); err != nil {
+		parrot.Error("Commands collection cannot be deleted", err)
+	}
+
+	// Create two collections: Commands and Votes
+	if err := r.DB.Create("Commands"); err != nil {
+		parrot.Error("Commands collection already exists", err)
+	}
+
+	r.commands = r.DB.Use("Commands")
+
+	if err := r.commands.Index([]string{"command_id"}); err != nil {
+		parrot.Error("Error", err)
+	}
+}
+
+func (r *Repository) CloseDB() {
+	if err := r.DB.Close(); err != nil {
+		parrot.Error("Error", err)
+	}
 }
 
 func (r *Repository) BackupSchema() {
-	b, _ := ExistsPath(settings.RepositoryDirectory())
-	if !b {
-		return
-	}
-
-	err := os.Rename(repositoryFullName(), repositoryFullName()+".bkp")
-
-	if err != nil {
-		parrot.Error("Warning", err)
-	}
+	parrot.Info("Not implemented")
 }
 
 // functionalities
 
 func (r *Repository) Put(c Command) {
-	r.DB.Create(&c)
+	_, err := r.commands.Insert(structs.Map(c))
+	if err != nil {
+		parrot.Error("Error", err)
+	}
+
 }
 
+/*
 func (r *Repository) GetOne() Command {
 	command := Command{}
 	r.DB.First(&command)
 	return command
 }
+*/
 
-func (r *Repository) FindById(id int) Command {
-	command := Command{}
-	r.DB.Where("Id = ?", id).Find(&command)
+func (r *Repository) FindById(id string) Command {
+	var query interface{}
+	json.Unmarshal([]byte(`[{"eq": "`+id+`", "in": ["command_id"]}]`), &query)
+
+	queryResult := make(map[int]struct{})
+
+	if err := db.EvalQuery(query, r.commands, &queryResult); err != nil {
+		panic(err)
+	}
+
+	var command = Command{}
+	for id := range queryResult {
+		// To get query result document, simply read it
+		readBack, err := r.commands.Read(id)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Printf("Query returned document %v\n", readBack)
+
+		command.FromMap(readBack)
+	}
+
 	return command
 }
 
 func (r *Repository) GetAllCommands() []Command {
 	commands := []Command{}
-	r.DB.Find(&commands)
+
+	var query interface{}
+	queryResult := make(map[int]struct{})
+
+	if err := db.EvalQuery(query, r.commands, &queryResult); err != nil {
+		panic(err)
+	}
+
+	var command = Command{}
+	for id := range queryResult {
+		// To get query result document, simply read it
+		readBack, err := r.commands.Read(id)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Printf("Query returned document %v\n", readBack)
+		command.FromMap(readBack)
+
+		commands = append(commands, command)
+	}
+
 	return commands
 }
 
 func (r *Repository) GetHistory(count int) []Command {
 	commands := []Command{}
-	r.DB.Order("terminated_at desc").Find(&commands).Count(&count)
+	//r.DB.Order("terminated_at desc").Find(&commands).Count(&count)
 	return commands
 }
 
@@ -99,7 +148,7 @@ func (r *Repository) GetExecutedCommands(count int) []ExecutedCommand {
 
 	parrot.Info("Count is: " + strconv.Itoa(count))
 
-	r.DB.Limit(count).Order("terminated_at desc").Find(&commands)
+	//r.DB.Limit(count).Order("terminated_at desc").Find(&commands)
 
 	executedCommands := make([]ExecutedCommand, len(commands))
 
@@ -108,4 +157,27 @@ func (r *Repository) GetExecutedCommands(count int) []ExecutedCommand {
 	}
 
 	return executedCommands
+}
+
+func extend(slice []Command, element Command) []Command {
+	n := len(slice)
+	if n == cap(slice) {
+		// Slice is full; must grow.
+		// We double its size and add 1, so if the size is zero we still grow.
+		newSlice := make([]Command, len(slice), 2*len(slice)+1)
+		copy(newSlice, slice)
+		slice = newSlice
+	}
+	slice = slice[0 : n+1]
+	slice[n] = element
+	return slice
+}
+
+// Append appends the items to the slice.
+// First version: just loop calling Extend.
+func append(slice []Command, items ...Command) []Command {
+	for _, item := range items {
+		slice = extend(slice, item)
+	}
+	return slice
 }

@@ -18,8 +18,12 @@ var parrot = quant.NewParrot("ambros")
 var settings = Settings{}
 var repository = Repository{}
 
-func configureDB() {
+func initDB() {
 	repository.InitDB()
+}
+
+func closeDB() {
+	repository.CloseDB()
 }
 
 func readSettings() {
@@ -28,7 +32,7 @@ func readSettings() {
 
 func main() {
 	readSettings()
-	configureDB()
+	initDB()
 
 	// -------------------
 	app := cli.NewApp()
@@ -52,7 +56,7 @@ func main() {
 		},
 		{
 			Name:    "revive",
-			Aliases: []string{"e"},
+			Aliases: []string{"re"},
 			Usage:   "revive ambros",
 			Action:  CmdRevive,
 		},
@@ -108,6 +112,8 @@ func main() {
 	}
 
 	app.Run(os.Args)
+
+	closeDB()
 }
 
 // List of functions
@@ -127,7 +133,7 @@ func CmdLogs(ctx *cli.Context) {
 }
 
 func CmdLogsById(ctx *cli.Context) {
-	id, err := intFromArguments(ctx)
+	id, err := stringFromArguments(ctx)
 	if err != nil {
 		parrot.Error("Error...", err)
 		return
@@ -172,7 +178,7 @@ func CmdLast(ctx *cli.Context) {
 }
 
 func CmdRecall(ctx *cli.Context) {
-	id, err := intFromArguments(ctx)
+	id, err := stringFromArguments(ctx)
 	if err != nil {
 		parrot.Error("Error...", err)
 		return
@@ -188,7 +194,7 @@ func CmdRecall(ctx *cli.Context) {
 }
 
 func CmdOutput(ctx *cli.Context) {
-	id, err := intFromArguments(ctx)
+	id, err := stringFromArguments(ctx)
 	if err != nil {
 		parrot.Error("Error...", err)
 		return
@@ -202,6 +208,7 @@ func CmdOutput(ctx *cli.Context) {
 func CmdRun(ctx *cli.Context) {
 
 	var command = Command{}
+	command.ID = Random()
 	command.Name = ctx.Args()[0]
 	command.Arguments = strings.Join(ctx.Args().Tail(), " ")
 	command.CreatedAt = time.Now()
@@ -218,17 +225,27 @@ func CmdVerbose(ctx *cli.Context) {
 }
 
 // ----------------
+func stringFromArguments(ctx *cli.Context) (string, error) {
+	if !ctx.Args().Present() {
+		return "", errors.New("Value must be provided!")
+	}
+
+	str := ctx.Args()[0]
+
+	return str, nil
+}
+
 func intFromArguments(ctx *cli.Context) (int, error) {
 	if !ctx.Args().Present() {
 		return -1, errors.New("Value must be provided!")
 	}
 
-	id, err := strconv.Atoi(ctx.Args()[0])
+	i, err := strconv.Atoi(ctx.Args()[0])
 	if err != nil {
 		return -1, err
 	}
 
-	return id, nil
+	return i, nil
 }
 
 func finalizeCommand(command Command, output string, status bool) {

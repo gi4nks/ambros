@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"github.com/kardianos/osext"
 	"os"
@@ -40,4 +41,16 @@ func AsJson(o interface{}) string {
 		return "{}"
 	}
 	return string(b)
+}
+
+func Random() string {
+
+	var dictionary = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+
+	var bytes = make([]byte, 12)
+	rand.Read(bytes)
+	for k, v := range bytes {
+		bytes[k] = dictionary[v%byte(len(dictionary))]
+	}
+	return string(bytes)
 }
