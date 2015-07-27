@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/HouzuoGuo/tiedot/db"
-	"github.com/fatih/structs"
 	"path/filepath"
 	"strconv"
 )
@@ -65,13 +64,20 @@ func (r *Repository) CloseDB() {
 }
 
 func (r *Repository) BackupSchema() {
-	parrot.Info("Not implemented")
+	// Drop (delete) collection "Commands"
+	if err := r.DB.Drop("Commands.bkp"); err != nil {
+		parrot.Error("Commands.bkp collection cannot be deleted", err)
+	}
+
+	if err := r.DB.Rename("Commands", "Commands.bkp"); err != nil {
+		parrot.Error("Commands.bkp collection cannot be created", err)
+	}
 }
 
 // functionalities
 
 func (r *Repository) Put(c Command) {
-	_, err := r.commands.Insert(structs.Map(c))
+	_, err := r.commands.Insert(c.ToMap())
 	if err != nil {
 		parrot.Error("Error", err)
 	}
@@ -144,7 +150,7 @@ func (r *Repository) GetHistory(count int) []Command {
 }
 
 func (r *Repository) GetExecutedCommands(count int) []ExecutedCommand {
-	commands := []Command{}
+	commands := r.GetAllCommands()
 
 	parrot.Info("Count is: " + strconv.Itoa(count))
 

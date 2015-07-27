@@ -20,6 +20,7 @@ var repository = Repository{}
 
 func initDB() {
 	repository.InitDB()
+	repository.InitSchema()
 }
 
 func closeDB() {
@@ -122,6 +123,7 @@ func CmdRevive(ctx *cli.Context) {
 
 	repository.BackupSchema()
 	repository.InitSchema()
+
 }
 
 func CmdLogs(ctx *cli.Context) {
@@ -146,12 +148,7 @@ func CmdLogsById(ctx *cli.Context) {
 
 func CmdHistory(ctx *cli.Context) {
 	var limit = settings.HistoryLimitDefault()
-	var err error
-	limit, err = intFromArguments(ctx)
-	if err != nil {
-		parrot.Error("Error...", err)
-		return
-	}
+	limit, _ = intFromArguments(ctx)
 
 	var commands = repository.GetHistory(limit)
 
@@ -162,14 +159,8 @@ func CmdHistory(ctx *cli.Context) {
 
 func CmdLast(ctx *cli.Context) {
 	var limit = settings.LastLimitDefault()
-	var err error
 
-	limit, err = intFromArguments(ctx)
-	if err != nil {
-		parrot.Error("Error...", err)
-		return
-	}
-
+	limit, _ = intFromArguments(ctx)
 	var commands = repository.GetExecutedCommands(limit)
 
 	for _, c := range commands {
@@ -190,7 +181,7 @@ func CmdRecall(ctx *cli.Context) {
 	command.Arguments = stored.Arguments
 	command.CreatedAt = time.Now()
 
-	execute(command)
+	executeCommand(command)
 }
 
 func CmdOutput(ctx *cli.Context) {
@@ -206,14 +197,8 @@ func CmdOutput(ctx *cli.Context) {
 }
 
 func CmdRun(ctx *cli.Context) {
-
-	var command = Command{}
-	command.ID = Random()
-	command.Name = ctx.Args()[0]
-	command.Arguments = strings.Join(ctx.Args().Tail(), " ")
-	command.CreatedAt = time.Now()
-
-	execute(command)
+	var command = initializeCommand(ctx)
+	executeCommand(command)
 }
 
 func CmdListSettings(ctx *cli.Context) {
@@ -248,6 +233,16 @@ func intFromArguments(ctx *cli.Context) (int, error) {
 	return i, nil
 }
 
+func initializeCommand(ctx *cli.Context) Command {
+	var command = Command{}
+	command.ID = Random()
+	command.Name = ctx.Args()[0]
+	command.Arguments = strings.Join(ctx.Args().Tail(), " ")
+	command.CreatedAt = time.Now()
+
+	return command
+}
+
 func finalizeCommand(command Command, output string, status bool) {
 	command.TerminatedAt = time.Now()
 	command.Output = output
@@ -255,7 +250,7 @@ func finalizeCommand(command Command, output string, status bool) {
 	repository.Put(command)
 }
 
-func execute(command Command) {
+func executeCommand(command Command) {
 	var buffer bytes.Buffer
 
 	cmd := exec.Command(command.Name, command.Arguments)
