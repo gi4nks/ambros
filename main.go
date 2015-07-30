@@ -181,7 +181,7 @@ func CmdRecall(ctx *cli.Context) {
 	command.Arguments = stored.Arguments
 	command.CreatedAt = time.Now()
 
-	executeCommand(command)
+	executeCommand(&command)
 }
 
 func CmdOutput(ctx *cli.Context) {
@@ -198,7 +198,7 @@ func CmdOutput(ctx *cli.Context) {
 
 func CmdRun(ctx *cli.Context) {
 	var command = initializeCommand(ctx)
-	executeCommand(command)
+	executeCommand(&command)
 }
 
 func CmdListSettings(ctx *cli.Context) {
@@ -243,14 +243,14 @@ func initializeCommand(ctx *cli.Context) Command {
 	return command
 }
 
-func finalizeCommand(command Command, output string, status bool) {
+func finalizeCommand(command *Command, output string, status bool) {
 	command.TerminatedAt = time.Now()
 	command.Output = output
 	command.Status = status
-	repository.Put(command)
+	repository.Put(*command)
 }
 
-func executeCommand(command Command) {
+func executeCommand(command *Command) {
 	var buffer bytes.Buffer
 
 	cmd := exec.Command(command.Name, command.Arguments)
@@ -302,4 +302,7 @@ func executeCommand(command Command) {
 	}
 
 	finalizeCommand(command, buffer.String(), true)
+
+	parrot.Info(AsJson(command))
+
 }
