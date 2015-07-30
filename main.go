@@ -254,6 +254,9 @@ func executeCommand(command Command) {
 	var buffer bytes.Buffer
 
 	cmd := exec.Command(command.Name, command.Arguments)
+
+	parrot.Info(AsJson(command))
+
 	outputReader, err := cmd.StdoutPipe()
 	if err != nil {
 		parrot.Error("Error creating StdoutPipe for Cmd", err)
@@ -264,6 +267,13 @@ func executeCommand(command Command) {
 	errorReader, err := cmd.StderrPipe()
 	if err != nil {
 		parrot.Error("Error creating StderrPipe for Cmd", err)
+		finalizeCommand(command, err.Error(), false)
+		return
+	}
+
+	err = cmd.Start()
+	if err != nil {
+		parrot.Error("Error starting Cmd", err)
 		finalizeCommand(command, err.Error(), false)
 		return
 	}
@@ -283,13 +293,6 @@ func executeCommand(command Command) {
 			buffer.WriteString(scannerError.Text() + "\n")
 		}
 	}()
-
-	err = cmd.Start()
-	if err != nil {
-		parrot.Error("Error starting Cmd", err)
-		finalizeCommand(command, err.Error(), false)
-		return
-	}
 
 	err = cmd.Wait()
 	if err != nil {
