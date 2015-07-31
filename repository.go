@@ -6,6 +6,7 @@ import (
 	"github.com/HouzuoGuo/tiedot/db"
 	"path/filepath"
 	"strconv"
+	"github.com/bradhe/stopwatch"
 )
 
 type Repository struct {
@@ -21,6 +22,8 @@ func repositoryFullName() string {
 //
 
 func (r *Repository) InitDB() {
+	start := stopwatch.Start()
+
 	var err error
 
 	b, err := ExistsPath(settings.RepositoryDirectory())
@@ -37,6 +40,9 @@ func (r *Repository) InitDB() {
 	if err != nil {
 		parrot.Error("Got error creating repository directory", err)
 	}
+	
+	watch := stopwatch.Stop(start)
+    fmt.Printf("Milliseconds elappsed: %v\n", watch.Milliseconds())
 }
 
 func (r *Repository) InitSchema() {
@@ -99,7 +105,7 @@ func (r *Repository) FindById(id string) Command {
 	queryResult := make(map[int]struct{})
 
 	if err := db.EvalQuery(query, r.commands, &queryResult); err != nil {
-		panic(err)
+		parrot.Error("Error", err)
 	}
 
 	var command = Command{}
@@ -107,9 +113,9 @@ func (r *Repository) FindById(id string) Command {
 		// To get query result document, simply read it
 		readBack, err := r.commands.Read(id)
 		if err != nil {
-			panic(err)
+			parrot.Error("Error", err)
 		}
-		fmt.Printf("Query returned document %v\n", readBack)
+		parrot.Info("Query returned document: ") //, readBack)
 
 		command.FromMap(readBack)
 	}
