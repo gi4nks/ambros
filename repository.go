@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"time"
 	"fmt"
 	"github.com/boltdb/bolt"
 	"path/filepath"
@@ -39,15 +38,14 @@ func (r *Repository) InitDB() {
     if err != nil {
         parrot.Error("Got error creating repository directory", err)
     }
-    defer r.DB.Close()
-
+    
 	watch := stopwatch.Stop(start)
     fmt.Printf("Milliseconds elappsed: %v\n", watch.Milliseconds())
 }
 
 func (r *Repository) InitSchema() error {
 	err := r.DB.Update(func(tx *bolt.Tx) error {
-	    b, err := tx.CreateBucket([]byte("Commands"))
+	    _, err := tx.CreateBucket([]byte("Commands"))
 	    if err != nil {
 	        return fmt.Errorf("create bucket: %s", err)
 	    }
@@ -56,8 +54,6 @@ func (r *Repository) InitSchema() error {
 	
 	return err
 }
-	
-	//defer r.DB.Close()
 
 func (r *Repository) CloseDB() {
 	if err := r.DB.Close(); err != nil {
@@ -80,19 +76,24 @@ func (r *Repository) BackupSchema() {
 
 // functionalities
 
-func (r *Repository) Put(c Command) error {
-	err := db.Update(func(tx *bolt.Tx) error {
+func (r *Repository) Put(c Command) {
+	err := r.DB.Update(func(tx *bolt.Tx) error {
 	    b, err := tx.CreateBucketIfNotExists([]byte("Commands"))
 	    if err != nil {
 	        return err
 	    }
-	    encoded, err := json.Marshal(c)
+	 
+		encoded, err := json.Marshal(c)
 	    if err != nil {
 	        return err
 	    }
-	    return b.Put([]byte(c.CreatedAt.Format(time.RFC3339)), encoded)
+	    //return b.Put([]byte(c.CreatedAt.Format(time.RFC3339)), encoded)
+		return b.Put([]byte(c.ID), encoded)
 	})	
-	return err
+	
+	if err != nil {
+	    parrot.Error("Error inserti data", err)
+	}
 }
 
 /*
@@ -104,52 +105,42 @@ func (r *Repository) GetOne() Command {
 */
 
 func (r *Repository) FindById(id string) Command {
-	var query interface{}
-	json.Unmarshal([]byte(`[{"eq": "`+id+`", "in": ["command_id"]}]`), &query)
-
-	queryResult := make(map[int]struct{})
-
-	if err := db.EvalQuery(query, r.commands, &queryResult); err != nil {
-		parrot.Error("Error", err)
-	}
-
 	var command = Command{}
-	for id := range queryResult {
-		// To get query result document, simply read it
-		readBack, err := r.commands.Read(id)
-		if err != nil {
-			parrot.Error("Error", err)
-		}
-		parrot.Info("Query returned document: ") //, readBack)
-
-		command.FromMap(readBack)
+	
+	err := r.DB.View(func(tx *bolt.Tx) error {
+    	b := tx.Bucket([]byte("Commands"))
+   		v := b.Get([]byte(id))
+    	
+		fmt.Printf("The answer is: %s\n", v)
+    	
+		err := json.Unmarshal(v, &command)
+	    if err != nil {
+	        return err
+	    }
+		
+		return nil
+	})
+	
+	if err != nil {
+	    parrot.Error("Error getting data", err)
 	}
-
+	
 	return command
 }
 
 func (r *Repository) GetAllCommands() []Command {
 	commands := []Command{}
 
-	var query interface{}
-	queryResult := make(map[int]struct{})
-
-	if err := db.EvalQuery(query, r.commands, &queryResult); err != nil {
-		panic(err)
-	}
-
-	var command = Command{}
-	for id := range queryResult {
-		// To get query result document, simply read it
-		readBack, err := r.commands.Read(id)
-		if err != nil {
-			panic(err)
-		}
-		fmt.Printf("Query returned document %v\n", readBack)
-		command.FromMap(readBack)
-
-		commands = append(commands, command)
-	}
+	r.DB.View(func(tx *bolt.Tx) error {
+	    b := tx.Bucket([]byte("Commands"))
+	    c := b.Cursor()
+	
+	    for k, v := c.First(); k != nil; k, v = c.Next() {
+	        fmt.Printf("key=%s, value=%s\n", k, v)
+	    }
+	
+	    return nil
+	})
 
 	return commands
 }

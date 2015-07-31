@@ -6,8 +6,6 @@ import (
 	"errors"
 	"github.com/codegangsta/cli"
 	"github.com/gi4nks/quant"
-	"github.com/bradhe/stopwatch"
-	"fmt"
 	"os"
 	"os/exec"
 	"strconv"
@@ -80,14 +78,6 @@ func main() {
 				},
 			},
 		},
-		/*
-			{
-				Name:    "history",
-				Aliases: []string{"hi"},
-				Usage:   "show the history of ambros. followed with a valid number shows # of history ",
-				Action:  CmdHistory,
-			},
-		*/
 		{
 			Name:    "last",
 			Aliases: []string{"ll"},
@@ -183,7 +173,8 @@ func CmdRecall(ctx *cli.Context) {
 	command.Arguments = stored.Arguments
 	command.CreatedAt = time.Now()
 
-	executeCommand(command)
+	executeCommand(&command)
+	finalizeCommand(&command)
 }
 
 func CmdOutput(ctx *cli.Context) {
@@ -200,8 +191,8 @@ func CmdOutput(ctx *cli.Context) {
 
 func CmdRun(ctx *cli.Context) {
 	var command = initializeCommand(ctx)
-	
-	executeCommand(command)
+	executeCommand(&command)
+	finalizeCommand(&command)
 }
 
 func CmdListSettings(ctx *cli.Context) {
@@ -237,54 +228,37 @@ func intFromArguments(ctx *cli.Context) (int, error) {
 }
 
 func initializeCommand(ctx *cli.Context) Command {
-	start := stopwatch.Start()
-
 	var command = Command{}
 	command.ID = Random()
 	command.Name = ctx.Args()[0]
 	command.Arguments = strings.Join(ctx.Args().Tail(), " ")
 	command.CreatedAt = time.Now()
-
-	watch := stopwatch.Stop(start)
-    fmt.Printf("initializeCommand - Milliseconds elappsed: %v\n", watch.Milliseconds())
 	return command
 }
 
-func finalizeCommand(command Command, output string, status bool) {
-	start := stopwatch.Start()
+func finalizeCommand(command *Command) {
 	command.TerminatedAt = time.Now()
-	command.Output = output
-	command.Status = status
-	repository.Put(command)
-	watch := stopwatch.Stop(start)
-    fmt.Printf("finalizeCommand - Milliseconds elappsed: %v\n", watch.Milliseconds())
-	
+	repository.Put(*command)
 }
 
-func executeCommand(command Command) {
-	start := stopwatch.Start()
-	
+func executeCommand(command *Command) {
 	var buffer bytes.Buffer
-	parrot.Info("sono qui - 0")
-
 	cmd := exec.Command(command.Name, command.Arguments)
 	outputReader, err := cmd.StdoutPipe()
 	if err != nil {
 		parrot.Error("Error creating StdoutPipe for Cmd", err)
-		finalizeCommand(command, err.Error(), false)
+		command.Output = err.Error()
+		command.Status = false
 		return
 	}
-
-	parrot.Info("sono qui - 1")
 
 	errorReader, err := cmd.StderrPipe()
 	if err != nil {
 		parrot.Error("Error creating StderrPipe for Cmd", err)
-		finalizeCommand(command, err.Error(), false)
+		command.Output = err.Error()
+		command.Status = false
 		return
 	}
-
-	parrot.Info("sono qui - 2")
 
 	scannerOutput := bufio.NewScanner(outputReader)
 	go func() {
@@ -294,8 +268,6 @@ func executeCommand(command Command) {
 		}
 	}()
 
-	parrot.Info("sono qui - 3")
-
 	scannerError := bufio.NewScanner(errorReader)
 	go func() {
 		for scannerError.Scan() {
@@ -304,29 +276,24 @@ func executeCommand(command Command) {
 		}
 	}()
 
-	parrot.Info("sono qui - 4")
-
 	err = cmd.Start()
 	if err != nil {
 		parrot.Error("Error starting Cmd", err)
-		finalizeCommand(command, err.Error(), false)
+		command.Output = err.Error()
+		command.Status = false
 		return
 	}
-
-	parrot.Info("sono qui - 5")
 
 	err = cmd.Wait()
 	if err != nil {
 		parrot.Error("Error waiting for Cmd", err)
-		finalizeCommand(command, err.Error(), false)
+		command.Output = err.Error()
+		command.Status = false
 		return
 	}
-
-	parrot.Info("sono qui - 6")
-
-	finalizeCommand(command, buffer.String(), true)
 	
-	watch := stopwatch.Stop(start)
-    fmt.Printf("executeCommand - Milliseconds elappsed: %v\n", watch.Milliseconds())
-	
+	command.Output = buffer.String()
+	command.Status = true
+
+	parrot.Info("[" + command.ID + "]")
 }
