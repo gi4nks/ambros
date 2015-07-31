@@ -18,6 +18,7 @@ type Command struct {
 	Arguments string
 	Status    bool
 	Output    string
+	Error     string
 }
 
 type ExecutedCommand struct {
@@ -30,6 +31,7 @@ type ExecutedCommand struct {
 
 func (c Command) String() string {
 	b, err := json.Marshal(c)
+	
 	if err != nil {
 		parrot.Error("Warning", err)
 		return "{}"
@@ -53,6 +55,7 @@ func (c Command) ToMap() map[string]interface{} {
 		"Arguments":    c.Arguments,
 		"Status":       c.Status,
 		"Output":       c.Output,
+		"Error":        c.Error,
 		"CreatedAt":    c.CreatedAt,
 		"TerminatedAt": c.TerminatedAt,
 	}
@@ -64,6 +67,7 @@ func (c *Command) FromMap(frommap map[string]interface{}) {
 	c.Arguments = frommap["Arguments"].(string)
 	c.Status = frommap["Status"].(bool)
 	c.Output = frommap["Output"].(string)
+	c.Error = frommap["Error"].(string)
 	c.CreatedAt = frommap["CreatedAt"].(time.Time)
 	c.TerminatedAt = frommap["TerminatedAt"].(time.Time)
 }

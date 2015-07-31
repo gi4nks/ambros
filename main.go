@@ -168,11 +168,8 @@ func CmdRecall(ctx *cli.Context) {
 	}
 
 	var stored = repository.FindById(id)
-	var command = Command{}
-	command.ID = Random()
-	command.Name = stored.Name
-	command.Arguments = stored.Arguments
-	command.CreatedAt = time.Now()
+	
+	var command = initializeCommand(stored.Name, stored.Arguments)
 
 	executeCommand(&command)
 	finalizeCommand(&command)
@@ -186,12 +183,11 @@ func CmdOutput(ctx *cli.Context) {
 	}
 
 	var command = repository.FindById(id)
-
 	parrot.Info(command.Output)
 }
 
 func CmdRun(ctx *cli.Context) {
-	var command = initializeCommand(ctx)
+	var command = initializeCommand(ctx.Args()[0], strings.Join(ctx.Args().Tail(), " "))
 	executeCommand(&command)
 	finalizeCommand(&command)
 }
@@ -228,11 +224,13 @@ func intFromArguments(ctx *cli.Context) (int, error) {
 	return i, nil
 }
 
-func initializeCommand(ctx *cli.Context) Command {
+func initializeCommand(name string, arguments string) Command {
 	var command = Command{}
 	command.ID = Random()
-	command.Name = ctx.Args()[0]
-	command.Arguments = strings.Join(ctx.Args().Tail(), " ")
+
+	command.Name = name
+	command.Arguments = arguments
+	
 	command.CreatedAt = time.Now()
 	return command
 }
@@ -240,15 +238,21 @@ func initializeCommand(ctx *cli.Context) Command {
 func finalizeCommand(command *Command) {
 	command.TerminatedAt = time.Now()
 	repository.Put(*command)
+	
+	parrot.Info("[" + command.ID + "]")
+
 }
 
 func executeCommand(command *Command) {
-	var buffer bytes.Buffer
+	var bufferOutput bytes.Buffer
+	var bufferError bytes.Buffer
+	
 	cmd := exec.Command(command.Name, command.Arguments)
+
 	outputReader, err := cmd.StdoutPipe()
 	if err != nil {
 		parrot.Error("Error creating StdoutPipe for Cmd", err)
-		command.Output = err.Error()
+		command.Error = err.Error()
 		command.Status = false
 		return
 	}
@@ -256,16 +260,24 @@ func executeCommand(command *Command) {
 	errorReader, err := cmd.StderrPipe()
 	if err != nil {
 		parrot.Error("Error creating StderrPipe for Cmd", err)
-		command.Output = err.Error()
+		command.Error = err.Error()
 		command.Status = false
 		return
 	}
 
+	err = cmd.Start()
+	if err != nil {
+		parrot.Error("Error starting Cmd", err)
+		command.Error = err.Error()
+		command.Status = false
+		return
+	}
+	
 	scannerOutput := bufio.NewScanner(outputReader)
 	go func() {
 		for scannerOutput.Scan() {
 			parrot.Info(scannerOutput.Text())
-			buffer.WriteString(scannerOutput.Text() + "\n")
+			bufferOutput.WriteString(scannerOutput.Text() + "\n")
 		}
 	}()
 
@@ -273,28 +285,20 @@ func executeCommand(command *Command) {
 	go func() {
 		for scannerError.Scan() {
 			parrot.Info(scannerError.Text())
-			buffer.WriteString(scannerError.Text() + "\n")
+			bufferError.WriteString(scannerError.Text() + "\n")
 		}
 	}()
-
-	err = cmd.Start()
-	if err != nil {
-		parrot.Error("Error starting Cmd", err)
-		command.Output = err.Error()
-		command.Status = false
-		return
-	}
 
 	err = cmd.Wait()
 	if err != nil {
 		parrot.Error("Error waiting for Cmd", err)
-		command.Output = err.Error()
+		command.Error = err.Error()
 		command.Status = false
 		return
 	}
+		
+	command.Output = bufferOutput.String()
+	command.Error = bufferError.String()
 	
-	command.Output = buffer.String()
 	command.Status = true
-
-	parrot.Info("[" + command.ID + "]")
 }
