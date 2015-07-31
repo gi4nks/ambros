@@ -6,6 +6,7 @@ import (
 	"github.com/boltdb/bolt"
 	"path/filepath"
 	"strconv"
+	"os"
 )
 
 type Repository struct {
@@ -56,16 +57,16 @@ func (r *Repository) CloseDB() {
 }
 
 func (r *Repository) BackupSchema() {
-	/*
-	// Drop (delete) collection "Commands"
-	if err := r.DB.Drop("Commands.bkp"); err != nil {
-		parrot.Error("Commands.bkp collection cannot be deleted", err)
+	b, _ := ExistsPath(settings.RepositoryDirectory())
+	if !b {
+		return
 	}
 
-	if err := r.DB.Rename("Commands", "Commands.bkp"); err != nil {
-		parrot.Error("Commands.bkp collection cannot be created", err)
+	err := os.Rename(repositoryFullName(), repositoryFullName()+".bkp")
+
+	if err != nil {
+		parrot.Error("Warning", err)
 	}
-	*/
 }
 
 // functionalities
@@ -128,7 +129,38 @@ func (r *Repository) GetAllCommands() []Command {
 	    c := b.Cursor()
 	
 	    for k, v := c.First(); k != nil; k, v = c.Next() {
-	        fmt.Printf("key=%s, value=%s\n", k, v)
+			var command = Command{}
+			err := json.Unmarshal(v, &command)
+		    if err != nil {
+		        return err
+		    }
+			
+			commands = append(commands, command)
+	    }
+	
+	    return nil
+	})
+
+	return commands
+}
+
+func (r *Repository) GetLimitCommands(limit int) []Command {
+	commands := []Command{}
+	
+	r.DB.View(func(tx *bolt.Tx) error {
+	    b := tx.Bucket([]byte("Commands"))
+	    c := b.Cursor()
+		var i = limit
+	
+	    for k, v := c.First(); k != nil && i>0; k, v = c.Next() {
+	        var command = Command{}
+			err := json.Unmarshal(v, &command)
+		    if err != nil {
+		        return err
+		    }
+			
+			commands = append(commands, command)
+			i--
 	    }
 	
 	    return nil
@@ -144,11 +176,9 @@ func (r *Repository) GetHistory(count int) []Command {
 }
 
 func (r *Repository) GetExecutedCommands(count int) []ExecutedCommand {
-	commands := r.GetAllCommands()
+	commands := r.GetLimitCommands(count)
 
 	parrot.Info("Count is: " + strconv.Itoa(count))
-
-	//r.DB.Limit(count).Order("terminated_at desc").Find(&commands)
 
 	executedCommands := make([]ExecutedCommand, len(commands))
 
