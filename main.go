@@ -92,7 +92,7 @@ func main() {
 		},
 		{
 			Name:    "recall",
-			Aliases: []string{"re"},
+			Aliases: []string{"rc"},
 			Usage:   "recall a command and execute again",
 			Action:  CmdRecall,
 		},
@@ -169,6 +169,7 @@ func CmdRecall(ctx *cli.Context) {
 
 	var stored = repository.FindById(id)
 	var command = Command{}
+	command.ID = Random()
 	command.Name = stored.Name
 	command.Arguments = stored.Arguments
 	command.CreatedAt = time.Now()
