@@ -2,8 +2,9 @@ package main
 
 import (
 	"bufio"
-	"bytes"
+	//"bytes"
 	"errors"
+	"fmt"
 	"github.com/codegangsta/cli"
 	"github.com/gi4nks/quant"
 	"os"
@@ -251,58 +252,86 @@ func finalizeCommand(command *Command, output string, status bool) {
 }
 
 func executeCommand(command *Command) {
-	var buffer bytes.Buffer
 
-	cmd := exec.Command(command.Name, command.Arguments)
-
-	parrot.Info(AsJson(command))
+	cmd := exec.Command("ls", "-la")
 
 	outputReader, err := cmd.StdoutPipe()
 	if err != nil {
 		parrot.Error("Error creating StdoutPipe for Cmd", err)
-		finalizeCommand(command, err.Error(), false)
-		return
-	}
-
-	errorReader, err := cmd.StderrPipe()
-	if err != nil {
-		parrot.Error("Error creating StderrPipe for Cmd", err)
-		finalizeCommand(command, err.Error(), false)
 		return
 	}
 
 	err = cmd.Start()
 	if err != nil {
-		parrot.Error("Error starting Cmd", err)
-		finalizeCommand(command, err.Error(), false)
-		return
+		parrot.Error("error", err)
 	}
 
 	scannerOutput := bufio.NewScanner(outputReader)
 	go func() {
 		for scannerOutput.Scan() {
-			parrot.Info(scannerOutput.Text())
-			buffer.WriteString(scannerOutput.Text() + "\n")
+			fmt.Print(scannerOutput.Text())
 		}
 	}()
 
-	scannerError := bufio.NewScanner(errorReader)
-	go func() {
-		for scannerError.Scan() {
-			parrot.Info(scannerError.Text())
-			buffer.WriteString(scannerError.Text() + "\n")
-		}
-	}()
-
+	parrot.Info("Waiting for command to finish...")
 	err = cmd.Wait()
-	if err != nil {
-		parrot.Error("Error waiting for Cmd", err)
-		finalizeCommand(command, err.Error(), false)
-		return
-	}
+	parrot.Info("Command finished")
 
-	finalizeCommand(command, buffer.String(), true)
+	/*
+		var buffer bytes.Buffer
 
-	parrot.Info(AsJson(command))
+		cmd := exec.Command(command.Name, command.Arguments)
+
+		parrot.Info(AsJson(command))
+		parrot.Info(AsJson(cmd))
+
+		outputReader, err := cmd.StdoutPipe()
+		if err != nil {
+			parrot.Error("Error creating StdoutPipe for Cmd", err)
+			finalizeCommand(command, err.Error(), false)
+			return
+		}
+
+		errorReader, err := cmd.StderrPipe()
+		if err != nil {
+			parrot.Error("Error creating StderrPipe for Cmd", err)
+			finalizeCommand(command, err.Error(), false)
+			return
+		}
+
+		err = cmd.Start()
+		if err != nil {
+			parrot.Error("Error starting Cmd", err)
+			finalizeCommand(command, err.Error(), false)
+			return
+		}
+
+		scannerOutput := bufio.NewScanner(outputReader)
+		go func() {
+			for scannerOutput.Scan() {
+				parrot.Info(scannerOutput.Text())
+				buffer.WriteString(scannerOutput.Text() + "\n")
+			}
+		}()
+
+		scannerError := bufio.NewScanner(errorReader)
+		go func() {
+			for scannerError.Scan() {
+				parrot.Info(scannerError.Text())
+				buffer.WriteString(scannerError.Text() + "\n")
+			}
+		}()
+
+		err = cmd.Wait()
+		if err != nil {
+			parrot.Error("Error waiting for Cmd", err)
+			finalizeCommand(command, err.Error(), false)
+			return
+		}
+
+		finalizeCommand(command, buffer.String(), true)
+
+		parrot.Info(AsJson(command))
+	*/
 
 }
