@@ -2,16 +2,16 @@ package main
 
 import (
 	"encoding/json"
+	"time"
 	"fmt"
-	"github.com/HouzuoGuo/tiedot/db"
+	"github.com/boltdb/bolt"
 	"path/filepath"
 	"strconv"
 	"github.com/bradhe/stopwatch"
 )
 
 type Repository struct {
-	DB       *db.DB
-	commands *db.Col
+	DB       *bolt.DB
 }
 
 // HELPER FUNCTIONS
@@ -35,33 +35,29 @@ func (r *Repository) InitDB() {
 		CreatePath(settings.RepositoryDirectory())
 	}
 
-	// (Create if not exist) open a database
-	r.DB, err = db.OpenDB(repositoryFullName())
-	if err != nil {
-		parrot.Error("Got error creating repository directory", err)
-	}
-	
+	r.DB, err = bolt.Open(repositoryFullName(), 0600, nil)
+    if err != nil {
+        parrot.Error("Got error creating repository directory", err)
+    }
+    defer r.DB.Close()
+
 	watch := stopwatch.Stop(start)
     fmt.Printf("Milliseconds elappsed: %v\n", watch.Milliseconds())
 }
 
-func (r *Repository) InitSchema() {
-	// Drop (delete) collection "Commands"
-	if err := r.DB.Drop("Commands"); err != nil {
-		parrot.Error("Commands collection cannot be deleted", err)
-	}
-
-	// Create two collections: Commands and Votes
-	if err := r.DB.Create("Commands"); err != nil {
-		parrot.Error("Commands collection already exists", err)
-	}
-
-	r.commands = r.DB.Use("Commands")
-
-	if err := r.commands.Index([]string{"command_id"}); err != nil {
-		parrot.Error("Error", err)
-	}
+func (r *Repository) InitSchema() error {
+	err := r.DB.Update(func(tx *bolt.Tx) error {
+	    b, err := tx.CreateBucket([]byte("Commands"))
+	    if err != nil {
+	        return fmt.Errorf("create bucket: %s", err)
+	    }
+	    return nil
+	})
+	
+	return err
 }
+	
+	//defer r.DB.Close()
 
 func (r *Repository) CloseDB() {
 	if err := r.DB.Close(); err != nil {
@@ -70,6 +66,7 @@ func (r *Repository) CloseDB() {
 }
 
 func (r *Repository) BackupSchema() {
+	/*
 	// Drop (delete) collection "Commands"
 	if err := r.DB.Drop("Commands.bkp"); err != nil {
 		parrot.Error("Commands.bkp collection cannot be deleted", err)
@@ -78,16 +75,24 @@ func (r *Repository) BackupSchema() {
 	if err := r.DB.Rename("Commands", "Commands.bkp"); err != nil {
 		parrot.Error("Commands.bkp collection cannot be created", err)
 	}
+	*/
 }
 
 // functionalities
 
-func (r *Repository) Put(c Command) {
-	_, err := r.commands.Insert(c.ToMap())
-	if err != nil {
-		parrot.Error("Error", err)
-	}
-
+func (r *Repository) Put(c Command) error {
+	err := db.Update(func(tx *bolt.Tx) error {
+	    b, err := tx.CreateBucketIfNotExists([]byte("Commands"))
+	    if err != nil {
+	        return err
+	    }
+	    encoded, err := json.Marshal(c)
+	    if err != nil {
+	        return err
+	    }
+	    return b.Put([]byte(c.CreatedAt.Format(time.RFC3339)), encoded)
+	})	
+	return err
 }
 
 /*
