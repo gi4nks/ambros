@@ -6,7 +6,6 @@ import (
 	"github.com/boltdb/bolt"
 	"path/filepath"
 	"strconv"
-	"github.com/bradhe/stopwatch"
 )
 
 type Repository struct {
@@ -21,8 +20,6 @@ func repositoryFullName() string {
 //
 
 func (r *Repository) InitDB() {
-	start := stopwatch.Start()
-
 	var err error
 
 	b, err := ExistsPath(settings.RepositoryDirectory())
@@ -38,9 +35,6 @@ func (r *Repository) InitDB() {
     if err != nil {
         parrot.Error("Got error creating repository directory", err)
     }
-    
-	watch := stopwatch.Stop(start)
-    fmt.Printf("Milliseconds elappsed: %v\n", watch.Milliseconds())
 }
 
 func (r *Repository) InitSchema() error {
@@ -110,8 +104,6 @@ func (r *Repository) FindById(id string) Command {
 	err := r.DB.View(func(tx *bolt.Tx) error {
     	b := tx.Bucket([]byte("Commands"))
    		v := b.Get([]byte(id))
-    	
-		fmt.Printf("The answer is: %s\n", v)
     	
 		err := json.Unmarshal(v, &command)
 	    if err != nil {
