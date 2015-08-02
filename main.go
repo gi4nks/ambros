@@ -100,7 +100,7 @@ func main() {
 	app.Flags = []cli.Flag{
 			cli.BoolFlag{
     	    Name:  "verbose",
-    	    Usage: "Show more output",
+    	    Usage: "show more output",
     	},
 	}
 	
@@ -231,7 +231,10 @@ func CmdListSettings(ctx *cli.Context) {
 }
 
 func CmdGlobalFlags(ctx *cli.Context) {
+	parrot.Info("verbose: ----")
+	
 	if ctx.Bool("verbose") {
+		parrot.Info("verbose: sono verbole")
 		parrot = quant.NewVerboseParrot("ambros")	
 	} 
 	
