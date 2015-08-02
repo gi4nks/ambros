@@ -8,9 +8,6 @@ import (
 type Configuration struct {
 	RepositoryDirectory string
 	RepositoryFile      string
-	RepositoryLogMode   bool
-
-	HistoryCountDefault int
 	LastCountDefault    int
 }
 
@@ -26,8 +23,6 @@ func (sts *Settings) LoadSettings() {
 		sts.configs = Configuration{}
 		sts.configs.RepositoryDirectory = ConstRepositoryDirectory
 		sts.configs.RepositoryFile = ConstRepositoryFile
-		sts.configs.RepositoryLogMode = ConstRepositoryLogMode
-		sts.configs.HistoryCountDefault = ConstHistoryCountDefault
 		sts.configs.LastCountDefault = ConstLastCountDefault
 
 	} else {
@@ -41,14 +36,6 @@ func (sts Settings) RepositoryDirectory() string {
 
 func (sts Settings) RepositoryFile() string {
 	return sts.configs.RepositoryFile
-}
-
-func (sts Settings) RepositoryLogMode() bool {
-	return sts.configs.RepositoryLogMode
-}
-
-func (sts Settings) HistoryLimitDefault() int {
-	return sts.configs.HistoryCountDefault
 }
 
 func (sts Settings) LastLimitDefault() int {
