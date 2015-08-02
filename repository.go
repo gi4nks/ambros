@@ -6,8 +6,9 @@ import (
 	"github.com/boltdb/bolt"
 	"path/filepath"
 	"os"
+//	"github.com/jinzhu/now"	
 	"time"
-	"bytes"
+//	"bytes"
 )
 
 type Repository struct {
@@ -81,8 +82,9 @@ func (r *Repository) BackupSchema() {
 func (r *Repository) Put(c Command) {
 	err := r.DB.Update(func(tx *bolt.Tx) error {
 	    cc, err := tx.CreateBucketIfNotExists([]byte("Commands"))
+		
 	    if err != nil {
-	        return err
+			return err
 	    }
 	 
 		encoded1, err := json.Marshal(c)
@@ -170,16 +172,11 @@ func (r *Repository) GetLimitCommands(limit int) []Command {
 	    ii := tx.Bucket([]byte("CommandsIndex")).Cursor()
 
 		var i = limit
-	
-		// Our time range spans the 90's decade.
-		min := []byte("1990-01-01T00:00:00Z")
-		max := []byte(time.Now().Format(time.RFC3339))
-	
-		for k, v := ii.Seek(min); k != nil && bytes.Compare(k, max) <= 0 && i>0; k, v = ii.Next() {
-	 		var command = Command{}
+		
+		for k, v := ii.Last(); k != nil && i>0; k, v = ii.Prev() {
+			var command = Command{}
 			
 			parrot.Debug("--> k " + string(k) + " - v " + string(v))
-			//*
 			vv := cc.Get(v)
 			
 			parrot.Debug("--> vv " + string(vv))
@@ -188,28 +185,11 @@ func (r *Repository) GetLimitCommands(limit int) []Command {
 		    if err != nil {
 		        return err
 		    }
-			//*/
 			commands = append(commands, command)
 			
-			i--
-		}
-
-
-/*
-	    c := b.Cursor()
-		var i = limit
-	
-	    for k, v := c.First(); k != nil && i>0; k, v = c.Next() {
-	        var command = Command{}
-			err := json.Unmarshal(v, &command)
-		    if err != nil {
-		        return err
-		    }
-			
-			commands = append(commands, command)
 			i--
 	    }
-	*/
+	
 	    return nil
 	})
 
