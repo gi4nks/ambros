@@ -103,6 +103,14 @@ func main() {
 			Action:  CmdVerbose,
 		},
 	}
+	
+	app.Flags = []cli.Flag{
+		{
+			Name: "verbose",
+			
+			
+		},
+	}
 
 	app.Run(os.Args)
 
@@ -139,9 +147,11 @@ func CmdLogsById(ctx *cli.Context) {
 }
 
 func CmdHistory(ctx *cli.Context) {
-	var limit = settings.HistoryLimitDefault()
-	limit, _ = intFromArguments(ctx)
-
+	limit, err := intFromArguments(ctx)
+	if (err!= nil) {
+		limit = settings.HistoryLimitDefault()
+	}
+	
 	var commands = repository.GetHistory(limit)
 
 	for _, c := range commands {
@@ -150,9 +160,11 @@ func CmdHistory(ctx *cli.Context) {
 }
 
 func CmdLast(ctx *cli.Context) {
-	var limit = settings.LastLimitDefault()
-
-	limit, _ = intFromArguments(ctx)
+	limit, err := intFromArguments(ctx)
+	if (err!= nil) {
+		limit = settings.LastLimitDefault()
+	}
+	
 	var commands = repository.GetExecutedCommands(limit)
 
 	for _, c := range commands {
@@ -183,7 +195,17 @@ func CmdOutput(ctx *cli.Context) {
 	}
 
 	var command = repository.FindById(id)
-	parrot.Info(command.Output)
+	
+	if (command.Output != "") {
+		parrot.Info("==> Output:")
+		parrot.Info(command.Output)
+	}
+	
+	if (command.Error != "") {
+		parrot.Info("==> Error:")
+		parrot.Info(command.Error)		
+	}
+	
 }
 
 func CmdRun(ctx *cli.Context) {
@@ -200,6 +222,8 @@ func CmdVerbose(ctx *cli.Context) {
 	parrot.Info("Functionality not implemented yet!")
 }
 
+// ----------------
+// Arguments from command string
 // ----------------
 func stringFromArguments(ctx *cli.Context) (string, error) {
 	if !ctx.Args().Present() {
@@ -224,6 +248,9 @@ func intFromArguments(ctx *cli.Context) (int, error) {
 	return i, nil
 }
 
+// ----------------
+// command management
+// ----------------
 func initializeCommand(name string, arguments string) Command {
 	var command = Command{}
 	command.ID = Random()

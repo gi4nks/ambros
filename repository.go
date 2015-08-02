@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/boltdb/bolt"
 	"path/filepath"
-	"strconv"
 	"os"
 )
 
@@ -177,8 +176,6 @@ func (r *Repository) GetHistory(count int) []Command {
 
 func (r *Repository) GetExecutedCommands(count int) []ExecutedCommand {
 	commands := r.GetLimitCommands(count)
-
-	parrot.Info("Count is: " + strconv.Itoa(count))
 
 	executedCommands := make([]ExecutedCommand, len(commands))
 
