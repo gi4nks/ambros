@@ -54,3 +54,11 @@ func Random() string {
 	}
 	return string(bytes)
 }
+
+
+func hTail(a []string) []string {
+	if len(a) >= 2 {
+		return []string(a)[1:]
+	}
+	return []string{}
+}

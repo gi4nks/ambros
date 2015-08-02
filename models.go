@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"strconv"
 	"time"
+	"strings"
 )
 
 type Entity struct {
@@ -15,7 +16,7 @@ type Entity struct {
 type Command struct {
 	Entity
 	Name      string
-	Arguments string
+	Arguments []string
 	Status    bool
 	Output    string
 	Error     string
@@ -40,11 +41,11 @@ func (c Command) String() string {
 }
 
 func (c *Command) AsHistory() string {
-	return "Name : " + c.Name + " --> Arguments : " + c.Arguments
+	return "Name : " + c.Name + " --> Arguments : " + strings.Join(c.Arguments, " ")
 }
 
 func (c *Command) AsExecutedCommand(order int) ExecutedCommand {
-	s := c.Name + " " + c.Arguments
+	s := c.Name + " " + strings.Join(c.Arguments, " ")
 	return ExecutedCommand{Order: order, ID: c.ID, Command: s, Status: c.Status, When: c.CreatedAt}
 }
 
@@ -64,7 +65,7 @@ func (c Command) ToMap() map[string]interface{} {
 func (c *Command) FromMap(frommap map[string]interface{}) {
 	c.ID = frommap["ID"].(string)
 	c.Name = frommap["Name"].(string)
-	c.Arguments = frommap["Arguments"].(string)
+	c.Arguments = frommap["Arguments"].([]string)
 	c.Status = frommap["Status"].(bool)
 	c.Output = frommap["Output"].(string)
 	c.Error = frommap["Error"].(string)
