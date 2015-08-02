@@ -143,21 +143,6 @@ func CmdLogsById(ctx *cli.Context) {
 	})
 }
 
-func CmdHistory(ctx *cli.Context) {
-	commandWrapper(ctx, func() {	
-		limit, err := intFromArguments(ctx)
-		if (err!= nil) {
-			limit = settings.HistoryLimitDefault()
-		}
-		
-		var commands = repository.GetHistory(limit)
-	
-		for _, c := range commands {
-			parrot.Info(c.AsHistory())
-		}
-	})
-}
-
 func CmdLast(ctx *cli.Context) {
 	commandWrapper(ctx, func() {	
 		limit, err := intFromArguments(ctx)

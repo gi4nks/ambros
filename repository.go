@@ -6,9 +6,7 @@ import (
 	"github.com/boltdb/bolt"
 	"path/filepath"
 	"os"
-//	"github.com/jinzhu/now"	
 	"time"
-//	"bytes"
 )
 
 type Repository struct {
@@ -21,7 +19,6 @@ func repositoryFullName() string {
 }
 
 //
-
 func (r *Repository) InitDB() {
 	var err error
 
@@ -111,14 +108,6 @@ func (r *Repository) Put(c Command) {
 	}
 }
 
-/*
-func (r *Repository) GetOne() Command {
-	command := Command{}
-	r.DB.First(&command)
-	return command
-}
-*/
-
 func (r *Repository) FindById(id string) Command {
 	var command = Command{}
 	
@@ -193,12 +182,6 @@ func (r *Repository) GetLimitCommands(limit int) []Command {
 	    return nil
 	})
 
-	return commands
-}
-
-func (r *Repository) GetHistory(count int) []Command {
-	commands := []Command{}
-	//r.DB.Order("terminated_at desc").Find(&commands).Count(&count)
 	return commands
 }
 
