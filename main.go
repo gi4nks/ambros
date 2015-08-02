@@ -96,21 +96,16 @@ func main() {
 			Usage:   "recall a command and execute again",
 			Action:  CmdRecall,
 		},
-		{
-			Name:    "verbose",
-			Aliases: []string{"ve"},
-			Usage:   "set verbose level to ambros",
-			Action:  CmdVerbose,
-		},
 	}
 	
+	
 	app.Flags = []cli.Flag{
-		{
-			Name: "verbose",
-			
-			
-		},
+			cli.BoolFlag{
+    	    Name:  "verbose",
+    	    Usage: "Show more output",
+    	},
 	}
+	app.Action = CmdVerbose
 
 	app.Run(os.Args)
 
@@ -219,7 +214,9 @@ func CmdListSettings(ctx *cli.Context) {
 }
 
 func CmdVerbose(ctx *cli.Context) {
-	parrot.Info("Functionality not implemented yet!")
+	parrot.Info("info parrot")
+	parrot = quant.NewVerboseParrot("ambros")
+	parrot.Debug("debug parrot")
 }
 
 // ----------------
