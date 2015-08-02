@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -98,15 +97,13 @@ func main() {
 		},
 	}
 	
-	
 	app.Flags = []cli.Flag{
 			cli.BoolFlag{
     	    Name:  "verbose",
     	    Usage: "Show more output",
     	},
 	}
-	app.Action = CmdVerbose
-
+	
 	app.Run(os.Args)
 
 	defer closeDB()
@@ -114,109 +111,131 @@ func main() {
 
 // List of functions
 func CmdRevive(ctx *cli.Context) {
-	parrot.Info("==> Reviving ambros will reinitialize all the statistics.")
+	commandWrapper(ctx, func() {
+		parrot.Info("==> Reviving ambros will reinitialize all the statistics.")
 
-	repository.BackupSchema()
-	repository.InitSchema()
-
+		repository.BackupSchema()
+		repository.InitSchema()
+	})
 }
 
 func CmdLogs(ctx *cli.Context) {
-	var commands = repository.GetAllCommands()
+	commandWrapper(ctx, func() {
+		var commands = repository.GetAllCommands()
 
-	for _, c := range commands {
-		parrot.Info(c.String())
-	}
+		for _, c := range commands {
+			parrot.Info(c.String())
+		}	
+	})
 }
 
 func CmdLogsById(ctx *cli.Context) {
-	id, err := stringFromArguments(ctx)
-	if err != nil {
-		parrot.Error("Error...", err)
-		return
-	}
-
-	var command = repository.FindById(id)
-
-	parrot.Info(command.String())
+	commandWrapper(ctx, func() {
+		id, err := stringFromArguments(ctx)
+		if err != nil {
+			parrot.Error("Error...", err)
+			return
+		}
+	
+		var command = repository.FindById(id)
+	
+		parrot.Info(command.String())
+	})
 }
 
 func CmdHistory(ctx *cli.Context) {
-	limit, err := intFromArguments(ctx)
-	if (err!= nil) {
-		limit = settings.HistoryLimitDefault()
-	}
+	commandWrapper(ctx, func() {	
+		limit, err := intFromArguments(ctx)
+		if (err!= nil) {
+			limit = settings.HistoryLimitDefault()
+		}
+		
+		var commands = repository.GetHistory(limit)
 	
-	var commands = repository.GetHistory(limit)
-
-	for _, c := range commands {
-		parrot.Info(c.AsHistory())
-	}
+		for _, c := range commands {
+			parrot.Info(c.AsHistory())
+		}
+	})
 }
 
 func CmdLast(ctx *cli.Context) {
-	limit, err := intFromArguments(ctx)
-	if (err!= nil) {
-		limit = settings.LastLimitDefault()
-	}
+	commandWrapper(ctx, func() {	
+		limit, err := intFromArguments(ctx)
+		if (err!= nil) {
+			limit = settings.LastLimitDefault()
+		}
+		
+		var commands = repository.GetExecutedCommands(limit)
 	
-	var commands = repository.GetExecutedCommands(limit)
-
-	for _, c := range commands {
-		parrot.Info(c.AsFlatCommand())
-	}
+		for _, c := range commands {
+			parrot.Info(c.AsFlatCommand())
+		}
+	})
 }
 
 func CmdRecall(ctx *cli.Context) {
-	id, err := stringFromArguments(ctx)
-	if err != nil {
-		parrot.Error("Error...", err)
-		return
-	}
-
-	var stored = repository.FindById(id)
+	commandWrapper(ctx, func() {	
+		id, err := stringFromArguments(ctx)
+		if err != nil {
+			parrot.Error("Error...", err)
+			return
+		}
 	
-	var command = initializeCommand(stored.Name, stored.Arguments)
-
-	executeCommand(&command)
-	finalizeCommand(&command)
+		var stored = repository.FindById(id)
+		
+		var command = initializeCommand(stored.Name, stored.Arguments)
+	
+		executeCommand(&command)
+		finalizeCommand(&command)
+	})
 }
 
 func CmdOutput(ctx *cli.Context) {
-	id, err := stringFromArguments(ctx)
-	if err != nil {
-		parrot.Error("Error...", err)
-		return
-	}
-
-	var command = repository.FindById(id)
+	commandWrapper(ctx, func() {	
+		parrot.Debug("Output command invoked")
+		
+		id, err := stringFromArguments(ctx)
+		if err != nil {
+			parrot.Error("Error...", err)
+			return
+		}
+		
+		parrot.Debug("==> id: " + id)
 	
-	if (command.Output != "") {
-		parrot.Info("==> Output:")
-		parrot.Info(command.Output)
-	}
-	
-	if (command.Error != "") {
-		parrot.Info("==> Error:")
-		parrot.Info(command.Error)		
-	}
-	
+		var command = repository.FindById(id)
+		
+		if (command.Output != "") {
+			parrot.Info("==> Output:")
+			parrot.Info(command.Output)
+		}
+		
+		if (command.Error != "") {
+			parrot.Info("==> Error:")
+			parrot.Info(command.Error)		
+		}
+	})	
 }
 
 func CmdRun(ctx *cli.Context) {
-	var command = initializeCommand(ctx.Args()[0], strings.Join(ctx.Args().Tail(), " "))
-	executeCommand(&command)
-	finalizeCommand(&command)
+	commandWrapper(ctx, func() {	
+		var command = initializeCommand(ctx.Args()[0], ctx.Args().Tail())
+		executeCommand(&command)
+		finalizeCommand(&command)
+	})	
 }
 
 func CmdListSettings(ctx *cli.Context) {
-	parrot.Info(settings.String())
+	commandWrapper(ctx, func() {	
+		parrot.Info(settings.String())
+	})	
 }
 
-func CmdVerbose(ctx *cli.Context) {
-	parrot.Info("info parrot")
-	parrot = quant.NewVerboseParrot("ambros")
-	parrot.Debug("debug parrot")
+func CmdGlobalFlags(ctx *cli.Context) {
+	if ctx.Bool("verbose") {
+		parrot = quant.NewVerboseParrot("ambros")	
+	} 
+	
+	parrot.Debug("Parrot is set to talk so much!")
 }
 
 // ----------------
@@ -248,7 +267,7 @@ func intFromArguments(ctx *cli.Context) (int, error) {
 // ----------------
 // command management
 // ----------------
-func initializeCommand(name string, arguments string) Command {
+func initializeCommand(name string, arguments []string) Command {
 	var command = Command{}
 	command.ID = Random()
 
@@ -271,7 +290,10 @@ func executeCommand(command *Command) {
 	var bufferOutput bytes.Buffer
 	var bufferError bytes.Buffer
 	
-	cmd := exec.Command(command.Name, command.Arguments)
+	cmd := exec.Command(command.Name, command.Arguments...)
+	
+	parrot.Debug("--> CommandName " + command.Name)
+	parrot.Debug("--> Command Arguments " + AsJson(command.Arguments)) 
 
 	outputReader, err := cmd.StdoutPipe()
 	if err != nil {
@@ -325,4 +347,13 @@ func executeCommand(command *Command) {
 	command.Error = bufferError.String()
 	
 	command.Status = true
+}
+
+// -------------------------------
+// Cli command wrapper
+// -------------------------------
+func commandWrapper(ctx *cli.Context, cmd quant.Action0) {
+	CmdGlobalFlags(ctx)
+	
+	cmd()
 }

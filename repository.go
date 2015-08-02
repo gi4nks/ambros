@@ -6,6 +6,8 @@ import (
 	"github.com/boltdb/bolt"
 	"path/filepath"
 	"os"
+	"time"
+	"bytes"
 )
 
 type Repository struct {
@@ -43,6 +45,12 @@ func (r *Repository) InitSchema() error {
 	    if err != nil {
 	        return fmt.Errorf("create bucket: %s", err)
 	    }
+		
+		 _, err = tx.CreateBucket([]byte("CommandsIndex"))
+	    if err != nil {
+	        return fmt.Errorf("create bucket: %s", err)
+	    }
+
 	    return nil
 	})
 	
@@ -72,21 +80,32 @@ func (r *Repository) BackupSchema() {
 
 func (r *Repository) Put(c Command) {
 	err := r.DB.Update(func(tx *bolt.Tx) error {
-	    b, err := tx.CreateBucketIfNotExists([]byte("Commands"))
+	    cc, err := tx.CreateBucketIfNotExists([]byte("Commands"))
 	    if err != nil {
 	        return err
 	    }
 	 
-		encoded, err := json.Marshal(c)
+		encoded1, err := json.Marshal(c)
 	    if err != nil {
 	        return err
 	    }
-	    //return b.Put([]byte(c.CreatedAt.Format(time.RFC3339)), encoded)
-		return b.Put([]byte(c.ID), encoded)
+
+		err = cc.Put([]byte(c.ID), encoded1)
+		
+		if (err!= nil) {
+			return err
+		}
+		
+		ii, err := tx.CreateBucketIfNotExists([]byte("CommandsIndex"))
+	    if err != nil {
+	        return err
+	    }
+	 	
+	    return ii.Put([]byte(c.CreatedAt.Format(time.RFC3339)), []byte(c.ID))
 	})	
 	
 	if err != nil {
-	    parrot.Error("Error inserti data", err)
+	    parrot.Error("Error inserting data", err)
 	}
 }
 
@@ -147,7 +166,36 @@ func (r *Repository) GetLimitCommands(limit int) []Command {
 	commands := []Command{}
 	
 	r.DB.View(func(tx *bolt.Tx) error {
-	    b := tx.Bucket([]byte("Commands"))
+	    cc := tx.Bucket([]byte("Commands"))
+	    ii := tx.Bucket([]byte("CommandsIndex")).Cursor()
+
+		var i = limit
+	
+		// Our time range spans the 90's decade.
+		min := []byte("1990-01-01T00:00:00Z")
+		max := []byte(time.Now().Format(time.RFC3339))
+	
+		for k, v := ii.Seek(min); k != nil && bytes.Compare(k, max) <= 0 && i>0; k, v = ii.Next() {
+	 		var command = Command{}
+			
+			parrot.Debug("--> k " + string(k) + " - v " + string(v))
+			//*
+			vv := cc.Get(v)
+			
+			parrot.Debug("--> vv " + string(vv))
+			
+			err := json.Unmarshal(vv, &command)
+		    if err != nil {
+		        return err
+		    }
+			//*/
+			commands = append(commands, command)
+			
+			i--
+		}
+
+
+/*
 	    c := b.Cursor()
 		var i = limit
 	
@@ -161,7 +209,7 @@ func (r *Repository) GetLimitCommands(limit int) []Command {
 			commands = append(commands, command)
 			i--
 	    }
-	
+	*/
 	    return nil
 	})
 
