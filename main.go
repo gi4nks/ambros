@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -18,17 +17,30 @@ var parrot = quant.NewParrot("ambros")
 var settings = Settings{}
 var repository = Repository{}
 
-func configureDB() {
+func initDB() {
 	repository.InitDB()
+	repository.InitSchema()
+}
+
+func closeDB() {
+	repository.CloseDB()
 }
 
 func readSettings() {
 	settings.LoadSettings()
+	
+	if settings.DebugMode() {
+		parrot.Info("debug: sono verbose")
+		parrot = quant.NewVerboseParrot("ambros")	
+	} 
+	
+	parrot.Debug("Parrot is set to talk so much!")
+	
 }
 
 func main() {
 	readSettings()
-	configureDB()
+	initDB()
 
 	// -------------------
 	app := cli.NewApp()
@@ -52,7 +64,7 @@ func main() {
 		},
 		{
 			Name:    "revive",
-			Aliases: []string{"e"},
+			Aliases: []string{"re"},
 			Usage:   "revive ambros",
 			Action:  CmdRevive,
 		},
@@ -73,14 +85,6 @@ func main() {
 				},
 			},
 		},
-		/*
-			{
-				Name:    "history",
-				Aliases: []string{"hi"},
-				Usage:   "show the history of ambros. followed with a valid number shows # of history ",
-				Action:  CmdHistory,
-			},
-		*/
 		{
 			Name:    "last",
 			Aliases: []string{"ll"},
@@ -95,172 +99,212 @@ func main() {
 		},
 		{
 			Name:    "recall",
-			Aliases: []string{"re"},
+			Aliases: []string{"rc"},
 			Usage:   "recall a command and execute again",
 			Action:  CmdRecall,
 		},
-		{
-			Name:    "verbose",
-			Aliases: []string{"ve"},
-			Usage:   "set verbose level to ambros",
-			Action:  CmdVerbose,
-		},
 	}
-
+	
 	app.Run(os.Args)
+
+	defer closeDB()
 }
 
 // List of functions
 func CmdRevive(ctx *cli.Context) {
-	parrot.Info("==> Reviving ambros will reinitialize all the statistics.")
+	commandWrapper(ctx, func() {
+		parrot.Info("==> Reviving ambros will reinitialize all the statistics.")
 
-	repository.BackupSchema()
-	repository.InitSchema()
+		repository.BackupSchema()
+		repository.InitSchema()
+	})
 }
 
 func CmdLogs(ctx *cli.Context) {
-	var commands = repository.GetAllCommands()
+	commandWrapper(ctx, func() {
+		var commands = repository.GetAllCommands()
 
-	for _, c := range commands {
-		parrot.Info(c.String())
-	}
+		for _, c := range commands {
+			parrot.Info(c.String())
+		}	
+	})
 }
 
 func CmdLogsById(ctx *cli.Context) {
-	id, err := intFromArguments(ctx)
-	if err != nil {
-		parrot.Error("Error...", err)
-		return
-	}
-
-	var command = repository.FindById(id)
-
-	parrot.Info(command.String())
-}
-
-func CmdHistory(ctx *cli.Context) {
-	var limit = settings.HistoryLimitDefault()
-	var err error
-	limit, err = intFromArguments(ctx)
-	if err != nil {
-		parrot.Error("Error...", err)
-		return
-	}
-
-	var commands = repository.GetHistory(limit)
-
-	for _, c := range commands {
-		parrot.Info(c.AsHistory())
-	}
+	commandWrapper(ctx, func() {
+		id, err := stringFromArguments(ctx)
+		if err != nil {
+			parrot.Error("Error...", err)
+			return
+		}
+	
+		var command = repository.FindById(id)
+	
+		parrot.Info(command.String())
+	})
 }
 
 func CmdLast(ctx *cli.Context) {
-	var limit = settings.LastLimitDefault()
-	var err error
-
-	limit, err = intFromArguments(ctx)
-	if err != nil {
-		parrot.Error("Error...", err)
-		return
-	}
-
-	var commands = repository.GetExecutedCommands(limit)
-
-	for _, c := range commands {
-		parrot.Info(c.AsFlatCommand())
-	}
+	commandWrapper(ctx, func() {	
+		limit, err := intFromArguments(ctx)
+		if (err!= nil) {
+			limit = settings.LastLimitDefault()
+		}
+		
+		var commands = repository.GetExecutedCommands(limit)
+	
+		for _, c := range commands {
+			parrot.Info(c.AsFlatCommand())
+		}
+	})
 }
 
 func CmdRecall(ctx *cli.Context) {
-	id, err := intFromArguments(ctx)
-	if err != nil {
-		parrot.Error("Error...", err)
-		return
-	}
-
-	var stored = repository.FindById(id)
-	var command = Command{}
-	command.Name = stored.Name
-	command.Arguments = stored.Arguments
-	command.CreatedAt = time.Now()
-
-	execute(command)
+	commandWrapper(ctx, func() {	
+		id, err := stringFromArguments(ctx)
+		if err != nil {
+			parrot.Error("Error...", err)
+			return
+		}
+	
+		var stored = repository.FindById(id)
+		
+		var command = initializeCommand(stored.Name, stored.Arguments)
+	
+		executeCommand(&command)
+		finalizeCommand(&command)
+	})
 }
 
 func CmdOutput(ctx *cli.Context) {
-	id, err := intFromArguments(ctx)
-	if err != nil {
-		parrot.Error("Error...", err)
-		return
-	}
-
-	var command = repository.FindById(id)
-
-	parrot.Info(command.Output)
+	commandWrapper(ctx, func() {	
+		parrot.Debug("Output command invoked")
+		
+		id, err := stringFromArguments(ctx)
+		if err != nil {
+			parrot.Error("Error...", err)
+			return
+		}
+		
+		parrot.Debug("==> id: " + id)
+	
+		var command = repository.FindById(id)
+		
+		if (command.Output != "") {
+			parrot.Info("==> Output:")
+			parrot.Info(command.Output)
+		}
+		
+		if (command.Error != "") {
+			parrot.Info("==> Error:")
+			parrot.Info(command.Error)		
+		}
+	})	
 }
 
 func CmdRun(ctx *cli.Context) {
-
-	var command = Command{}
-	command.Name = ctx.Args()[0]
-	command.Arguments = strings.Join(ctx.Args().Tail(), " ")
-	command.CreatedAt = time.Now()
-
-	execute(command)
+	commandWrapper(ctx, func() {	
+		var command = initializeCommand(ctx.Args()[0], ctx.Args().Tail())
+		executeCommand(&command)
+		finalizeCommand(&command)
+	})	
 }
 
 func CmdListSettings(ctx *cli.Context) {
-	parrot.Info(settings.String())
+	commandWrapper(ctx, func() {	
+		parrot.Info(settings.String())
+	})	
 }
 
-func CmdVerbose(ctx *cli.Context) {
-	parrot.Info("Functionality not implemented yet!")
+func CmdWrapper(ctx *cli.Context) {
 }
 
 // ----------------
+// Arguments from command string
+// ----------------
+func stringFromArguments(ctx *cli.Context) (string, error) {
+	if !ctx.Args().Present() {
+		return "", errors.New("Value must be provided!")
+	}
+
+	str := ctx.Args()[0]
+
+	return str, nil
+}
+
 func intFromArguments(ctx *cli.Context) (int, error) {
 	if !ctx.Args().Present() {
 		return -1, errors.New("Value must be provided!")
 	}
 
-	id, err := strconv.Atoi(ctx.Args()[0])
+	i, err := strconv.Atoi(ctx.Args()[0])
 	if err != nil {
 		return -1, err
 	}
 
-	return id, nil
+	return i, nil
 }
 
-func finalizeCommand(command Command, output string, status bool) {
+// ----------------
+// command management
+// ----------------
+func initializeCommand(name string, arguments []string) Command {
+	var command = Command{}
+	command.ID = Random()
+
+	command.Name = name
+	command.Arguments = arguments
+	
+	command.CreatedAt = time.Now()
+	return command
+}
+
+func finalizeCommand(command *Command) {
 	command.TerminatedAt = time.Now()
-	command.Output = output
-	command.Status = status
-	repository.Put(command)
+	repository.Put(*command)
+	
+	parrot.Info("[" + command.ID + "]")
+
 }
 
-func execute(command Command) {
-	var buffer bytes.Buffer
+func executeCommand(command *Command) {
+	var bufferOutput bytes.Buffer
+	var bufferError bytes.Buffer
+	
+	cmd := exec.Command(command.Name, command.Arguments...)
+	
+	parrot.Debug("--> CommandName " + command.Name)
+	parrot.Debug("--> Command Arguments " + AsJson(command.Arguments)) 
 
-	cmd := exec.Command(command.Name, command.Arguments)
 	outputReader, err := cmd.StdoutPipe()
 	if err != nil {
 		parrot.Error("Error creating StdoutPipe for Cmd", err)
-		finalizeCommand(command, err.Error(), false)
+		command.Error = err.Error()
+		command.Status = false
 		return
 	}
 
 	errorReader, err := cmd.StderrPipe()
 	if err != nil {
 		parrot.Error("Error creating StderrPipe for Cmd", err)
-		finalizeCommand(command, err.Error(), false)
+		command.Error = err.Error()
+		command.Status = false
 		return
 	}
 
+	err = cmd.Start()
+	if err != nil {
+		parrot.Error("Error starting Cmd", err)
+		command.Error = err.Error()
+		command.Status = false
+		return
+	}
+	
 	scannerOutput := bufio.NewScanner(outputReader)
 	go func() {
 		for scannerOutput.Scan() {
 			parrot.Info(scannerOutput.Text())
-			buffer.WriteString(scannerOutput.Text() + "\n")
+			bufferOutput.WriteString(scannerOutput.Text() + "\n")
 		}
 	}()
 
@@ -268,23 +312,29 @@ func execute(command Command) {
 	go func() {
 		for scannerError.Scan() {
 			parrot.Info(scannerError.Text())
-			buffer.WriteString(scannerError.Text() + "\n")
+			bufferError.WriteString(scannerError.Text() + "\n")
 		}
 	}()
-
-	err = cmd.Start()
-	if err != nil {
-		parrot.Error("Error starting Cmd", err)
-		finalizeCommand(command, err.Error(), false)
-		return
-	}
 
 	err = cmd.Wait()
 	if err != nil {
 		parrot.Error("Error waiting for Cmd", err)
-		finalizeCommand(command, err.Error(), false)
+		command.Error = err.Error()
+		command.Status = false
 		return
 	}
+		
+	command.Output = bufferOutput.String()
+	command.Error = bufferError.String()
+	
+	command.Status = true
+}
 
-	finalizeCommand(command, buffer.String(), true)
+// -------------------------------
+// Cli command wrapper
+// -------------------------------
+func commandWrapper(ctx *cli.Context, cmd quant.Action0) {
+	CmdWrapper(ctx)
+	
+	cmd()
 }

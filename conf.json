@@ -1,7 +1,6 @@
 {
   "repositoryDirectory": "tmp",
   "repositoryFile": "ambros.db",
-  "repositoryLogMode": false,
-  "historyCountDefault": 10,
-  "lastCountDefault": 10
+  "lastCountDefault": 10,
+  "debugMode": true
 }
