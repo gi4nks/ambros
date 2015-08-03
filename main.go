@@ -28,6 +28,14 @@ func closeDB() {
 
 func readSettings() {
 	settings.LoadSettings()
+	
+	if settings.DebugMode() {
+		parrot.Info("debug: sono verbose")
+		parrot = quant.NewVerboseParrot("ambros")	
+	} 
+	
+	parrot.Debug("Parrot is set to talk so much!")
+	
 }
 
 func main() {
@@ -95,13 +103,6 @@ func main() {
 			Usage:   "recall a command and execute again",
 			Action:  CmdRecall,
 		},
-	}
-	
-	app.Flags = []cli.Flag{
-			cli.BoolFlag{
-    	    Name:  "verbose",
-    	    Usage: "show more output",
-    	},
 	}
 	
 	app.Run(os.Args)
@@ -215,15 +216,7 @@ func CmdListSettings(ctx *cli.Context) {
 	})	
 }
 
-func CmdGlobalFlags(ctx *cli.Context) {
-	parrot.Info("verbose: ----")
-	
-	if ctx.Bool("verbose") {
-		parrot.Info("verbose: sono verbole")
-		parrot = quant.NewVerboseParrot("ambros")	
-	} 
-	
-	parrot.Debug("Parrot is set to talk so much!")
+func CmdWrapper(ctx *cli.Context) {
 }
 
 // ----------------
@@ -341,7 +334,7 @@ func executeCommand(command *Command) {
 // Cli command wrapper
 // -------------------------------
 func commandWrapper(ctx *cli.Context, cmd quant.Action0) {
-	CmdGlobalFlags(ctx)
+	CmdWrapper(ctx)
 	
 	cmd()
 }
