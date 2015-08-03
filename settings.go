@@ -8,10 +8,8 @@ import (
 type Configuration struct {
 	RepositoryDirectory string
 	RepositoryFile      string
-	RepositoryLogMode   bool
-
-	HistoryCountDefault int
 	LastCountDefault    int
+	DebugMode           bool
 }
 
 type Settings struct {
@@ -22,16 +20,22 @@ func (sts *Settings) LoadSettings() {
 	folder := ExecutableFolder()
 
 	file, err := ioutil.ReadFile(folder + "/conf.json")
+	
+	parrot.Error("Error...", err)	
+	
 	if err != nil {
 		sts.configs = Configuration{}
 		sts.configs.RepositoryDirectory = ConstRepositoryDirectory
 		sts.configs.RepositoryFile = ConstRepositoryFile
-		sts.configs.RepositoryLogMode = ConstRepositoryLogMode
-		sts.configs.HistoryCountDefault = ConstHistoryCountDefault
 		sts.configs.LastCountDefault = ConstLastCountDefault
+		sts.configs.DebugMode = ConstDebugMode
 
 	} else {
 		json.Unmarshal(file, &sts.configs)
+		
+		parrot.Info("folder: " + folder)
+		parrot.Info("file: " + AsJson(sts.configs))
+		
 	}
 }
 
@@ -43,16 +47,12 @@ func (sts Settings) RepositoryFile() string {
 	return sts.configs.RepositoryFile
 }
 
-func (sts Settings) RepositoryLogMode() bool {
-	return sts.configs.RepositoryLogMode
-}
-
-func (sts Settings) HistoryLimitDefault() int {
-	return sts.configs.HistoryCountDefault
-}
-
 func (sts Settings) LastLimitDefault() int {
 	return sts.configs.LastCountDefault
+}
+
+func (sts Settings) DebugMode() bool {
+	return sts.configs.DebugMode
 }
 
 func (sts Settings) String() string {
