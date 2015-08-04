@@ -30,7 +30,6 @@ func readSettings() {
 	settings.LoadSettings()
 	
 	if settings.DebugMode() {
-		parrot.Info("debug: sono verbose")
 		parrot = quant.NewVerboseParrot("ambros")	
 	} 
 	
