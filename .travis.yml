@@ -17,4 +17,4 @@ deploy:
   file: "$HOME/gopath/src/github.com/gi4nks/ambros/ambros"
   skip_cleanup: true
   on:
-    tags: true
+    tags: false
