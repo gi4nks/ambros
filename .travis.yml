@@ -10,11 +10,3 @@ install:
 
 script:
     - go build -v ./...
-    
-deploy:
-  provider: releases
-  api_key: "xz7Aq7tc7kRd7vzw1MHK"
-  file: "$HOME/gopath/src/github.com/gi4nks/ambros/ambros"
-  skip_cleanup: true
-  on:
-    tags: false
