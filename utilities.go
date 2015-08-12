@@ -56,9 +56,24 @@ func Random() string {
 }
 
 
-func hTail(a []string) []string {
+func tail(a []string) []string {
 	if len(a) >= 2 {
 		return []string(a)[1:]
 	}
 	return []string{}
+}
+
+
+func check(e error) {
+    if e != nil {
+		parrot.Error("Error...", e)
+		return
+	}
+}
+
+func fatal(e error) {
+    if e != nil {
+		parrot.Error("Fatal...", e)
+		panic(e)
+	}
 }
