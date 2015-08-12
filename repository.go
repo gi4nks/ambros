@@ -22,13 +22,13 @@ func repositoryFullName() string {
 func (r *Repository) InitDB() {
 	var err error
 
-	b, err := ExistsPath(settings.RepositoryDirectory())
+	b, err := existsPath(settings.RepositoryDirectory())
 	if err != nil {
 		parrot.Error("Got error when reading repository directory", err)
 	}
 
 	if !b {
-		CreatePath(settings.RepositoryDirectory())
+		createPath(settings.RepositoryDirectory())
 	}
 
 	r.DB, err = bolt.Open(repositoryFullName(), 0600, nil)
@@ -62,7 +62,7 @@ func (r *Repository) CloseDB() {
 }
 
 func (r *Repository) BackupSchema() {
-	b, _ := ExistsPath(settings.RepositoryDirectory())
+	b, _ := existsPath(settings.RepositoryDirectory())
 	if !b {
 		return
 	}

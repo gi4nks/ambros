@@ -17,13 +17,13 @@ type Settings struct {
 }
 
 func (sts *Settings) LoadSettings() {
-	folder := ExecutableFolder()
+	folder := executableFolder()
 
 	file, err := ioutil.ReadFile(folder + "/conf.json")
 	
 	if err != nil {
 		sts.configs = Configuration{}
-		sts.configs.RepositoryDirectory = ConstRepositoryDirectory
+		sts.configs.RepositoryDirectory = folder + "/" + ConstRepositoryDirectory
 		sts.configs.RepositoryFile = ConstRepositoryFile
 		sts.configs.LastCountDefault = ConstLastCountDefault
 		sts.configs.DebugMode = ConstDebugMode
@@ -32,7 +32,7 @@ func (sts *Settings) LoadSettings() {
 		json.Unmarshal(file, &sts.configs)
 		
 		parrot.Debug("folder: " + folder)
-		parrot.Debug("file: " + AsJson(sts.configs))
+		parrot.Debug("file: " + asJson(sts.configs))
 		
 	}
 }

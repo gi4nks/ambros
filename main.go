@@ -249,7 +249,7 @@ func intFromArguments(ctx *cli.Context) (int, error) {
 // ----------------
 func initializeCommand(name string, arguments []string) Command {
 	var command = Command{}
-	command.ID = Random()
+	command.ID = random()
 
 	command.Name = name
 	command.Arguments = arguments
@@ -273,7 +273,7 @@ func executeCommand(command *Command) {
 	cmd := exec.Command(command.Name, command.Arguments...)
 	
 	parrot.Debug("--> CommandName " + command.Name)
-	parrot.Debug("--> Command Arguments " + AsJson(command.Arguments)) 
+	parrot.Debug("--> Command Arguments " + asJson(command.Arguments)) 
 
 	outputReader, err := cmd.StdoutPipe()
 	if err != nil {
