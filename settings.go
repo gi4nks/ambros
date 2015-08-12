@@ -21,8 +21,6 @@ func (sts *Settings) LoadSettings() {
 
 	file, err := ioutil.ReadFile(folder + "/conf.json")
 	
-	parrot.Error("Error...", err)	
-	
 	if err != nil {
 		sts.configs = Configuration{}
 		sts.configs.RepositoryDirectory = ConstRepositoryDirectory
@@ -33,8 +31,8 @@ func (sts *Settings) LoadSettings() {
 	} else {
 		json.Unmarshal(file, &sts.configs)
 		
-		parrot.Info("folder: " + folder)
-		parrot.Info("file: " + AsJson(sts.configs))
+		parrot.Debug("folder: " + folder)
+		parrot.Debug("file: " + AsJson(sts.configs))
 		
 	}
 }
