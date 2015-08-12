@@ -45,7 +45,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "ambros"
 	app.Usage = "the personal command butler!!!!"
-	app.Version = "0.0.1-alpha"
+	app.Version = "0.0.1"
 	app.Copyright = "gi4nks - 2015"
 
 	app.Commands = []cli.Command{
