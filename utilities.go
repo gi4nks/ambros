@@ -62,3 +62,17 @@ func tail(a []string) []string {
 	}
 	return []string{}
 }
+
+func check(e error) {
+	if e != nil {
+		parrot.Error("Error...", e)
+		return
+	}
+}
+
+func fatal(e error) {
+	if e != nil {
+		parrot.Error("Fatal...", e)
+		panic(e)
+	}
+}
