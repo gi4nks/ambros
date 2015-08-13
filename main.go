@@ -153,7 +153,7 @@ func CmdLast(ctx *cli.Context) {
 		var commands = repository.GetExecutedCommands(limit)
 	
 		for _, c := range commands {
-			parrot.Info(c.AsFlatCommand())
+			c.Print()
 		}
 	})
 }
