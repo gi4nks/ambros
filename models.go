@@ -81,8 +81,6 @@ func (c ExecutedCommand) AsFlatCommand() string {
 
 
 func (c ExecutedCommand) Print() {
-	
-	
 	parrot.Print("{", chalk.Yellow, c.When.Format("02.01.2006 15:04:05"), chalk.Reset, "} ")
 	
 	if c.Status {
@@ -91,19 +89,4 @@ func (c ExecutedCommand) Print() {
 		parrot.Print("[", chalk.Red, c.ID, chalk.Reset, "] ")
 	}	
 	parrot.Println(c.Command)
-	
-	//return "{" + c.When.Format("02.01.2006 15:04:05") + "} [id: " + c.ID + ", status: " + strconv.FormatBool(c.Status) + "] " + c.Command
 }
-
-/*
-func (c ExecutedCommand) AsFlatCommand() []string {
-	var ret [4]string
-
-	ret[0] = c.When.Format("02.01.2006 15:04:05")
-	ret[1] = c.ID
-	ret[2] = strconv.FormatBool(c.Status)
-	ret[3] = c.Command
-	
-	return "{" + c.When.Format("02.01.2006 15:04:05") + "} [id: " + c.ID + ", status: " + strconv.FormatBool(c.Status) + "] " + c.Command
-}
-*/
