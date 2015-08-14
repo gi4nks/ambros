@@ -20,7 +20,7 @@ func (sts *Settings) LoadSettings() {
 	folder := executableFolder()
 
 	file, err := ioutil.ReadFile(folder + "/conf.json")
-	
+
 	if err != nil {
 		sts.configs = Configuration{}
 		sts.configs.RepositoryDirectory = folder + "/" + ConstRepositoryDirectory
@@ -30,10 +30,10 @@ func (sts *Settings) LoadSettings() {
 
 	} else {
 		json.Unmarshal(file, &sts.configs)
-		
+
 		parrot.Debug("folder: " + folder)
 		parrot.Debug("file: " + asJson(sts.configs))
-		
+
 	}
 }
 
