@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/boltdb/bolt"
-	"path/filepath"
 	"os"
+	"path/filepath"
 	"time"
 )
 
 type Repository struct {
-	DB       *bolt.DB
+	DB *bolt.DB
 }
 
 // HELPER FUNCTIONS
@@ -32,26 +32,26 @@ func (r *Repository) InitDB() {
 	}
 
 	r.DB, err = bolt.Open(repositoryFullName(), 0600, nil)
-    if err != nil {
-        parrot.Error("Got error creating repository directory", err)
-    }
+	if err != nil {
+		parrot.Error("Got error creating repository directory", err)
+	}
 }
 
 func (r *Repository) InitSchema() error {
 	err := r.DB.Update(func(tx *bolt.Tx) error {
-	    _, err := tx.CreateBucket([]byte("Commands"))
-	    if err != nil {
-	        return fmt.Errorf("create bucket: %s", err)
-	    }
-		
-		 _, err = tx.CreateBucket([]byte("CommandsIndex"))
-	    if err != nil {
-	        return fmt.Errorf("create bucket: %s", err)
-	    }
+		_, err := tx.CreateBucket([]byte("Commands"))
+		if err != nil {
+			return fmt.Errorf("create bucket: %s", err)
+		}
 
-	    return nil
+		_, err = tx.CreateBucket([]byte("CommandsIndex"))
+		if err != nil {
+			return fmt.Errorf("create bucket: %s", err)
+		}
+
+		return nil
 	})
-	
+
 	return err
 }
 
@@ -78,55 +78,55 @@ func (r *Repository) BackupSchema() {
 
 func (r *Repository) Put(c Command) {
 	err := r.DB.Update(func(tx *bolt.Tx) error {
-	    cc, err := tx.CreateBucketIfNotExists([]byte("Commands"))
-		
-	    if err != nil {
-			return err
-	    }
-	 
-		encoded1, err := json.Marshal(c)
-	    if err != nil {
-	        return err
-	    }
+		cc, err := tx.CreateBucketIfNotExists([]byte("Commands"))
 
-		err = cc.Put([]byte(c.ID), encoded1)
-		
-		if (err!= nil) {
+		if err != nil {
 			return err
 		}
-		
+
+		encoded1, err := json.Marshal(c)
+		if err != nil {
+			return err
+		}
+
+		err = cc.Put([]byte(c.ID), encoded1)
+
+		if err != nil {
+			return err
+		}
+
 		ii, err := tx.CreateBucketIfNotExists([]byte("CommandsIndex"))
-	    if err != nil {
-	        return err
-	    }
-	 	
-	    return ii.Put([]byte(c.CreatedAt.Format(time.RFC3339)), []byte(c.ID))
-	})	
-	
+		if err != nil {
+			return err
+		}
+
+		return ii.Put([]byte(c.CreatedAt.Format(time.RFC3339)), []byte(c.ID))
+	})
+
 	if err != nil {
-	    parrot.Error("Error inserting data", err)
+		parrot.Error("Error inserting data", err)
 	}
 }
 
 func (r *Repository) FindById(id string) Command {
 	var command = Command{}
-	
+
 	err := r.DB.View(func(tx *bolt.Tx) error {
-    	b := tx.Bucket([]byte("Commands"))
-   		v := b.Get([]byte(id))
-    	
+		b := tx.Bucket([]byte("Commands"))
+		v := b.Get([]byte(id))
+
 		err := json.Unmarshal(v, &command)
-	    if err != nil {
-	        return err
-	    }
-		
+		if err != nil {
+			return err
+		}
+
 		return nil
 	})
-	
+
 	if err != nil {
-	    parrot.Error("Error getting data", err)
+		parrot.Error("Error getting data", err)
 	}
-	
+
 	return command
 }
 
@@ -134,20 +134,20 @@ func (r *Repository) GetAllCommands() []Command {
 	commands := []Command{}
 
 	r.DB.View(func(tx *bolt.Tx) error {
-	    b := tx.Bucket([]byte("Commands"))
-	    c := b.Cursor()
-	
-	    for k, v := c.First(); k != nil; k, v = c.Next() {
+		b := tx.Bucket([]byte("Commands"))
+		c := b.Cursor()
+
+		for k, v := c.First(); k != nil; k, v = c.Next() {
 			var command = Command{}
 			err := json.Unmarshal(v, &command)
-		    if err != nil {
-		        return err
-		    }
-			
+			if err != nil {
+				return err
+			}
+
 			commands = append(commands, command)
-	    }
-	
-	    return nil
+		}
+
+		return nil
 	})
 
 	return commands
@@ -155,31 +155,31 @@ func (r *Repository) GetAllCommands() []Command {
 
 func (r *Repository) GetLimitCommands(limit int) []Command {
 	commands := []Command{}
-	
+
 	r.DB.View(func(tx *bolt.Tx) error {
-	    cc := tx.Bucket([]byte("Commands"))
-	    ii := tx.Bucket([]byte("CommandsIndex")).Cursor()
+		cc := tx.Bucket([]byte("Commands"))
+		ii := tx.Bucket([]byte("CommandsIndex")).Cursor()
 
 		var i = limit
-		
-		for k, v := ii.Last(); k != nil && i>0; k, v = ii.Prev() {
+
+		for k, v := ii.Last(); k != nil && i > 0; k, v = ii.Prev() {
 			var command = Command{}
-			
+
 			parrot.Debug("--> k " + string(k) + " - v " + string(v))
 			vv := cc.Get(v)
-			
+
 			parrot.Debug("--> vv " + string(vv))
-			
+
 			err := json.Unmarshal(vv, &command)
-		    if err != nil {
-		        return err
-		    }
+			if err != nil {
+				return err
+			}
 			commands = append(commands, command)
-			
+
 			i--
-	    }
-	
-	    return nil
+		}
+
+		return nil
 	})
 
 	return commands

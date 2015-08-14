@@ -2,10 +2,10 @@ package main
 
 import (
 	"encoding/json"
-	"strconv"
-	"time"
-	"strings"
 	"github.com/ttacon/chalk"
+	"strconv"
+	"strings"
+	"time"
 )
 
 type Entity struct {
@@ -33,7 +33,7 @@ type ExecutedCommand struct {
 
 func (c Command) String() string {
 	b, err := json.Marshal(c)
-	
+
 	if err != nil {
 		parrot.Error("Warning", err)
 		return "{}"
@@ -74,19 +74,17 @@ func (c *Command) FromMap(frommap map[string]interface{}) {
 	c.TerminatedAt = frommap["TerminatedAt"].(time.Time)
 }
 
-
 func (c ExecutedCommand) AsFlatCommand() string {
 	return "{" + c.When.Format("02.01.2006 15:04:05") + "} [id: " + c.ID + ", status: " + strconv.FormatBool(c.Status) + "] " + c.Command
 }
 
-
 func (c ExecutedCommand) Print() {
 	parrot.Print("{", chalk.Yellow, c.When.Format("02.01.2006 15:04:05"), chalk.Reset, "} ")
-	
+
 	if c.Status {
 		parrot.Print("[", chalk.Green, c.ID, chalk.Reset, "] ")
 	} else {
 		parrot.Print("[", chalk.Red, c.ID, chalk.Reset, "] ")
-	}	
+	}
 	parrot.Println(c.Command)
 }

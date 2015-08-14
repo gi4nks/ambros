@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"strconv"
 	"time"
+	"encoding/json"
 )
 
 var parrot = quant.NewParrot("ambros")
@@ -28,13 +29,13 @@ func closeDB() {
 
 func readSettings() {
 	settings.LoadSettings()
-	
+
 	if settings.DebugMode() {
-		parrot = quant.NewVerboseParrot("ambros")	
-	} 
-	
+		parrot = quant.NewVerboseParrot("ambros")
+	}
+
 	parrot.Debug("Parrot is set to talk so much!")
-	
+
 }
 
 func main() {
@@ -103,7 +104,7 @@ func main() {
 			Action:  CmdRecall,
 		},
 	}
-	
+
 	app.Run(os.Args)
 
 	defer closeDB()
@@ -125,7 +126,7 @@ func CmdLogs(ctx *cli.Context) {
 
 		for _, c := range commands {
 			parrot.Info(c.String())
-		}	
+		}
 	})
 }
 
@@ -136,22 +137,22 @@ func CmdLogsById(ctx *cli.Context) {
 			parrot.Error("Error...", err)
 			return
 		}
-	
+
 		var command = repository.FindById(id)
-	
+
 		parrot.Info(command.String())
 	})
 }
 
 func CmdLast(ctx *cli.Context) {
-	commandWrapper(ctx, func() {	
+	commandWrapper(ctx, func() {
 		limit, err := intFromArguments(ctx)
-		if (err!= nil) {
+		if err != nil {
 			limit = settings.LastLimitDefault()
 		}
-		
+
 		var commands = repository.GetExecutedCommands(limit)
-	
+
 		for _, c := range commands {
 			c.Print()
 		}
@@ -159,60 +160,62 @@ func CmdLast(ctx *cli.Context) {
 }
 
 func CmdRecall(ctx *cli.Context) {
-	commandWrapper(ctx, func() {	
+	commandWrapper(ctx, func() {
 		id, err := stringFromArguments(ctx)
 		if err != nil {
 			parrot.Error("Error...", err)
 			return
 		}
-	
+
 		var stored = repository.FindById(id)
-		
+
 		var command = initializeCommand(stored.Name, stored.Arguments)
-	
+
 		executeCommand(&command)
 		finalizeCommand(&command)
 	})
 }
 
 func CmdOutput(ctx *cli.Context) {
-	commandWrapper(ctx, func() {	
+	commandWrapper(ctx, func() {
 		parrot.Debug("Output command invoked")
-		
+
 		id, err := stringFromArguments(ctx)
 		if err != nil {
 			parrot.Error("Error...", err)
 			return
 		}
-		
+
 		parrot.Debug("==> id: " + id)
-	
+
 		var command = repository.FindById(id)
-		
-		if (command.Output != "") {
+
+		if command.Output != "" {
 			parrot.Info("==> Output:")
 			parrot.Info(command.Output)
 		}
-		
-		if (command.Error != "") {
+
+		if command.Error != "" {
 			parrot.Info("==> Error:")
-			parrot.Info(command.Error)		
+			parrot.Info(command.Error)
 		}
-	})	
+	})
 }
 
 func CmdRun(ctx *cli.Context) {
-	commandWrapper(ctx, func() {	
+	commandWrapper(ctx, func() {
 		var command = initializeCommand(ctx.Args()[0], ctx.Args().Tail())
 		executeCommand(&command)
 		finalizeCommand(&command)
-	})	
+	})
 }
 
 func CmdListSettings(ctx *cli.Context) {
-	commandWrapper(ctx, func() {	
-		parrot.Info(settings.String())
-	})	
+	commandWrapper(ctx, func() {
+		buf := new(bytes.Buffer)
+		json.Indent(buf, []byte(settings.String()), "", "  ")
+		parrot.Println(buf)	
+	})
 }
 
 func CmdWrapper(ctx *cli.Context) {
@@ -253,7 +256,7 @@ func initializeCommand(name string, arguments []string) Command {
 
 	command.Name = name
 	command.Arguments = arguments
-	
+
 	command.CreatedAt = time.Now()
 	return command
 }
@@ -261,7 +264,7 @@ func initializeCommand(name string, arguments []string) Command {
 func finalizeCommand(command *Command) {
 	command.TerminatedAt = time.Now()
 	repository.Put(*command)
-	
+
 	parrot.Info("[" + command.ID + "]")
 
 }
@@ -269,11 +272,11 @@ func finalizeCommand(command *Command) {
 func executeCommand(command *Command) {
 	var bufferOutput bytes.Buffer
 	var bufferError bytes.Buffer
-	
+
 	cmd := exec.Command(command.Name, command.Arguments...)
-	
+
 	parrot.Debug("--> CommandName " + command.Name)
-	parrot.Debug("--> Command Arguments " + asJson(command.Arguments)) 
+	parrot.Debug("--> Command Arguments " + asJson(command.Arguments))
 
 	outputReader, err := cmd.StdoutPipe()
 	if err != nil {
@@ -298,7 +301,7 @@ func executeCommand(command *Command) {
 		command.Status = false
 		return
 	}
-	
+
 	scannerOutput := bufio.NewScanner(outputReader)
 	go func() {
 		for scannerOutput.Scan() {
@@ -322,10 +325,10 @@ func executeCommand(command *Command) {
 		command.Status = false
 		return
 	}
-		
+
 	command.Output = bufferOutput.String()
 	command.Error = bufferError.String()
-	
+
 	command.Status = true
 }
 
@@ -334,6 +337,6 @@ func executeCommand(command *Command) {
 // -------------------------------
 func commandWrapper(ctx *cli.Context, cmd quant.Action0) {
 	CmdWrapper(ctx)
-	
+
 	cmd()
 }
