@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 	"encoding/json"
+	"io/ioutil"
 )
 
 var parrot = quant.NewParrot("ambros")
@@ -102,6 +103,12 @@ func main() {
 			Aliases: []string{"rc"},
 			Usage:   "recall a command and execute again",
 			Action:  CmdRecall,
+		},
+		{
+			Name:    "export",
+			Aliases: []string{"ex"},
+			Usage:   "exports the output of a command to a file",
+			Action:  CmdExport,
 		},
 	}
 
@@ -218,12 +225,37 @@ func CmdListSettings(ctx *cli.Context) {
 	})
 }
 
+func CmdExport(ctx *cli.Context) {
+	commandWrapper(ctx, func() {
+		args, err := stringsFromArguments(ctx)
+		check(err)
+	
+		var command = repository.FindById(args[0])
+		
+		d1 := []byte(command.Output)
+	    err = ioutil.WriteFile(args[1], d1, 0644)
+	    check(err)
+		
+		parrot.Info(command.String())
+	})
+}
+
 func CmdWrapper(ctx *cli.Context) {
 }
 
 // ----------------
 // Arguments from command string
 // ----------------
+func stringsFromArguments(ctx *cli.Context) ([]string, error) {
+	if !ctx.Args().Present() {
+		return nil, errors.New("Value must be provided!")
+	}
+
+	str := ctx.Args()
+
+	return str, nil
+}
+
 func stringFromArguments(ctx *cli.Context) (string, error) {
 	if !ctx.Args().Present() {
 		return "", errors.New("Value must be provided!")
