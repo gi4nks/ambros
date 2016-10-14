@@ -239,7 +239,7 @@ func CmdExport(ctx *cli.Context) error {
 		err = ioutil.WriteFile(args[1], d1, 0644)
 		check(err)
 
-		parrot.Println(command.String())
+		parrot.Println("Done!")
 	})
 	return nil
 }
