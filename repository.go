@@ -2,11 +2,13 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/boltdb/bolt"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/boltdb/bolt"
 )
 
 type Repository struct {
@@ -22,13 +24,13 @@ func repositoryFullName() string {
 func (r *Repository) InitDB() {
 	var err error
 
-	b, err := existsPath(settings.RepositoryDirectory())
+	b, err := pathUtils.ExistsPath(settings.RepositoryDirectory())
 	if err != nil {
 		parrot.Error("Got error when reading repository directory", err)
 	}
 
 	if !b {
-		createPath(settings.RepositoryDirectory())
+		pathUtils.CreatePath(settings.RepositoryDirectory())
 	}
 
 	r.DB, err = bolt.Open(repositoryFullName(), 0600, nil)
@@ -61,17 +63,15 @@ func (r *Repository) CloseDB() {
 	}
 }
 
-func (r *Repository) BackupSchema() {
-	b, _ := existsPath(settings.RepositoryDirectory())
+func (r *Repository) BackupSchema() error {
+	b, _ := pathUtils.ExistsPath(settings.RepositoryDirectory())
 	if !b {
-		return
+		return errors.New("Gadget repository path does not exist")
 	}
 
 	err := os.Rename(repositoryFullName(), repositoryFullName()+".bkp")
 
-	if err != nil {
-		parrot.Error("Warning", err)
-	}
+	return err
 }
 
 // functionalities

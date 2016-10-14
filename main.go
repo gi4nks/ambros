@@ -3,21 +3,24 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"errors"
-	"github.com/codegangsta/cli"
-	"github.com/gi4nks/quant"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"strconv"
 	"time"
-	"encoding/json"
-	"io/ioutil"
+
+	"github.com/gi4nks/quant"
+	"gopkg.in/urfave/cli.v1"
 )
 
 var parrot = quant.NewParrot("ambros")
 
 var settings = Settings{}
 var repository = Repository{}
+
+var pathUtils = quant.NewPathUtils()
 
 func initDB() {
 	repository.InitDB()
@@ -34,9 +37,6 @@ func readSettings() {
 	if settings.DebugMode() {
 		parrot = quant.NewVerboseParrot("ambros")
 	}
-
-	parrot.Debug("Parrot is set to talk so much!")
-
 }
 
 func main() {
@@ -118,26 +118,28 @@ func main() {
 }
 
 // List of functions
-func CmdRevive(ctx *cli.Context) {
+func CmdRevive(ctx *cli.Context) error {
 	commandWrapper(ctx, func() {
 		parrot.Info("==> Reviving ambros will reinitialize all the statistics.")
 
 		repository.BackupSchema()
 		repository.InitSchema()
 	})
+	return nil
 }
 
-func CmdLogs(ctx *cli.Context) {
+func CmdLogs(ctx *cli.Context) error {
 	commandWrapper(ctx, func() {
 		var commands = repository.GetAllCommands()
 
 		for _, c := range commands {
-			parrot.Info(c.String())
+			parrot.Println(c.String())
 		}
 	})
+	return nil
 }
 
-func CmdLogsById(ctx *cli.Context) {
+func CmdLogsById(ctx *cli.Context) error {
 	commandWrapper(ctx, func() {
 		id, err := stringFromArguments(ctx)
 		if err != nil {
@@ -147,11 +149,12 @@ func CmdLogsById(ctx *cli.Context) {
 
 		var command = repository.FindById(id)
 
-		parrot.Info(command.String())
+		parrot.Println(command.String())
 	})
+	return nil
 }
 
-func CmdLast(ctx *cli.Context) {
+func CmdLast(ctx *cli.Context) error {
 	commandWrapper(ctx, func() {
 		limit, err := intFromArguments(ctx)
 		if err != nil {
@@ -164,9 +167,10 @@ func CmdLast(ctx *cli.Context) {
 			c.Print()
 		}
 	})
+	return nil
 }
 
-func CmdRecall(ctx *cli.Context) {
+func CmdRecall(ctx *cli.Context) error {
 	commandWrapper(ctx, func() {
 		id, err := stringFromArguments(ctx)
 		if err != nil {
@@ -181,9 +185,10 @@ func CmdRecall(ctx *cli.Context) {
 		executeCommand(&command)
 		finalizeCommand(&command)
 	})
+	return nil
 }
 
-func CmdOutput(ctx *cli.Context) {
+func CmdOutput(ctx *cli.Context) error {
 	commandWrapper(ctx, func() {
 		parrot.Debug("Output command invoked")
 
@@ -192,52 +197,51 @@ func CmdOutput(ctx *cli.Context) {
 			parrot.Error("Error...", err)
 			return
 		}
-
-		parrot.Debug("==> id: " + id)
-
 		var command = repository.FindById(id)
 
 		if command.Output != "" {
-			parrot.Info("==> Output:")
-			parrot.Info(command.Output)
+			parrot.Println(command.Output)
 		}
 
 		if command.Error != "" {
-			parrot.Info("==> Error:")
-			parrot.Info(command.Error)
+			parrot.Println(command.Error)
 		}
 	})
+	return nil
 }
 
-func CmdRun(ctx *cli.Context) {
+func CmdRun(ctx *cli.Context) error {
 	commandWrapper(ctx, func() {
 		var command = initializeCommand(ctx.Args()[0], ctx.Args().Tail())
 		executeCommand(&command)
 		finalizeCommand(&command)
 	})
+	return nil
 }
 
-func CmdListSettings(ctx *cli.Context) {
+func CmdListSettings(ctx *cli.Context) error {
 	commandWrapper(ctx, func() {
 		buf := new(bytes.Buffer)
 		json.Indent(buf, []byte(settings.String()), "", "  ")
-		parrot.Println(buf)	
+		parrot.Println(buf)
 	})
+	return nil
 }
 
-func CmdExport(ctx *cli.Context) {
+func CmdExport(ctx *cli.Context) error {
 	commandWrapper(ctx, func() {
 		args, err := stringsFromArguments(ctx)
 		check(err)
-	
+
 		var command = repository.FindById(args[0])
-		
+
 		d1 := []byte(command.Output)
-	    err = ioutil.WriteFile(args[1], d1, 0644)
-	    check(err)
-		
-		parrot.Info(command.String())
+		err = ioutil.WriteFile(args[1], d1, 0644)
+		check(err)
+
+		parrot.Println(command.String())
 	})
+	return nil
 }
 
 func CmdWrapper(ctx *cli.Context) {
@@ -297,7 +301,7 @@ func finalizeCommand(command *Command) {
 	command.TerminatedAt = time.Now()
 	repository.Put(*command)
 
-	parrot.Info("[" + command.ID + "]")
+	parrot.Println("[" + command.ID + "]")
 
 }
 
@@ -334,21 +338,31 @@ func executeCommand(command *Command) {
 		return
 	}
 
+	stopOut := make(chan bool)
+	stopErr := make(chan bool)
+
 	scannerOutput := bufio.NewScanner(outputReader)
-	go func() {
+	go func(stop chan bool) {
 		for scannerOutput.Scan() {
-			parrot.Info(scannerOutput.Text())
+			parrot.Println(scannerOutput.Text())
 			bufferOutput.WriteString(scannerOutput.Text() + "\n")
 		}
-	}()
+
+		stop <- true
+	}(stopOut)
 
 	scannerError := bufio.NewScanner(errorReader)
-	go func() {
+	go func(stop chan bool) {
 		for scannerError.Scan() {
-			parrot.Info(scannerError.Text())
+			parrot.Println(scannerError.Text())
 			bufferError.WriteString(scannerError.Text() + "\n")
 		}
-	}()
+
+		stop <- true
+	}(stopErr)
+
+	<-stopOut
+	<-stopErr
 
 	err = cmd.Wait()
 	if err != nil {
