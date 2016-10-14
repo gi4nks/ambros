@@ -3,37 +3,7 @@ package main
 import (
 	"crypto/rand"
 	"encoding/json"
-	"os"
-	"path/filepath"
-
-	"github.com/kardianos/osext"
 )
-
-func existsPath(path string) (bool, error) {
-	_, err := os.Stat(path)
-	if err == nil {
-		return true, nil
-	}
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	return true, err
-}
-
-func createPath(path string) {
-	os.Mkdir(executableFolder()+string(filepath.Separator)+path, 0777)
-}
-
-func executableFolder() string {
-	folder, err := osext.ExecutableFolder()
-	if err != nil {
-		parrot.Error("Warning", err)
-
-		return ""
-	}
-
-	return folder
-}
 
 func asJson(o interface{}) string {
 	b, err := json.Marshal(o)

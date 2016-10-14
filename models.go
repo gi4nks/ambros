@@ -2,10 +2,11 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/ttacon/chalk"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/ttacon/chalk"
 )
 
 type Entity struct {

@@ -17,7 +17,11 @@ type Settings struct {
 }
 
 func (sts *Settings) LoadSettings() {
-	folder := executableFolder()
+	folder, err := pathUtils.ExecutableFolder()
+
+	if err != nil {
+		parrot.Error("Executable forlder error", err)
+	}
 
 	file, err := ioutil.ReadFile(folder + "/conf.json")
 
