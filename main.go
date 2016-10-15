@@ -47,8 +47,8 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "ambros"
 	app.Usage = "the personal command butler!!!!"
-	app.Version = "0.0.1"
-	app.Copyright = "gi4nks - 2015"
+	app.Version = "0.1.0"
+	app.Copyright = "gi4nks - 2016"
 
 	app.Commands = []cli.Command{
 		{
@@ -57,19 +57,19 @@ func main() {
 			Usage:   "run a command, remember to run the command with -- before. (./ambros r -- ls -la)",
 			Action:  CmdRun,
 		},
-		{
+		/*{
 			Name:    "list",
 			Aliases: []string{"li"},
 			Usage:   "list current configuration settings",
 			Action:  CmdListSettings,
-		},
+		},*/
 		{
 			Name:    "revive",
 			Aliases: []string{"re"},
 			Usage:   "revive ambros",
 			Action:  CmdRevive,
 		},
-		{
+		/*{
 			Name:    "logs",
 			Aliases: []string{"lo"},
 			Usage:   "show me the logs of ambros",
@@ -85,7 +85,7 @@ func main() {
 					Action: CmdLogs,
 				},
 			},
-		},
+		},*/
 		{
 			Name:    "last",
 			Aliases: []string{"ll"},
@@ -120,7 +120,7 @@ func main() {
 // List of functions
 func CmdRevive(ctx *cli.Context) error {
 	commandWrapper(ctx, func() {
-		parrot.Info("==> Reviving ambros will reinitialize all the statistics.")
+		parrot.Println("Ambros will reinitialize all statistics.")
 
 		repository.BackupSchema()
 		repository.InitSchema()
@@ -143,7 +143,7 @@ func CmdLogsById(ctx *cli.Context) error {
 	commandWrapper(ctx, func() {
 		id, err := stringFromArguments(ctx)
 		if err != nil {
-			parrot.Error("Error...", err)
+			parrot.Println("Please provide a valid command id")
 			return
 		}
 
@@ -174,7 +174,7 @@ func CmdRecall(ctx *cli.Context) error {
 	commandWrapper(ctx, func() {
 		id, err := stringFromArguments(ctx)
 		if err != nil {
-			parrot.Error("Error...", err)
+			parrot.Println("Please provide a valid command id")
 			return
 		}
 
@@ -194,7 +194,7 @@ func CmdOutput(ctx *cli.Context) error {
 
 		id, err := stringFromArguments(ctx)
 		if err != nil {
-			parrot.Error("Error...", err)
+			parrot.Println("Please provide a valid command id")
 			return
 		}
 		var command = repository.FindById(id)
