@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"fmt"
 	"os"
 	"os/exec"
 	"strconv"
@@ -235,9 +235,19 @@ func CmdExport(ctx *cli.Context) error {
 
 		var command = repository.FindById(args[0])
 
-		d1 := []byte(command.Output)
-		err = ioutil.WriteFile(args[1], d1, 0644)
-		check(err)
+		fileHandle, _ := os.Create(args[1])
+		writer := bufio.NewWriter(fileHandle)
+		defer fileHandle.Close()
+
+		if command.Output != "" {
+			fmt.Fprintln(writer, command.Output)
+		}
+
+		if command.Error != "" {
+			fmt.Fprintln(writer, command.Error)
+		}
+
+		writer.Flush()
 
 		parrot.Println("Done!")
 	})
@@ -302,7 +312,6 @@ func finalizeCommand(command *Command) {
 	repository.Put(*command)
 
 	parrot.Println("[" + command.ID + "]")
-
 }
 
 func executeCommand(command *Command) {
