@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -41,14 +40,44 @@ func (r *Repository) InitDB() {
 
 func (r *Repository) InitSchema() error {
 	err := r.DB.Update(func(tx *bolt.Tx) error {
-		_, err := tx.CreateBucket([]byte("Commands"))
+		_, err := tx.CreateBucketIfNotExists([]byte("Commands"))
 		if err != nil {
-			return fmt.Errorf("create bucket: %s", err)
+			parrot.Error("create bucket: ", err)
+			return err
+		}
+		_, err = tx.CreateBucketIfNotExists([]byte("CommandsStack"))
+		if err != nil {
+			parrot.Error("create bucket: ", err)
+			return err
+		}
+		_, err = tx.CreateBucketIfNotExists([]byte("CommandsStored"))
+		if err != nil {
+			parrot.Error("create bucket: ", err)
+			return err
+		}
+		_, err = tx.CreateBucketIfNotExists([]byte("CommandsIndex"))
+		if err != nil {
+			parrot.Error("create bucket: ", err)
+			return err
 		}
 
-		_, err = tx.CreateBucket([]byte("CommandsIndex"))
+		return nil
+	})
+
+	return err
+}
+
+func (r *Repository) DeleteSchema() error {
+	err := r.DB.Update(func(tx *bolt.Tx) error {
+		err := tx.DeleteBucket([]byte("Commands"))
 		if err != nil {
-			return fmt.Errorf("create bucket: %s", err)
+			parrot.Error("delete bucket: ", err)
+			return err
+		}
+		err = tx.DeleteBucket([]byte("CommandsIndex"))
+		if err != nil {
+			parrot.Error("delete bucket: ", err)
+			return err
 		}
 
 		return nil
@@ -75,6 +104,27 @@ func (r *Repository) BackupSchema() error {
 }
 
 // functionalities
+
+func (r *Repository) Push(c Command) {
+	err := r.DB.Update(func(tx *bolt.Tx) error {
+		cc, err := tx.CreateBucketIfNotExists([]byte("CommandsStack"))
+
+		if err != nil {
+			return err
+		}
+
+		encoded1, err := json.Marshal(c)
+		if err != nil {
+			return err
+		}
+
+		return cc.Put([]byte(c.ID), encoded1)
+	})
+
+	if err != nil {
+		parrot.Error("Error inserting data", err)
+	}
+}
 
 func (r *Repository) Put(c Command) {
 	err := r.DB.Update(func(tx *bolt.Tx) error {
@@ -108,11 +158,11 @@ func (r *Repository) Put(c Command) {
 	}
 }
 
-func (r *Repository) FindById(id string) Command {
+func (r *Repository) findById(id string, collection string) Command {
 	var command = Command{}
 
 	err := r.DB.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("Commands"))
+		b := tx.Bucket([]byte(collection))
 		v := b.Get([]byte(id))
 
 		err := json.Unmarshal(v, &command)
@@ -130,11 +180,19 @@ func (r *Repository) FindById(id string) Command {
 	return command
 }
 
-func (r *Repository) GetAllCommands() []Command {
+func (r *Repository) FindById(id string) Command {
+	return r.findById(id, "Commands")
+}
+
+func (r *Repository) FindInStackById(id string) Command {
+	return r.findById(id, "CommandsStack")
+}
+
+func (r *Repository) getAllCommands(collection string) []Command {
 	commands := []Command{}
 
 	r.DB.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("Commands"))
+		b := tx.Bucket([]byte(collection))
 		c := b.Cursor()
 
 		for k, v := c.First(); k != nil; k, v = c.Next() {
@@ -151,6 +209,18 @@ func (r *Repository) GetAllCommands() []Command {
 	})
 
 	return commands
+}
+
+func (r *Repository) GetAllStoredCommands() []Command {
+	return r.getAllCommands("CommandsStored")
+}
+
+func (r *Repository) GetAllStackedCommands() []Command {
+	return r.getAllCommands("CommandsStack")
+}
+
+func (r *Repository) GetAllCommands() []Command {
+	return r.getAllCommands("Commands")
 }
 
 func (r *Repository) GetLimitCommands(limit int) []Command {
