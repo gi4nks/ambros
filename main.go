@@ -47,7 +47,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "ambros"
 	app.Usage = "the personal command butler!!!!"
-	app.Version = "0.1.0"
+	app.Version = "0.2.0"
 	app.Copyright = "gi4nks - 2016"
 
 	app.Commands = []cli.Command{
@@ -57,12 +57,12 @@ func main() {
 			Usage:   "run a command, remember to run the command with -- before. (./ambros r -- ls -la)",
 			Action:  CmdRun,
 		},
-		/*{
-			Name:    "list",
-			Aliases: []string{"li"},
+		{
+			Name:    "config",
+			Aliases: []string{"cf"},
 			Usage:   "list current configuration settings",
 			Action:  CmdListSettings,
-		},*/
+		},
 		{
 			Name:    "revive",
 			Aliases: []string{"re"},
@@ -87,6 +87,30 @@ func main() {
 			},
 		},*/
 		{
+			Name:    "stack",
+			Aliases: []string{"st"},
+			Usage:   "stack functionalities sub commands",
+			Subcommands: []cli.Command{
+				{
+					Name:    "push",
+					Aliases: []string{"pu"},
+					Usage:   "pushs a command to the list of executed command withou executing it",
+					Action:  CmdStackPush,
+				},
+				{
+					Name:   "all",
+					Usage:  "Get all the stacked commands",
+					Action: CmdStackAll,
+				},
+				{
+					Name:    "run",
+					Aliases: []string{"sr"},
+					Usage:   "pops a command from the list and executes it",
+					Action:  CmdStackRunId,
+				},
+			},
+		},
+		{
 			Name:    "last",
 			Aliases: []string{"ll"},
 			Usage:   "show the last executed commands ",
@@ -97,6 +121,30 @@ func main() {
 			Aliases: []string{"ou"},
 			Usage:   "show me the output of a command executed with ambros",
 			Action:  CmdOutput,
+		},
+		{
+			Name:    "store",
+			Aliases: []string{"sr"},
+			Usage:   "store functionalities sub commands",
+			Subcommands: []cli.Command{
+				{
+					Name:    "id",
+					Aliases: []string{"id"},
+					Usage:   "stres an executed command ",
+					Action:  CmdStoreId,
+				},
+				{
+					Name:   "all",
+					Usage:  "Get all the stacked commands",
+					Action: CmdStackAll,
+				},
+				{
+					Name:    "run",
+					Aliases: []string{"sr"},
+					Usage:   "pops a command from the list and executes it",
+					Action:  CmdStackRunId,
+				},
+			},
 		},
 		{
 			Name:    "recall",
@@ -123,6 +171,7 @@ func CmdRevive(ctx *cli.Context) error {
 		parrot.Println("Ambros will reinitialize all statistics.")
 
 		repository.BackupSchema()
+		repository.DeleteSchema()
 		repository.InitSchema()
 	})
 	return nil
@@ -206,6 +255,76 @@ func CmdOutput(ctx *cli.Context) error {
 		if command.Error != "" {
 			parrot.Println(command.Error)
 		}
+	})
+	return nil
+}
+
+func CmdStoreId(ctx *cli.Context) error {
+	commandWrapper(ctx, func() {
+		parrot.Debug("Output command invoked")
+
+		id, err := stringFromArguments(ctx)
+		if err != nil {
+			parrot.Println("Please provide a valid command id")
+			return
+		}
+		var command = repository.FindById(id)
+
+		if command.Output != "" {
+			parrot.Println(command.Output)
+		}
+
+		if command.Error != "" {
+			parrot.Println(command.Error)
+		}
+	})
+	return nil
+}
+
+func CmdStoreAll(ctx *cli.Context) error {
+	commandWrapper(ctx, func() {
+		var commands = repository.GetAllStoredCommands()
+
+		for _, c := range commands {
+			parrot.Println(c.String())
+		}
+	})
+	return nil
+}
+
+func CmdStackPush(ctx *cli.Context) error {
+	commandWrapper(ctx, func() {
+		var command = initializeCommand(ctx.Args()[0], ctx.Args().Tail())
+		pushCommand(&command)
+	})
+	return nil
+}
+
+func CmdStackAll(ctx *cli.Context) error {
+	commandWrapper(ctx, func() {
+		var commands = repository.GetAllStackedCommands()
+
+		for _, c := range commands {
+			parrot.Println(c.AsStackedCommand())
+		}
+	})
+	return nil
+}
+
+func CmdStackRunId(ctx *cli.Context) error {
+	commandWrapper(ctx, func() {
+		id, err := stringFromArguments(ctx)
+		if err != nil {
+			parrot.Println("Please provide a valid command id stored in the stack")
+			return
+		}
+
+		var stored = repository.FindInStackById(id)
+
+		var command = initializeCommand(stored.Name, stored.Arguments)
+
+		executeCommand(&command)
+		finalizeCommand(&command)
 	})
 	return nil
 }
@@ -310,6 +429,13 @@ func initializeCommand(name string, arguments []string) Command {
 func finalizeCommand(command *Command) {
 	command.TerminatedAt = time.Now()
 	repository.Put(*command)
+
+	parrot.Println("[" + command.ID + "]")
+}
+
+func pushCommand(command *Command) {
+	command.TerminatedAt = time.Now()
+	repository.Push(*command)
 
 	parrot.Println("[" + command.ID + "]")
 }
