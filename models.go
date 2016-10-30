@@ -75,7 +75,7 @@ func (c *Command) FromMap(frommap map[string]interface{}) {
 	c.TerminatedAt = frommap["TerminatedAt"].(time.Time)
 }
 
-func (c Command) AsStackedCommand() string {
+func (c Command) AsStoredCommand() string {
 	return "[" + c.ID + "] " + c.Name + " " + strings.Join(c.Arguments, " ")
 }
 

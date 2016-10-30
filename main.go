@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -50,64 +49,65 @@ func main() {
 	app.Version = "0.2.0"
 	app.Copyright = "gi4nks - 2016"
 
+	//app.EnableBashCompletion = true
+
 	app.Commands = []cli.Command{
+		{
+			Name:    "settings",
+			Aliases: []string{"st"},
+			Usage:   "settings sub menu",
+			Subcommands: []cli.Command{
+				{
+					Name:    "list",
+					Aliases: []string{"ls"},
+					Usage:   "list current configuration settings",
+					Action:  CmdSettingsList,
+				},
+				{
+					Name:    "revive",
+					Aliases: []string{"re"},
+					Usage:   "revive ambros",
+					Subcommands: []cli.Command{
+						{
+							Name:    "complete",
+							Aliases: []string{"com"},
+							Usage:   "revive ambros deleting completely the database",
+							Action:  CmdSettingsReviveComplete,
+						},
+						{
+							Name:    "partial",
+							Aliases: []string{"par"},
+							Usage:   "revive ambros preserving the stored commands",
+							Action:  CmdSettingsRevivePartial,
+						},
+					},
+				},
+				{
+					Name:    "logs",
+					Aliases: []string{"lo"},
+					Usage:   "show me the logs of ambros",
+					Subcommands: []cli.Command{
+						{
+							Name:   "id",
+							Usage:  "Get the log of specific id",
+							Action: CmdSettingsLogsById,
+						},
+						{
+							Name:   "all",
+							Usage:  "Get all the logs",
+							Action: CmdSettingsLogs,
+						},
+					},
+				},
+			},
+		},
 		{
 			Name:    "run",
 			Aliases: []string{"ru"},
-			Usage:   "run a command, remember to run the command with -- before. (./ambros r -- ls -la)",
+			Usage:   "run a command, remember to run the command with -- before",
 			Action:  CmdRun,
-		},
-		{
-			Name:    "config",
-			Aliases: []string{"cf"},
-			Usage:   "list current configuration settings",
-			Action:  CmdListSettings,
-		},
-		{
-			Name:    "revive",
-			Aliases: []string{"re"},
-			Usage:   "revive ambros",
-			Action:  CmdRevive,
-		},
-		/*{
-			Name:    "logs",
-			Aliases: []string{"lo"},
-			Usage:   "show me the logs of ambros",
-			Subcommands: []cli.Command{
-				{
-					Name:   "id",
-					Usage:  "Get the log of specific id",
-					Action: CmdLogsById,
-				},
-				{
-					Name:   "all",
-					Usage:  "Get all the logs",
-					Action: CmdLogs,
-				},
-			},
-		},*/
-		{
-			Name:    "stack",
-			Aliases: []string{"st"},
-			Usage:   "stack functionalities sub commands",
-			Subcommands: []cli.Command{
-				{
-					Name:    "push",
-					Aliases: []string{"pu"},
-					Usage:   "pushs a command to the list of executed command withou executing it",
-					Action:  CmdStackPush,
-				},
-				{
-					Name:   "all",
-					Usage:  "Get all the stacked commands",
-					Action: CmdStackAll,
-				},
-				{
-					Name:    "run",
-					Aliases: []string{"sr"},
-					Usage:   "pops a command from the list and executes it",
-					Action:  CmdStackRunId,
-				},
+			Flags: []cli.Flag{
+				StoreFlag,
 			},
 		},
 		{
@@ -124,33 +124,64 @@ func main() {
 		},
 		{
 			Name:    "store",
-			Aliases: []string{"sr"},
+			Aliases: []string{"st"},
 			Usage:   "store functionalities sub commands",
 			Subcommands: []cli.Command{
 				{
-					Name:    "id",
-					Aliases: []string{"id"},
-					Usage:   "stres an executed command ",
-					Action:  CmdStoreId,
+					Name:    "push",
+					Aliases: []string{"ph"},
+					Usage:   "push a not executed command in the stack",
+					Action:  CmdStorePush,
 				},
 				{
-					Name:   "all",
-					Usage:  "Get all the stacked commands",
-					Action: CmdStackAll,
+					Name:    "id",
+					Aliases: []string{"id"},
+					Usage:   "stores an executed command ",
+					Action:  CmdStoreRunId,
+				},
+				{
+					Name:    "show",
+					Aliases: []string{"sh"},
+					Usage:   "Show all the stored commands",
+					Action:  CmdStoreShow,
+				},
+				{
+					Name:  "delete",
+					Usage: "Deletes the stored commands",
+					Subcommands: []cli.Command{
+						{
+							Name:    "id",
+							Aliases: []string{"id"},
+							Usage:   "deletes specific command from the store",
+							Action:  CmdStoreDeleteById,
+						},
+						{
+							Name:    "all",
+							Aliases: []string{"all"},
+							Usage:   "deletes all stored commands",
+							Action:  CmdStoreDeleteAll,
+						},
+					},
 				},
 				{
 					Name:    "run",
-					Aliases: []string{"sr"},
+					Aliases: []string{"ru"},
 					Usage:   "pops a command from the list and executes it",
-					Action:  CmdStackRunId,
+					Action:  CmdStoreRunId,
+					Flags: []cli.Flag{
+						StoreFlag,
+					},
 				},
 			},
 		},
 		{
 			Name:    "recall",
 			Aliases: []string{"rc"},
-			Usage:   "recall a command and execute again",
+			Usage:   "recall a command and executes it again",
 			Action:  CmdRecall,
+			Flags: []cli.Flag{
+				HistoryFlag,
+			},
 		},
 		{
 			Name:    "export",
@@ -166,77 +197,6 @@ func main() {
 }
 
 // List of functions
-func CmdRevive(ctx *cli.Context) error {
-	commandWrapper(ctx, func() {
-		parrot.Println("Ambros will reinitialize all statistics.")
-
-		repository.BackupSchema()
-		repository.DeleteSchema()
-		repository.InitSchema()
-	})
-	return nil
-}
-
-func CmdLogs(ctx *cli.Context) error {
-	commandWrapper(ctx, func() {
-		var commands = repository.GetAllCommands()
-
-		for _, c := range commands {
-			parrot.Println(c.String())
-		}
-	})
-	return nil
-}
-
-func CmdLogsById(ctx *cli.Context) error {
-	commandWrapper(ctx, func() {
-		id, err := stringFromArguments(ctx)
-		if err != nil {
-			parrot.Println("Please provide a valid command id")
-			return
-		}
-
-		var command = repository.FindById(id)
-
-		parrot.Println(command.String())
-	})
-	return nil
-}
-
-func CmdLast(ctx *cli.Context) error {
-	commandWrapper(ctx, func() {
-		limit, err := intFromArguments(ctx)
-		if err != nil {
-			limit = settings.LastLimitDefault()
-		}
-
-		var commands = repository.GetExecutedCommands(limit)
-
-		for _, c := range commands {
-			c.Print()
-		}
-	})
-	return nil
-}
-
-func CmdRecall(ctx *cli.Context) error {
-	commandWrapper(ctx, func() {
-		id, err := stringFromArguments(ctx)
-		if err != nil {
-			parrot.Println("Please provide a valid command id")
-			return
-		}
-
-		var stored = repository.FindById(id)
-
-		var command = initializeCommand(stored.Name, stored.Arguments)
-
-		executeCommand(&command)
-		finalizeCommand(&command)
-	})
-	return nil
-}
-
 func CmdOutput(ctx *cli.Context) error {
 	commandWrapper(ctx, func() {
 		parrot.Debug("Output command invoked")
@@ -255,94 +215,6 @@ func CmdOutput(ctx *cli.Context) error {
 		if command.Error != "" {
 			parrot.Println(command.Error)
 		}
-	})
-	return nil
-}
-
-func CmdStoreId(ctx *cli.Context) error {
-	commandWrapper(ctx, func() {
-		parrot.Debug("Output command invoked")
-
-		id, err := stringFromArguments(ctx)
-		if err != nil {
-			parrot.Println("Please provide a valid command id")
-			return
-		}
-		var command = repository.FindById(id)
-
-		if command.Output != "" {
-			parrot.Println(command.Output)
-		}
-
-		if command.Error != "" {
-			parrot.Println(command.Error)
-		}
-	})
-	return nil
-}
-
-func CmdStoreAll(ctx *cli.Context) error {
-	commandWrapper(ctx, func() {
-		var commands = repository.GetAllStoredCommands()
-
-		for _, c := range commands {
-			parrot.Println(c.String())
-		}
-	})
-	return nil
-}
-
-func CmdStackPush(ctx *cli.Context) error {
-	commandWrapper(ctx, func() {
-		var command = initializeCommand(ctx.Args()[0], ctx.Args().Tail())
-		pushCommand(&command)
-	})
-	return nil
-}
-
-func CmdStackAll(ctx *cli.Context) error {
-	commandWrapper(ctx, func() {
-		var commands = repository.GetAllStackedCommands()
-
-		for _, c := range commands {
-			parrot.Println(c.AsStackedCommand())
-		}
-	})
-	return nil
-}
-
-func CmdStackRunId(ctx *cli.Context) error {
-	commandWrapper(ctx, func() {
-		id, err := stringFromArguments(ctx)
-		if err != nil {
-			parrot.Println("Please provide a valid command id stored in the stack")
-			return
-		}
-
-		var stored = repository.FindInStackById(id)
-
-		var command = initializeCommand(stored.Name, stored.Arguments)
-
-		executeCommand(&command)
-		finalizeCommand(&command)
-	})
-	return nil
-}
-
-func CmdRun(ctx *cli.Context) error {
-	commandWrapper(ctx, func() {
-		var command = initializeCommand(ctx.Args()[0], ctx.Args().Tail())
-		executeCommand(&command)
-		finalizeCommand(&command)
-	})
-	return nil
-}
-
-func CmdListSettings(ctx *cli.Context) error {
-	commandWrapper(ctx, func() {
-		buf := new(bytes.Buffer)
-		json.Indent(buf, []byte(settings.String()), "", "  ")
-		parrot.Println(buf)
 	})
 	return nil
 }
@@ -379,6 +251,16 @@ func CmdWrapper(ctx *cli.Context) {
 // ----------------
 // Arguments from command string
 // ----------------
+func stringsTailFromArguments(ctx *cli.Context) ([]string, error) {
+	if !ctx.Args().Present() {
+		return nil, errors.New("Value must be provided!")
+	}
+
+	str := ctx.Args().Tail()
+
+	return str, nil
+}
+
 func stringsFromArguments(ctx *cli.Context) ([]string, error) {
 	if !ctx.Args().Present() {
 		return nil, errors.New("Value must be provided!")
@@ -433,11 +315,13 @@ func finalizeCommand(command *Command) {
 	parrot.Println("[" + command.ID + "]")
 }
 
-func pushCommand(command *Command) {
+func pushCommand(command *Command, showid bool) {
 	command.TerminatedAt = time.Now()
 	repository.Push(*command)
 
-	parrot.Println("[" + command.ID + "]")
+	if showid {
+		parrot.Println("[" + command.ID + "]")
+	}
 }
 
 func executeCommand(command *Command) {
