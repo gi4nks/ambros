@@ -25,7 +25,7 @@ func (r *Repository) InitDB() {
 
 	b, err := pathUtils.ExistsPath(settings.RepositoryDirectory())
 	if err != nil {
-		parrot.Error("Got error when reading repository directory", err)
+		parrot.Println("Got error when reading repository directory", err)
 	}
 
 	if !b {
@@ -34,7 +34,7 @@ func (r *Repository) InitDB() {
 
 	r.DB, err = bolt.Open(repositoryFullName(), 0600, nil)
 	if err != nil {
-		parrot.Error("Got error creating repository directory", err)
+		parrot.Println("Got error creating repository directory", err)
 	}
 }
 
@@ -42,17 +42,17 @@ func (r *Repository) InitSchema() error {
 	err := r.DB.Update(func(tx *bolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists([]byte("Commands"))
 		if err != nil {
-			parrot.Error("create bucket: ", err)
+			parrot.Println("create bucket: ", err)
 			return err
 		}
 		_, err = tx.CreateBucketIfNotExists([]byte("CommandsStored"))
 		if err != nil {
-			parrot.Error("create bucket: ", err)
+			parrot.Println("create bucket: ", err)
 			return err
 		}
 		_, err = tx.CreateBucketIfNotExists([]byte("CommandsIndex"))
 		if err != nil {
-			parrot.Error("create bucket: ", err)
+			parrot.Println("create bucket: ", err)
 			return err
 		}
 
@@ -66,7 +66,7 @@ func (r *Repository) DeleteSchema(complete bool) error {
 	err := r.DB.Update(func(tx *bolt.Tx) error {
 		err := tx.DeleteBucket([]byte("Commands"))
 		if err != nil {
-			parrot.Error("delete bucket: ", err)
+			parrot.Println("delete bucket: ", err)
 			return err
 		}
 
@@ -74,14 +74,14 @@ func (r *Repository) DeleteSchema(complete bool) error {
 
 			err = tx.DeleteBucket([]byte("CommandsStored"))
 			if err != nil {
-				parrot.Error("delete bucket: ", err)
+				parrot.Println("delete bucket: ", err)
 				return err
 			}
 		}
 
 		err = tx.DeleteBucket([]byte("CommandsIndex"))
 		if err != nil {
-			parrot.Error("delete bucket: ", err)
+			parrot.Println("delete bucket: ", err)
 			return err
 		}
 
@@ -129,7 +129,7 @@ func (r *Repository) Push(c Command) {
 	})
 
 	if err != nil {
-		parrot.Error("Error inserting data", err)
+		parrot.Println("Error inserting data:", err)
 	}
 }
 
@@ -161,7 +161,7 @@ func (r *Repository) Put(c Command) {
 	})
 
 	if err != nil {
-		parrot.Error("Error inserting data", err)
+		parrot.Println("Error inserting data: ", err)
 	}
 }
 
@@ -181,7 +181,7 @@ func (r *Repository) findById(id string, collection string) Command {
 	})
 
 	if err != nil {
-		parrot.Error("Error getting data", err)
+		parrot.Println("No command found:", err)
 	}
 
 	return command
