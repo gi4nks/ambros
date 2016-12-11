@@ -46,7 +46,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "ambros"
 	app.Usage = "the personal command butler!!!!"
-	app.Version = "0.2.0"
+	app.Version = "0.2.1"
 	app.Copyright = "gi4nks - 2016"
 
 	//app.EnableBashCompletion = true
@@ -88,14 +88,16 @@ func main() {
 					Usage:   "show me the logs of ambros",
 					Subcommands: []cli.Command{
 						{
-							Name:   "id",
-							Usage:  "Get the log of specific id",
-							Action: CmdSettingsLogsById,
+							Name:    "id",
+							Aliases: []string{"id"},
+							Usage:   "Get the log of specific id",
+							Action:  CmdSettingsLogsById,
 						},
 						{
-							Name:   "all",
-							Usage:  "Get all the logs",
-							Action: CmdSettingsLogs,
+							Name:    "all",
+							Aliases: []string{"all"},
+							Usage:   "Get all the logs",
+							Action:  CmdSettingsLogs,
 						},
 					},
 				},
@@ -124,20 +126,20 @@ func main() {
 		},
 		{
 			Name:    "store",
-			Aliases: []string{"st"},
+			Aliases: []string{"so"},
 			Usage:   "store functionalities sub commands",
 			Subcommands: []cli.Command{
-				{
-					Name:    "push",
-					Aliases: []string{"ph"},
-					Usage:   "push a not executed command in the stack",
-					Action:  CmdStorePush,
-				},
 				{
 					Name:    "id",
 					Aliases: []string{"id"},
 					Usage:   "stores an executed command ",
 					Action:  CmdStoreRunId,
+				},
+				{
+					Name:    "push",
+					Aliases: []string{"pu"},
+					Usage:   "push a not executed command in the stack",
+					Action:  CmdStorePush,
 				},
 				{
 					Name:    "show",

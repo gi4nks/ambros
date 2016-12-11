@@ -28,16 +28,11 @@ func CmdStoreRunId(ctx *cli.Context) error {
 			return
 		}
 
-		var stored = repository.FindInStoreById(id)
+		var stored = repository.FindById(id)
 
 		var command = initializeCommand(stored.Name, stored.Arguments)
 
-		executeCommand(&command)
-		finalizeCommand(&command)
-
-		if ctx.Bool("store") {
-			pushCommand(&command, false)
-		}
+		pushCommand(&command, true)
 	})
 	return nil
 }
