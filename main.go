@@ -46,7 +46,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "ambros"
 	app.Usage = "the personal command butler!!!!"
-	app.Version = "0.2.1"
+	app.Version = "0.2.2"
 	app.Copyright = "gi4nks - 2016"
 
 	//app.EnableBashCompletion = true
@@ -190,6 +190,9 @@ func main() {
 			Aliases: []string{"ex"},
 			Usage:   "exports the output of a command to a file",
 			Action:  CmdExport,
+			Flags: []cli.Flag{
+				HistoryFlag,
+			},
 		},
 	}
 
@@ -202,20 +205,36 @@ func main() {
 func CmdExport(ctx *cli.Context) error {
 	commandWrapper(ctx, func() {
 		args, err := stringsFromArguments(ctx)
-		check(err)
+		if err != nil {
+			parrot.Println("Please provide a valid command id stored and valid output file")
+			return
+		}
 
-		var command = repository.FindById(args[0])
+		if len(args) != 2 {
+			parrot.Println("Wrong number of arguments")
+			return
+		}
 
-		fileHandle, _ := os.Create(args[1])
+		id := args[0]
+		fl := args[1]
+
+		var stored Command
+		if ctx.Bool("history") {
+			stored = repository.FindInStoreById(id)
+		} else {
+			stored = repository.FindById(id)
+		}
+
+		fileHandle, _ := os.Create(fl)
 		writer := bufio.NewWriter(fileHandle)
 		defer fileHandle.Close()
 
-		if command.Output != "" {
-			fmt.Fprintln(writer, command.Output)
+		if stored.Output != "" {
+			fmt.Fprintln(writer, stored.Output)
 		}
 
-		if command.Error != "" {
-			fmt.Fprintln(writer, command.Error)
+		if stored.Error != "" {
+			fmt.Fprintln(writer, stored.Error)
 		}
 
 		writer.Flush()
