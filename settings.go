@@ -3,6 +3,11 @@ package main
 import (
 	"encoding/json"
 	"io/ioutil"
+	"path/filepath"
+
+	"os"
+
+	homedir "github.com/mitchellh/go-homedir"
 )
 
 type Configuration struct {
@@ -17,17 +22,20 @@ type Settings struct {
 }
 
 func (sts *Settings) LoadSettings() {
-	folder, err := pathUtils.ExecutableFolder()
-
-	if err != nil {
-		parrot.Error("Executable forlder error", err)
+	folder, err := appDataFolder()
+	if err == nil {
+		err = os.MkdirAll(folder, 0700)
 	}
 
-	file, err := ioutil.ReadFile(folder + "/conf.json")
+	if err != nil {
+		parrot.Error("Application data folder error", err)
+	}
+
+	file, err := ioutil.ReadFile(filepath.Join(folder, "conf.json"))
 
 	if err != nil {
 		sts.configs = Configuration{}
-		sts.configs.RepositoryDirectory = folder + "/" + ConstRepositoryDirectory
+		sts.configs.RepositoryDirectory = ConstRepositoryDirectory
 		sts.configs.RepositoryFile = ConstRepositoryFile
 		sts.configs.LastCountDefault = ConstLastCountDefault
 		sts.configs.DebugMode = ConstDebugMode
@@ -37,12 +45,12 @@ func (sts *Settings) LoadSettings() {
 
 		parrot.Debug("folder: " + folder)
 		parrot.Debug("file: " + asJson(sts.configs))
-
 	}
 }
 
 func (sts Settings) RepositoryDirectory() string {
-	return sts.configs.RepositoryDirectory
+	val, _ := homedir.Expand(sts.configs.RepositoryDirectory)
+	return val
 }
 
 func (sts Settings) RepositoryFile() string {
