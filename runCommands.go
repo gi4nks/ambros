@@ -1,5 +1,6 @@
 package main
 
+/*
 import (
 	"gopkg.in/urfave/cli.v1"
 )
@@ -75,3 +76,4 @@ func CmdRecall(ctx *cli.Context) error {
 	})
 	return nil
 }
+*/
