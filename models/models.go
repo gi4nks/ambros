@@ -1,4 +1,4 @@
-package main
+package models
 
 import (
 	"encoding/json"
@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/ttacon/chalk"
+
+	"github.com/gi4nks/quant"
 )
 
 type Entity struct {
@@ -17,6 +19,9 @@ type Entity struct {
 
 type Command struct {
 	Entity
+
+	parrot *quant.Parrot
+
 	Name      string
 	Arguments []string
 	Status    bool
@@ -25,6 +30,8 @@ type Command struct {
 }
 
 type ExecutedCommand struct {
+	parrot *quant.Parrot
+
 	Order   int
 	ID      string
 	Command string
@@ -36,7 +43,7 @@ func (c Command) String() string {
 	b, err := json.Marshal(c)
 
 	if err != nil {
-		parrot.Error("Warning", err)
+		c.parrot.Error("Warning", err)
 		return "{}"
 	}
 	return string(b)
@@ -84,12 +91,12 @@ func (c ExecutedCommand) AsFlatCommand() string {
 }
 
 func (c ExecutedCommand) Print() {
-	parrot.Print("{", chalk.Yellow, c.When.Format("02.01.2006 15:04:05"), chalk.Reset, "} ")
+	c.parrot.Print("{", chalk.Yellow, c.When.Format("02.01.2006 15:04:05"), chalk.Reset, "} ")
 
 	if c.Status {
-		parrot.Print("[", chalk.Green, c.ID, chalk.Reset, "] ")
+		c.parrot.Print("[", chalk.Green, c.ID, chalk.Reset, "] ")
 	} else {
-		parrot.Print("[", chalk.Red, c.ID, chalk.Reset, "] ")
+		c.parrot.Print("[", chalk.Red, c.ID, chalk.Reset, "] ")
 	}
-	parrot.Println(c.Command)
+	c.parrot.Println(c.Command)
 }

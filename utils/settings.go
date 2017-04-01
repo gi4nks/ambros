@@ -1,8 +1,11 @@
-package main
+package utils
 
 import (
 	"encoding/json"
 	"io/ioutil"
+	"path/filepath"
+
+	"github.com/gi4nks/quant"
 )
 
 type Configuration struct {
@@ -13,14 +16,21 @@ type Configuration struct {
 }
 
 type Settings struct {
-	configs Configuration
+	parrot    *quant.Parrot
+	pathUtils *quant.PathUtils
+	utilities *Utilities
+	configs   Configuration
+}
+
+func NewSettings(p quant.Parrot, pu quant.PathUtils, u Utilities) *Settings {
+	return &Settings{parrot: &p, pathUtils: &pu, utilities: &u}
 }
 
 func (sts *Settings) LoadSettings() {
-	folder, err := pathUtils.ExecutableFolder()
+	folder, err := sts.pathUtils.ExecutableFolder()
 
 	if err != nil {
-		parrot.Error("Executable forlder error", err)
+		sts.parrot.Error("Executable forlder error", err)
 	}
 
 	file, err := ioutil.ReadFile(folder + "/conf.json")
@@ -35,10 +45,11 @@ func (sts *Settings) LoadSettings() {
 	} else {
 		json.Unmarshal(file, &sts.configs)
 
-		parrot.Debug("folder: " + folder)
-		parrot.Debug("file: " + asJson(sts.configs))
-
+		sts.parrot.Debug("folder: " + folder)
+		sts.parrot.Debug("file: " + sts.utilities.AsJson(sts.configs))
 	}
+
+	sts.parrot.Println("config", sts.configs)
 }
 
 func (sts Settings) RepositoryDirectory() string {
@@ -60,8 +71,16 @@ func (sts Settings) DebugMode() bool {
 func (sts Settings) String() string {
 	b, err := json.Marshal(sts.configs)
 	if err != nil {
-		parrot.Error("Warning", err)
+		sts.parrot.Error("Warning", err)
 		return "{}"
 	}
 	return string(b)
+}
+
+func (sts Settings) RepositoryFullName() string {
+
+	sts.parrot.Println("1", sts.RepositoryDirectory())
+	sts.parrot.Println("2", string(filepath.Separator))
+	sts.parrot.Println("3", sts.RepositoryFile())
+	return sts.RepositoryDirectory() + string(filepath.Separator) + sts.RepositoryFile()
 }

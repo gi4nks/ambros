@@ -1,5 +1,6 @@
 package main
 
+/*
 import (
 	"bytes"
 	"encoding/json"
@@ -63,3 +64,4 @@ func CmdSettingsLogsById(ctx *cli.Context) error {
 	})
 	return nil
 }
+*/

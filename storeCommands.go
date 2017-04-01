@@ -1,5 +1,6 @@
 package main
 
+/*
 import (
 	"gopkg.in/urfave/cli.v1"
 )
@@ -77,3 +78,4 @@ func CmdStoreDeleteAll(ctx *cli.Context) error {
 	})
 	return nil
 }
+*/
