@@ -27,3 +27,5 @@ ambros
 git.txt
 tmp/ambros.db
 tmp/ambros.db.bkp
+
+vendor/
