@@ -11,31 +11,14 @@ import (
 	models "github.com/gi4nks/ambros/models"
 	repos "github.com/gi4nks/ambros/repos"
 	utils "github.com/gi4nks/ambros/utils"
-	"github.com/gi4nks/quant"
+	"github.com/gi4nks/quant/functions"
+	"github.com/gi4nks/quant/parrot"
 )
 
-var ParrotGlobal = quant.NewParrot("ambros")
-var PathUtilsGlobal = quant.NewPathUtils()
-var UtilitiesGlobal = utils.NewUtilities(*ParrotGlobal)
-var SettingsGlobal = utils.NewSettings(*ParrotGlobal, *PathUtilsGlobal, *UtilitiesGlobal)
-var RepositoryGlobal = repos.NewRepository(*ParrotGlobal, *PathUtilsGlobal, *SettingsGlobal)
-
-func initDB() {
-	RepositoryGlobal.InitDB()
-	RepositoryGlobal.InitSchema()
-}
-
-func closeDB() {
-	RepositoryGlobal.CloseDB()
-}
-
-func readSettings() {
-	SettingsGlobal.LoadSettings()
-
-	if SettingsGlobal.DebugMode() {
-		ParrotGlobal = quant.NewVerboseParrot("ambros")
-	}
-}
+var Parrot parrot.Parrot
+var Utilities utils.Utilities
+var Settings utils.Settings
+var Repository repos.Repository
 
 // -------------------------------
 // Cli command wrapper
@@ -43,16 +26,10 @@ func readSettings() {
 func CmdWrapper(args []string) {
 }
 
-func commandWrapper(args []string, cmd quant.Action0) {
-	// inject global variables in other subpackages
-	readSettings()
-	initDB()
-
+func commandWrapper(args []string, cmd functions.Action0) {
 	CmdWrapper(args)
 
 	cmd()
-
-	defer closeDB()
 }
 
 // ----------------
@@ -60,7 +37,7 @@ func commandWrapper(args []string, cmd quant.Action0) {
 // ----------------
 func initializeCommand(name string, arguments []string) models.Command {
 	var command = models.Command{}
-	command.ID = UtilitiesGlobal.Random()
+	command.ID = Utilities.Random()
 
 	command.Name = name
 	command.Arguments = arguments
@@ -71,17 +48,17 @@ func initializeCommand(name string, arguments []string) models.Command {
 
 func finalizeCommand(command *models.Command) {
 	command.TerminatedAt = time.Now()
-	RepositoryGlobal.Put(*command)
+	Repository.Put(*command)
 
-	ParrotGlobal.Println("[" + command.ID + "]")
+	Parrot.Println("[" + command.ID + "]")
 }
 
 func pushCommand(command *models.Command, showid bool) {
 	command.TerminatedAt = time.Now()
-	RepositoryGlobal.Push(*command)
+	Repository.Push(*command)
 
 	if showid {
-		ParrotGlobal.Println("[" + command.ID + "]")
+		Parrot.Println("[" + command.ID + "]")
 	}
 }
 
@@ -91,12 +68,12 @@ func executeCommand(command *models.Command) {
 
 	cmd := exec.Command(command.Name, command.Arguments...)
 
-	ParrotGlobal.Debug("--> CommandName " + command.Name)
-	ParrotGlobal.Debug("--> Command Arguments " + UtilitiesGlobal.AsJson(command.Arguments))
+	Parrot.Debug("--> CommandName " + command.Name)
+	Parrot.Debug("--> Command Arguments " + Utilities.AsJson(command.Arguments))
 
 	outputReader, err := cmd.StdoutPipe()
 	if err != nil {
-		ParrotGlobal.Error("Error creating StdoutPipe for Cmd", err)
+		Parrot.Error("Error creating StdoutPipe for Cmd", err)
 		command.Error = err.Error()
 		command.Status = false
 		return
@@ -104,7 +81,7 @@ func executeCommand(command *models.Command) {
 
 	errorReader, err := cmd.StderrPipe()
 	if err != nil {
-		ParrotGlobal.Error("Error creating StderrPipe for Cmd", err)
+		Parrot.Error("Error creating StderrPipe for Cmd", err)
 		command.Error = err.Error()
 		command.Status = false
 		return
@@ -112,7 +89,7 @@ func executeCommand(command *models.Command) {
 
 	err = cmd.Start()
 	if err != nil {
-		ParrotGlobal.Error("Error starting Cmd", err)
+		Parrot.Error("Error starting Cmd", err)
 		command.Error = err.Error()
 		command.Status = false
 		return
@@ -124,7 +101,7 @@ func executeCommand(command *models.Command) {
 	scannerOutput := bufio.NewScanner(outputReader)
 	go func(stop chan bool) {
 		for scannerOutput.Scan() {
-			ParrotGlobal.Println(scannerOutput.Text())
+			Parrot.Println(scannerOutput.Text())
 			bufferOutput.WriteString(scannerOutput.Text() + "\n")
 		}
 
@@ -134,7 +111,7 @@ func executeCommand(command *models.Command) {
 	scannerError := bufio.NewScanner(errorReader)
 	go func(stop chan bool) {
 		for scannerError.Scan() {
-			ParrotGlobal.Println(scannerError.Text())
+			Parrot.Println(scannerError.Text())
 			bufferError.WriteString(scannerError.Text() + "\n")
 		}
 
@@ -146,7 +123,7 @@ func executeCommand(command *models.Command) {
 
 	err = cmd.Wait()
 	if err != nil {
-		ParrotGlobal.Error("Error waiting for Cmd", err)
+		Parrot.Error("Error waiting for Cmd", err)
 		command.Error = err.Error()
 		command.Status = false
 		return
