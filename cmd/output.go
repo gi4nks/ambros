@@ -30,21 +30,21 @@ This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		commandWrapper(args, func() {
-			ParrotGlobal.Debug("Output command invoked")
+			Parrot.Debug("Output command invoked")
 
 			id, err := stringFromArguments(args)
 			if err != nil {
-				ParrotGlobal.Println("Please provide a valid command id")
+				Parrot.Println("Please provide a valid command id")
 				return
 			}
-			var command = RepositoryGlobal.FindById(id)
+			var command = Repository.FindById(id)
 
 			if command.Output != "" {
-				ParrotGlobal.Println(command.Output)
+				Parrot.Println(command.Output)
 			}
 
 			if command.Error != "" {
-				ParrotGlobal.Println(command.Error)
+				Parrot.Println(command.Error)
 			}
 		})
 	},

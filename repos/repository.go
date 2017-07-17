@@ -9,19 +9,19 @@ import (
 	"github.com/boltdb/bolt"
 	models "github.com/gi4nks/ambros/models"
 	utils "github.com/gi4nks/ambros/utils"
-	"github.com/gi4nks/quant"
+	"github.com/gi4nks/quant/parrot"
+	"github.com/gi4nks/quant/paths"
 )
 
 type Repository struct {
-	parrot    *quant.Parrot
-	pathUtils *quant.PathUtils
-	settings  *utils.Settings
+	parrot   *parrot.Parrot
+	settings *utils.Settings
 
 	DB *bolt.DB
 }
 
-func NewRepository(p quant.Parrot, pu quant.PathUtils, sts utils.Settings) *Repository {
-	return &Repository{parrot: &p, pathUtils: &pu, settings: &sts}
+func NewRepository(p parrot.Parrot, sts utils.Settings) *Repository {
+	return &Repository{parrot: &p, settings: &sts}
 }
 
 //
@@ -30,13 +30,15 @@ func (r *Repository) InitDB() {
 
 	r.parrot.Println("sts 1", r.settings)
 
-	b, err := r.pathUtils.ExistsPath(r.settings.RepositoryDirectory())
+	r.parrot.Println("sts 1", r.settings)
+
+	b, err := paths.ExistsPath(r.settings.RepositoryDirectory())
 	if err != nil {
 		r.parrot.Println("Got error when reading repository directory", err)
 	}
 
 	if !b {
-		r.pathUtils.CreatePath(r.settings.RepositoryDirectory())
+		paths.CreatePath(r.settings.RepositoryDirectory())
 	}
 
 	r.parrot.Println("--", r.settings.RepositoryFullName())
@@ -109,7 +111,7 @@ func (r *Repository) CloseDB() {
 }
 
 func (r *Repository) BackupSchema() error {
-	b, _ := r.pathUtils.ExistsPath(r.settings.RepositoryDirectory())
+	b, _ := paths.ExistsPath(r.settings.RepositoryDirectory())
 	if !b {
 		return errors.New("Gadget repository path does not exist")
 	}

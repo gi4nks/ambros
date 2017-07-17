@@ -5,7 +5,8 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	"github.com/gi4nks/quant"
+	"github.com/gi4nks/quant/parrot"
+	"github.com/gi4nks/quant/paths"
 )
 
 type Configuration struct {
@@ -16,18 +17,17 @@ type Configuration struct {
 }
 
 type Settings struct {
-	parrot    *quant.Parrot
-	pathUtils *quant.PathUtils
+	parrot    *parrot.Parrot
 	utilities *Utilities
 	configs   Configuration
 }
 
-func NewSettings(p quant.Parrot, pu quant.PathUtils, u Utilities) *Settings {
-	return &Settings{parrot: &p, pathUtils: &pu, utilities: &u}
+func NewSettings(p parrot.Parrot, u Utilities) *Settings {
+	return &Settings{parrot: &p, utilities: &u}
 }
 
 func (sts *Settings) LoadSettings() {
-	folder, err := sts.pathUtils.ExecutableFolder()
+	folder, err := paths.ExecutableFolder()
 
 	if err != nil {
 		sts.parrot.Error("Executable forlder error", err)
@@ -45,11 +45,11 @@ func (sts *Settings) LoadSettings() {
 	} else {
 		json.Unmarshal(file, &sts.configs)
 
-		sts.parrot.Debug("folder: " + folder)
-		sts.parrot.Debug("file: " + sts.utilities.AsJson(sts.configs))
+		//sts.parrot.Println("> folder: " + folder)
+		//sts.parrot.Println("> file: " + sts.utilities.AsJson(sts.configs))
 	}
 
-	sts.parrot.Println("config", sts.configs)
+	//sts.parrot.Println("> config", sts.configs)
 }
 
 func (sts Settings) RepositoryDirectory() string {
