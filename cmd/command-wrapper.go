@@ -16,8 +16,8 @@ import (
 )
 
 var Parrot parrot.Parrot
-var Utilities utils.Utilities
 var Settings utils.Settings
+var Utilities utils.Utilities
 var Repository repos.Repository
 
 // -------------------------------
@@ -27,9 +27,16 @@ func CmdWrapper(args []string) {
 }
 
 func commandWrapper(args []string, cmd functions.Action0) {
+	Repository = repos.NewRepository(*Parrot, *Settings)
+	
+	Repository.InitDB()
+	Repository.InitSchema(
+
 	CmdWrapper(args)
 
 	cmd()
+	
+	defer Repository.CloseDB()
 }
 
 // ----------------
