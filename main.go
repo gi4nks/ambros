@@ -16,16 +16,6 @@ var ParrotGlobal = parrot.NewParrot("ambros")
 
 var UtilitiesGlobal = utils.NewUtilities(*ParrotGlobal)
 var SettingsGlobal = utils.NewSettings(*ParrotGlobal, *UtilitiesGlobal)
-var RepositoryGlobal = repos.NewRepository(*ParrotGlobal, *SettingsGlobal)
-
-func initDB() {
-	RepositoryGlobal.InitDB()
-	RepositoryGlobal.InitSchema()
-}
-
-func closeDB() {
-	RepositoryGlobal.CloseDB()
-}
 
 func readSettings() {
 	SettingsGlobal.LoadSettings()
@@ -38,19 +28,15 @@ func readSettings() {
 func main() {
 	// inject global variables in other subpackages
 	readSettings()
-	initDB()
 
 	cmd.Parrot = *ParrotGlobal
 	cmd.Utilities = *UtilitiesGlobal
 	cmd.Settings = *SettingsGlobal
-	cmd.Repository = *RepositoryGlobal
 
 	if err := cmd.RootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(-1)
 	}
-
-	defer closeDB()
 
 	/*
 
