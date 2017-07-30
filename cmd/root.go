@@ -19,9 +19,19 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/gi4nks/quant"
+
+	repos "github.com/gi4nks/ambros/repos"
+	utils "github.com/gi4nks/ambros/utils"
 )
 
 var cfgFile string
+
+var Parrot = quant.NewParrot("ambros")
+var Utilities = utils.NewUtilities(*Parrot)
+var Configuration = utils.NewConfiguration(*Parrot)
+var Repository = &repos.Repository{}
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
@@ -69,4 +79,36 @@ func initConfig() {
 	if err := viper.ReadInConfig(); err == nil {
 		Parrot.Println("Using config file:", viper.ConfigFileUsed())
 	}
+
+	/* -------------------------- */
+	/* initialize the application */
+	/* -------------------------- */
+	folder, err := quant.ExecutableFolder()
+
+	if err != nil {
+		Parrot.Error("Executable folder error", err)
+	}
+
+	if viper.GetString("repositoryDirectory") != "" {
+		Configuration.RepositoryDirectory = folder + "/" + viper.GetString("repositoryDirectory")
+	} else {
+		Configuration.RepositoryDirectory = folder + "/" + Configuration.RepositoryDirectory
+	}
+
+	if viper.GetString("repositoryFile") != "" {
+		Configuration.RepositoryFile = viper.GetString("repositoryFile")
+	}
+
+	if viper.GetInt("lastCountDefault") >= 0 {
+		Configuration.LastCountDefault = viper.GetInt("lastCountDefault")
+	}
+
+	Configuration.DebugMode = viper.GetBool("debugMode")
+
+	if Configuration.DebugMode {
+		Parrot = quant.NewVerboseParrot("ambros")
+	}
+
+	Repository = repos.NewRepository(*Parrot, *Configuration)
+
 }

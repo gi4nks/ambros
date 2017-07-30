@@ -8,7 +8,7 @@ import (
 
 	"github.com/ttacon/chalk"
 
-	"github.com/gi4nks/quant/parrot"
+	"github.com/gi4nks/quant"
 )
 
 type Entity struct {
@@ -20,7 +20,7 @@ type Entity struct {
 type Command struct {
 	Entity
 
-	parrot *parrot.Parrot
+	parrot *quant.Parrot
 
 	Name      string
 	Arguments []string
@@ -30,7 +30,7 @@ type Command struct {
 }
 
 type ExecutedCommand struct {
-	parrot *parrot.Parrot
+	parrot *quant.Parrot
 
 	Order   int
 	ID      string
