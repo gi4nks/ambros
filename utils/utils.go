@@ -4,14 +4,14 @@ import (
 	"crypto/rand"
 	"encoding/json"
 
-	"github.com/gi4nks/quant/parrot"
+	"github.com/gi4nks/quant"
 )
 
 type Utilities struct {
-	parrot *parrot.Parrot
+	parrot *quant.Parrot
 }
 
-func NewUtilities(p parrot.Parrot) *Utilities {
+func NewUtilities(p quant.Parrot) *Utilities {
 	return &Utilities{parrot: &p}
 }
 

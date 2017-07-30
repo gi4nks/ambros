@@ -9,16 +9,8 @@ import (
 	"time"
 
 	models "github.com/gi4nks/ambros/models"
-	repos "github.com/gi4nks/ambros/repos"
-	utils "github.com/gi4nks/ambros/utils"
-	"github.com/gi4nks/quant/functions"
-	"github.com/gi4nks/quant/parrot"
+	"github.com/gi4nks/quant"
 )
-
-var Parrot parrot.Parrot
-var Settings utils.Settings
-var Utilities utils.Utilities
-var Repository repos.Repository
 
 // -------------------------------
 // Cli command wrapper
@@ -26,16 +18,14 @@ var Repository repos.Repository
 func CmdWrapper(args []string) {
 }
 
-func commandWrapper(args []string, cmd functions.Action0) {
-	Repository = repos.NewRepository(*Parrot, *Settings)
-	
+func commandWrapper(args []string, cmd quant.Action0) {
 	Repository.InitDB()
-	Repository.InitSchema(
+	Repository.InitSchema()
 
 	CmdWrapper(args)
 
 	cmd()
-	
+
 	defer Repository.CloseDB()
 }
 

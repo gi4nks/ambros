@@ -9,41 +9,40 @@ import (
 	"github.com/boltdb/bolt"
 	models "github.com/gi4nks/ambros/models"
 	utils "github.com/gi4nks/ambros/utils"
-	"github.com/gi4nks/quant/parrot"
-	"github.com/gi4nks/quant/paths"
+	"github.com/gi4nks/quant"
 )
 
 type Repository struct {
-	parrot   *parrot.Parrot
-	settings *utils.Settings
+	parrot        *quant.Parrot
+	configuration *utils.Configuration
 
 	DB *bolt.DB
 }
 
-func NewRepository(p parrot.Parrot, sts utils.Settings) *Repository {
-	return &Repository{parrot: &p, settings: &sts}
+func NewRepository(p quant.Parrot, c utils.Configuration) *Repository {
+	return &Repository{parrot: &p, configuration: &c}
 }
 
 //
 func (r *Repository) InitDB() {
 	var err error
 
-	r.parrot.Println("sts 1", r.settings)
+	r.parrot.Println("c 1", r.configuration)
 
-	r.parrot.Println("sts 1", r.settings)
+	r.parrot.Println("c 1", r.configuration)
 
-	b, err := paths.ExistsPath(r.settings.RepositoryDirectory())
+	b, err := quant.ExistsPath(r.configuration.RepositoryDirectory)
 	if err != nil {
 		r.parrot.Println("Got error when reading repository directory", err)
 	}
 
 	if !b {
-		paths.CreatePath(r.settings.RepositoryDirectory())
+		quant.CreatePath(r.configuration.RepositoryDirectory)
 	}
 
-	r.parrot.Println("--", r.settings.RepositoryFullName())
+	r.parrot.Println("--", r.configuration.RepositoryFullName())
 
-	r.DB, err = bolt.Open(r.settings.RepositoryFullName(), 0600, nil)
+	r.DB, err = bolt.Open(r.configuration.RepositoryFullName(), 0600, nil)
 	if err != nil {
 		r.parrot.Println("Got error creating repository directory", err)
 	}
@@ -111,13 +110,13 @@ func (r *Repository) CloseDB() {
 }
 
 func (r *Repository) BackupSchema() error {
-	b, _ := paths.ExistsPath(r.settings.RepositoryDirectory())
+	b, _ := quant.ExistsPath(r.configuration.RepositoryDirectory)
 	if !b {
 		return errors.New("Gadget repository path does not exist")
 	}
 
 	err := r.DB.View(func(tx *bolt.Tx) error {
-		return tx.CopyFile(r.settings.RepositoryFullName()+".bkp", 0600)
+		return tx.CopyFile(r.configuration.RepositoryFullName()+".bkp", 0600)
 	})
 
 	return err

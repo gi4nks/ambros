@@ -5,34 +5,9 @@ import (
 	"os"
 
 	"github.com/gi4nks/ambros/cmd"
-
-	"github.com/gi4nks/quant/parrot"
-
-	repos "github.com/gi4nks/ambros/repos"
-	utils "github.com/gi4nks/ambros/utils"
 )
 
-var ParrotGlobal = parrot.NewParrot("ambros")
-
-var UtilitiesGlobal = utils.NewUtilities(*ParrotGlobal)
-var SettingsGlobal = utils.NewSettings(*ParrotGlobal, *UtilitiesGlobal)
-
-func readSettings() {
-	SettingsGlobal.LoadSettings()
-
-	if SettingsGlobal.DebugMode() {
-		ParrotGlobal = parrot.NewVerboseParrot("ambros")
-	}
-}
-
 func main() {
-	// inject global variables in other subpackages
-	readSettings()
-
-	cmd.Parrot = *ParrotGlobal
-	cmd.Utilities = *UtilitiesGlobal
-	cmd.Settings = *SettingsGlobal
-
 	if err := cmd.RootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(-1)
