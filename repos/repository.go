@@ -27,10 +27,6 @@ func NewRepository(p quant.Parrot, c utils.Configuration) *Repository {
 func (r *Repository) InitDB() {
 	var err error
 
-	r.parrot.Println("c 1", r.configuration)
-
-	r.parrot.Println("c 1", r.configuration)
-
 	b, err := quant.ExistsPath(r.configuration.RepositoryDirectory)
 	if err != nil {
 		r.parrot.Println("Got error when reading repository directory", err)
@@ -40,14 +36,14 @@ func (r *Repository) InitDB() {
 		quant.CreatePath(r.configuration.RepositoryDirectory)
 	}
 
-	r.parrot.Println("--", r.configuration.RepositoryFullName())
+	//r.parrot.Println("--", r.configuration.RepositoryFullName())
 
 	r.DB, err = bolt.Open(r.configuration.RepositoryFullName(), 0600, nil)
 	if err != nil {
 		r.parrot.Println("Got error creating repository directory", err)
 	}
 
-	r.parrot.Println(r.DB)
+	//r.parrot.Println(r.DB)
 }
 
 func (r *Repository) InitSchema() error {
