@@ -13,26 +13,20 @@ var runCmd = &cobra.Command{
 		commandWrapper(args, func() {
 			Parrot.Debug("Run command invoked")
 
-			cmd, err := stringFromArguments(args)
-
-			Parrot.Println("-->", cmd, len(args))
-			if err != nil {
-				Parrot.Println("Please provide a valid command")
-				return
-			}
-
-			as, err := stringsFromArguments(args)
+			c, as, err := commandFromArguments(args)
 
 			if err != nil {
 				Parrot.Println("Please provide a valid command")
 				return
 			}
 
-			Parrot.Println("-->", as)
-
-			var command = initializeCommand(cmd, as)
+			var command = initializeCommand(c, as)
 			executeCommand(&command)
 			finalizeCommand(&command)
+
+			if cmd.Flag("store").Changed == true {
+				pushCommand(&command, false)
+			}
 
 			/*
 				if ctx.Bool("store") {
@@ -55,5 +49,6 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// outputCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	runCmd.Flags().BoolP("store", "s", false, "HStore the results")
 
 }
