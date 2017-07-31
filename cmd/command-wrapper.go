@@ -135,6 +135,14 @@ func executeCommand(command *models.Command) {
 // ----------------
 // Arguments from command string
 // ----------------
+func commandFromArguments(args []string) (string, []string, error) {
+	if len(args) <= 0 {
+		return "", nil, errors.New("Value must be provided!")
+	}
+
+	return args[0], Utilities.Tail(args), nil
+}
+
 func stringsFromArguments(args []string) ([]string, error) {
 	if len(args) <= 0 {
 		return nil, errors.New("Value must be provided!")
@@ -144,7 +152,7 @@ func stringsFromArguments(args []string) ([]string, error) {
 }
 
 func stringFromArguments(args []string) (string, error) {
-	if len(args) != 1 {
+	if len(args) < 1 {
 		return "", errors.New("Value must be provided!")
 	}
 
