@@ -15,18 +15,24 @@ var recallCmd = &cobra.Command{
 		commandWrapper(args, func() {
 			Parrot.Debug("Recall command invoked")
 
-			id, err := stringFromArguments(args)
-			if err != nil {
+			id, err1 := stringFromArguments(args)
+			if err1 != nil {
 				Parrot.Println("Please provide a valid command id")
 				return
 			}
 
 			var stored models.Command
+			var err error
 
 			if cmd.Flag("history").Changed == true {
-				stored = Repository.FindInStoreById(id)
+				stored, err = Repository.FindInStoreById(id)
 			} else {
-				stored = Repository.FindById(id)
+				stored, err = Repository.FindById(id)
+			}
+
+			if err != nil {
+				Parrot.Println("Id not available in the store (" + id + ")")
+				return
 			}
 
 			var command = initializeCommand(stored.Name, stored.Arguments)

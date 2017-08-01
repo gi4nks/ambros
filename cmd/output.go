@@ -13,12 +13,17 @@ var outputCmd = &cobra.Command{
 		commandWrapper(args, func() {
 			Parrot.Debug("Output command invoked")
 
-			id, err := stringFromArguments(args)
-			if err != nil {
+			id, err1 := stringFromArguments(args)
+			if err1 != nil {
 				Parrot.Println("Please provide a valid command id")
 				return
 			}
-			var command = Repository.FindById(id)
+			var command, err = Repository.FindById(id)
+
+			if err != nil {
+				Parrot.Println("Error retrieving command in the store ("+id+")", err)
+				return
+			}
 
 			if command.Output != "" {
 				Parrot.Println(command.Output)
