@@ -13,13 +13,18 @@ var lastCmd = &cobra.Command{
 		commandWrapper(args, func() {
 			Parrot.Debug("Last command invoked")
 
-			limit, err := intFromArguments(args)
+			limit, err1 := intFromArguments(args)
 
-			if err != nil {
+			if err1 != nil {
 				limit = Configuration.LastCountDefault
 			}
 
-			var commands = Repository.GetExecutedCommands(limit)
+			var commands, err = Repository.GetExecutedCommands(limit)
+
+			if err != nil {
+				Parrot.Println("Error retrieving commands in the store", err)
+				return
+			}
 
 			for _, c := range commands {
 				c.Print(Parrot)
