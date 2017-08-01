@@ -24,15 +24,11 @@ var runCmd = &cobra.Command{
 			executeCommand(&command)
 			finalizeCommand(&command)
 
+			//Parrot.Println("> flag: ", cmd.Flag("store").Changed)
 			if cmd.Flag("store").Changed == true {
+				//Parrot.Println("Storing command")
 				pushCommand(&command, false)
 			}
-
-			/*
-				if ctx.Bool("store") {
-					pushCommand(&command, false)
-				}
-			*/
 		})
 	},
 }
@@ -49,6 +45,6 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// outputCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	runCmd.Flags().BoolP("store", "s", false, "HStore the results")
+	runCmd.Flags().BoolP("store", "s", false, "Store the results")
 
 }
