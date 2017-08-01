@@ -20,8 +20,6 @@ type Entity struct {
 type Command struct {
 	Entity
 
-	parrot *quant.Parrot
-
 	Name      string
 	Arguments []string
 	Status    bool
@@ -39,14 +37,13 @@ type ExecutedCommand struct {
 	When    time.Time
 }
 
-func (c Command) String() string {
+func (c Command) String() (string, error) {
 	b, err := json.Marshal(c)
 
 	if err != nil {
-		c.parrot.Error("Warning", err)
-		return "{}"
+		return "{}", err
 	}
-	return string(b)
+	return string(b), nil
 }
 
 func (c *Command) AsHistory() string {
@@ -90,13 +87,13 @@ func (c ExecutedCommand) AsFlatCommand() string {
 	return "{" + c.When.Format("02.01.2006 15:04:05") + "} [id: " + c.ID + ", status: " + strconv.FormatBool(c.Status) + "] " + c.Command
 }
 
-func (c ExecutedCommand) Print() {
-	c.parrot.Print("{", chalk.Yellow, c.When.Format("02.01.2006 15:04:05"), chalk.Reset, "} ")
+func (c ExecutedCommand) Print(parrot *quant.Parrot) {
+	parrot.Print("{", chalk.Yellow, c.When.Format("02.01.2006 15:04:05"), chalk.Reset, "} ")
 
 	if c.Status {
-		c.parrot.Print("[", chalk.Green, c.ID, chalk.Reset, "] ")
+		parrot.Print("[", chalk.Green, c.ID, chalk.Reset, "] ")
 	} else {
-		c.parrot.Print("[", chalk.Red, c.ID, chalk.Reset, "] ")
+		parrot.Print("[", chalk.Red, c.ID, chalk.Reset, "] ")
 	}
-	c.parrot.Println(c.Command)
+	parrot.Println(c.Command)
 }
