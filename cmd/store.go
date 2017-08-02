@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"strings"
+
 	"github.com/spf13/cobra"
 )
 
@@ -13,21 +15,21 @@ var storeCmd = &cobra.Command{
 		commandWrapper(args, func() {
 			Parrot.Debug("Store command invoked")
 
-			c, as, err := commandFromArguments(args)
+			var cc = cmd.Flag("push").Value.String()
 
-			if err != nil {
-				Parrot.Println("Please provide a valid command")
-				return
-			}
+			Parrot.Println("> flag: ", cmd.Flag("push").Value.String())
 
-			var command = initializeCommand(c, as)
-			executeCommand(&command)
-			finalizeCommand(&command)
+			if cc != "" {
 
-			//Parrot.Println("> flag: ", cmd.Flag("store").Changed)
-			if cmd.Flag("store").Changed == true {
-				//Parrot.Println("Storing command")
-				pushCommand(&command, false)
+				c, as, err := commandFromArguments(strings.Split(cc, " "))
+
+				if err != nil {
+					Parrot.Println("Please provide a valid command")
+					return
+				}
+
+				var command = initializeCommand(c, as)
+				pushCommand(&command, true)
 			}
 		})
 	},
@@ -36,6 +38,6 @@ var storeCmd = &cobra.Command{
 func init() {
 	RootCmd.AddCommand(storeCmd)
 
-	storeCmd.Flags().BoolP("store", "s", false, "Store the results")
+	storeCmd.Flags().StringP("push", "p", "", "Pushed the given command to the store")
 
 }
