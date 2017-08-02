@@ -31,6 +31,21 @@ var storeCmd = &cobra.Command{
 				var command = initializeCommand(c, as)
 				pushCommand(&command, true)
 			}
+
+			var sh = cmd.Flag("show").Changed
+			if sh {
+				var commands, err = Repository.GetAllStoredCommands()
+
+				if err != nil {
+					Parrot.Println("Commands not available in the store", err)
+					return
+				}
+
+				for _, c := range commands {
+					Parrot.Println(c.AsStoredCommand())
+				}
+			}
+
 		})
 	},
 }
@@ -39,5 +54,6 @@ func init() {
 	RootCmd.AddCommand(storeCmd)
 
 	storeCmd.Flags().StringP("push", "p", "", "Pushed the given command to the store")
+	storeCmd.Flags().BoolP("show", "s", false, "Shows all the commands in the store")
 
 }
