@@ -1,4 +1,4 @@
-package main
+package utils
 
 const ConstRepositoryDirectory string = "~/.ambros"
 const ConstRepositoryFile string = "ambros.db"

@@ -1,58 +1,64 @@
-package main
+package repos
 
 import (
 	"encoding/json"
 	"errors"
 	//"os"
-	"path/filepath"
 	"time"
 
 	"github.com/boltdb/bolt"
+	models "github.com/gi4nks/ambros/models"
+	utils "github.com/gi4nks/ambros/utils"
+	"github.com/gi4nks/quant"
 )
 
 type Repository struct {
+	parrot        *quant.Parrot
+	configuration *utils.Configuration
+
 	DB *bolt.DB
 }
 
-// HELPER FUNCTIONS
-func repositoryFullName() string {
-	return settings.RepositoryDirectory() + string(filepath.Separator) + settings.RepositoryFile()
+func NewRepository(p quant.Parrot, c utils.Configuration) *Repository {
+	return &Repository{parrot: &p, configuration: &c}
 }
 
 //
-func (r *Repository) InitDB() {
+func (r *Repository) InitDB() error {
 	var err error
 
-	b, err := pathUtils.ExistsPath(settings.RepositoryDirectory())
+	b, err := quant.ExistsPath(r.configuration.RepositoryDirectory)
 	if err != nil {
-		parrot.Println("Got error when reading repository directory", err)
+		return err
 	}
 
 	if !b {
-		pathUtils.CreatePath(settings.RepositoryDirectory())
+		quant.CreatePath(r.configuration.RepositoryDirectory)
 	}
 
-	r.DB, err = bolt.Open(repositoryFullName(), 0600, nil)
+	//r.parrot.Println("--", r.configuration.RepositoryFullName())
+
+	r.DB, err = bolt.Open(r.configuration.RepositoryFullName(), 0600, nil)
 	if err != nil {
-		parrot.Println("Got error creating repository directory", err)
+		return err
 	}
+
+	//r.parrot.Println(r.DB)
+	return nil
 }
 
 func (r *Repository) InitSchema() error {
 	err := r.DB.Update(func(tx *bolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists([]byte("Commands"))
 		if err != nil {
-			parrot.Println("create bucket: ", err)
 			return err
 		}
 		_, err = tx.CreateBucketIfNotExists([]byte("CommandsStored"))
 		if err != nil {
-			parrot.Println("create bucket: ", err)
 			return err
 		}
 		_, err = tx.CreateBucketIfNotExists([]byte("CommandsIndex"))
 		if err != nil {
-			parrot.Println("create bucket: ", err)
 			return err
 		}
 
@@ -66,7 +72,6 @@ func (r *Repository) DeleteSchema(complete bool) error {
 	err := r.DB.Update(func(tx *bolt.Tx) error {
 		err := tx.DeleteBucket([]byte("Commands"))
 		if err != nil {
-			parrot.Println("delete bucket: ", err)
 			return err
 		}
 
@@ -74,14 +79,12 @@ func (r *Repository) DeleteSchema(complete bool) error {
 
 			err = tx.DeleteBucket([]byte("CommandsStored"))
 			if err != nil {
-				parrot.Println("delete bucket: ", err)
 				return err
 			}
 		}
 
 		err = tx.DeleteBucket([]byte("CommandsIndex"))
 		if err != nil {
-			parrot.Println("delete bucket: ", err)
 			return err
 		}
 
@@ -91,20 +94,21 @@ func (r *Repository) DeleteSchema(complete bool) error {
 	return err
 }
 
-func (r *Repository) CloseDB() {
+func (r *Repository) CloseDB() error {
 	if err := r.DB.Close(); err != nil {
-		parrot.Error("Error", err)
+		return errors.New("Error closing DB")
 	}
+	return nil
 }
 
 func (r *Repository) BackupSchema() error {
-	b, _ := pathUtils.ExistsPath(settings.RepositoryDirectory())
+	b, _ := quant.ExistsPath(r.configuration.RepositoryDirectory)
 	if !b {
-		return errors.New("Gadget repository path does not exist")
+		return errors.New("Ambros repository path does not exist")
 	}
 
 	err := r.DB.View(func(tx *bolt.Tx) error {
-		return tx.CopyFile(repositoryFullName()+".bkp", 0600)
+		return tx.CopyFile(r.configuration.RepositoryFullName()+".bkp", 0600)
 	})
 
 	return err
@@ -112,8 +116,8 @@ func (r *Repository) BackupSchema() error {
 
 // functionalities
 
-func (r *Repository) Push(c Command) {
-	err := r.DB.Update(func(tx *bolt.Tx) error {
+func (r *Repository) Push(c models.Command) error {
+	return r.DB.Update(func(tx *bolt.Tx) error {
 		cc, err := tx.CreateBucketIfNotExists([]byte("CommandsStored"))
 
 		if err != nil {
@@ -127,14 +131,10 @@ func (r *Repository) Push(c Command) {
 
 		return cc.Put([]byte(c.ID), encoded1)
 	})
-
-	if err != nil {
-		parrot.Println("Error inserting data:", err)
-	}
 }
 
-func (r *Repository) Put(c Command) {
-	err := r.DB.Update(func(tx *bolt.Tx) error {
+func (r *Repository) Put(c models.Command) error {
+	return r.DB.Update(func(tx *bolt.Tx) error {
 		cc, err := tx.CreateBucketIfNotExists([]byte("Commands"))
 
 		if err != nil {
@@ -159,14 +159,10 @@ func (r *Repository) Put(c Command) {
 
 		return ii.Put([]byte(c.CreatedAt.Format(time.RFC3339)), []byte(c.ID))
 	})
-
-	if err != nil {
-		parrot.Println("Error inserting data: ", err)
-	}
 }
 
-func (r *Repository) findById(id string, collection string) Command {
-	var command = Command{}
+func (r *Repository) findById(id string, collection string) (models.Command, error) {
+	var command = models.Command{}
 
 	err := r.DB.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(collection))
@@ -180,27 +176,21 @@ func (r *Repository) findById(id string, collection string) Command {
 		return nil
 	})
 
-	if err != nil {
-		parrot.Println("No command found:", err)
-	}
-
-	return command
+	return command, err
 }
 
 func (r *Repository) deleteById(id string, collection string) error {
-	err := r.DB.Update(func(tx *bolt.Tx) error {
+	return r.DB.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(collection))
 		return b.Delete([]byte(id))
 	})
-
-	return err
 }
 
-func (r *Repository) FindById(id string) Command {
+func (r *Repository) FindById(id string) (models.Command, error) {
 	return r.findById(id, "Commands")
 }
 
-func (r *Repository) FindInStoreById(id string) Command {
+func (r *Repository) FindInStoreById(id string) (models.Command, error) {
 	return r.findById(id, "CommandsStored")
 }
 
@@ -212,13 +202,13 @@ func (r *Repository) DeleteAllStoredCommands() error {
 	err := r.DB.Update(func(tx *bolt.Tx) error {
 		err := tx.DeleteBucket([]byte("CommandsStored"))
 		if err != nil {
-			parrot.Error("delete bucket: ", err)
+			r.parrot.Error("delete bucket: ", err)
 			return err
 		}
 
 		_, err = tx.CreateBucketIfNotExists([]byte("CommandsStored"))
 		if err != nil {
-			parrot.Error("create bucket: ", err)
+			r.parrot.Error("create bucket: ", err)
 			return err
 		}
 
@@ -228,15 +218,15 @@ func (r *Repository) DeleteAllStoredCommands() error {
 	return err
 }
 
-func (r *Repository) getAllCommands(collection string) []Command {
-	commands := []Command{}
+func (r *Repository) getAllCommands(collection string) ([]models.Command, error) {
+	commands := []models.Command{}
 
-	r.DB.View(func(tx *bolt.Tx) error {
+	err := r.DB.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(collection))
 		c := b.Cursor()
 
 		for k, v := c.First(); k != nil; k, v = c.Next() {
-			var command = Command{}
+			var command = models.Command{}
 			err := json.Unmarshal(v, &command)
 			if err != nil {
 				return err
@@ -248,28 +238,28 @@ func (r *Repository) getAllCommands(collection string) []Command {
 		return nil
 	})
 
-	return commands
+	return commands, err
 }
 
-func (r *Repository) GetAllStoredCommands() []Command {
+func (r *Repository) GetAllStoredCommands() ([]models.Command, error) {
 	return r.getAllCommands("CommandsStored")
 }
 
-func (r *Repository) GetAllCommands() []Command {
+func (r *Repository) GetAllCommands() ([]models.Command, error) {
 	return r.getAllCommands("Commands")
 }
 
-func (r *Repository) GetLimitCommands(limit int) []Command {
-	commands := []Command{}
+func (r *Repository) GetLimitCommands(limit int) ([]models.Command, error) {
+	commands := []models.Command{}
 
-	r.DB.View(func(tx *bolt.Tx) error {
+	err := r.DB.View(func(tx *bolt.Tx) error {
 		cc := tx.Bucket([]byte("Commands"))
 		ii := tx.Bucket([]byte("CommandsIndex")).Cursor()
 
 		var i = limit
 
 		for k, v := ii.Last(); k != nil && i > 0; k, v = ii.Prev() {
-			var command = Command{}
+			var command = models.Command{}
 
 			vv := cc.Get(v)
 
@@ -285,27 +275,27 @@ func (r *Repository) GetLimitCommands(limit int) []Command {
 		return nil
 	})
 
-	return commands
+	return commands, err
 }
 
-func (r *Repository) GetExecutedCommands(count int) []ExecutedCommand {
-	commands := r.GetLimitCommands(count)
+func (r *Repository) GetExecutedCommands(count int) ([]models.ExecutedCommand, error) {
+	commands, err := r.GetLimitCommands(count)
 
-	executedCommands := make([]ExecutedCommand, len(commands))
+	executedCommands := make([]models.ExecutedCommand, len(commands))
 
 	for i := 0; i < len(commands); i++ {
 		executedCommands[i] = commands[i].AsExecutedCommand(i)
 	}
 
-	return executedCommands
+	return executedCommands, err
 }
 
-func extend(slice []Command, element Command) []Command {
+func (r *Repository) extend(slice []models.Command, element models.Command) []models.Command {
 	n := len(slice)
 	if n == cap(slice) {
 		// Slice is full; must grow.
 		// We double its size and add 1, so if the size is zero we still grow.
-		newSlice := make([]Command, len(slice), 2*len(slice)+1)
+		newSlice := make([]models.Command, len(slice), 2*len(slice)+1)
 		copy(newSlice, slice)
 		slice = newSlice
 	}
@@ -316,9 +306,9 @@ func extend(slice []Command, element Command) []Command {
 
 // Append appends the items to the slice.
 // First version: just loop calling Extend.
-func append(slice []Command, items ...Command) []Command {
+func (r *Repository) append(slice []models.Command, items ...models.Command) []models.Command {
 	for _, item := range items {
-		slice = extend(slice, item)
+		slice = r.extend(slice, item)
 	}
 	return slice
 }

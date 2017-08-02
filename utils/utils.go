@@ -1,20 +1,30 @@
-package main
+package utils
 
 import (
 	"crypto/rand"
 	"encoding/json"
+
+	"github.com/gi4nks/quant"
 )
 
-func asJson(o interface{}) string {
+type Utilities struct {
+	parrot *quant.Parrot
+}
+
+func NewUtilities(p quant.Parrot) *Utilities {
+	return &Utilities{parrot: &p}
+}
+
+func (u *Utilities) AsJson(o interface{}) string {
 	b, err := json.Marshal(o)
 	if err != nil {
-		parrot.Error("Warning", err)
+		u.parrot.Error("Warning", err)
 		return "{}"
 	}
 	return string(b)
 }
 
-func random() string {
+func (u *Utilities) Random() string {
 
 	var dictionary = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
@@ -26,23 +36,23 @@ func random() string {
 	return string(bytes)
 }
 
-func tail(a []string) []string {
+func (u *Utilities) Tail(a []string) []string {
 	if len(a) >= 2 {
 		return []string(a)[1:]
 	}
 	return []string{}
 }
 
-func check(e error) {
+func (u *Utilities) Check(e error) {
 	if e != nil {
-		parrot.Error("Error...", e)
+		u.parrot.Error("Error...", e)
 		return
 	}
 }
 
-func fatal(e error) {
+func (u *Utilities) Fatal(e error) {
 	if e != nil {
-		parrot.Error("Fatal...", e)
+		u.parrot.Error("Fatal...", e)
 		panic(e)
 	}
 }
