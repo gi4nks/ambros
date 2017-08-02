@@ -1,2 +1,0 @@
-{[33m2016/11/05 - 08:47:19[49m[39m} |[31mER[49m[39m| Error starting Cmd exec: "history": executable file not found in $PATH
-[RPSfr1TMsSgH]

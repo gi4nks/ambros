@@ -51,14 +51,17 @@ func (r *Repository) InitSchema() error {
 	err := r.DB.Update(func(tx *bolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists([]byte("Commands"))
 		if err != nil {
+			//r.parrot.Println(">err", err)
 			return err
 		}
 		_, err = tx.CreateBucketIfNotExists([]byte("CommandsStored"))
 		if err != nil {
+			//r.parrot.Println(">err", err)
 			return err
 		}
 		_, err = tx.CreateBucketIfNotExists([]byte("CommandsIndex"))
 		if err != nil {
+			//r.parrot.Println(">err", err)
 			return err
 		}
 
