@@ -19,8 +19,19 @@ func CmdWrapper(args []string) {
 }
 
 func commandWrapper(args []string, cmd quant.Action0) {
-	Repository.InitDB()
-	Repository.InitSchema()
+	err := Repository.InitDB()
+
+	if err != nil {
+		Parrot.Println(err)
+		return
+	}
+
+	err = Repository.InitSchema()
+
+	if err != nil {
+		Parrot.Println(err)
+		return
+	}
 
 	CmdWrapper(args)
 
