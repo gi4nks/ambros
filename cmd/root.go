@@ -77,7 +77,7 @@ func initConfig() {
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
-		Parrot.Println("Using config file:", viper.ConfigFileUsed())
+		Parrot.Debug("Using config file:", viper.ConfigFileUsed())
 	}
 
 	/* -------------------------- */
