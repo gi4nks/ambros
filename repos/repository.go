@@ -28,18 +28,16 @@ func (r *Repository) InitDB() error {
 
 	b, err := quant.ExistsPath(r.configuration.RepositoryDirectory)
 	if err != nil {
-		return err
+		return errors.New("Ambros repository path does not exist, please ckeck if following path exists: " + r.configuration.RepositoryDirectory)
 	}
 
 	if !b {
 		quant.CreatePath(r.configuration.RepositoryDirectory)
 	}
 
-	//r.parrot.Println("--", r.configuration.RepositoryFullName())
-
 	r.DB, err = bolt.Open(r.configuration.RepositoryFullName(), 0600, nil)
 	if err != nil {
-		return err
+		return errors.New("Ambros was not able to open db: please check if following path exists: " + r.configuration.RepositoryFullName())
 	}
 
 	//r.parrot.Println(r.DB)
