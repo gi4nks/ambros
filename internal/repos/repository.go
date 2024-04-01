@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/boltdb/bolt"
-	models "github.com/gi4nks/ambros/models"
-	utils "github.com/gi4nks/ambros/utils"
+	models "github.com/gi4nks/ambros/internal/models"
+	utils "github.com/gi4nks/ambros/internal/utils"
 	"github.com/gi4nks/quant"
 )
 
@@ -22,7 +22,6 @@ func NewRepository(p quant.Parrot, c utils.Configuration) *Repository {
 	return &Repository{parrot: &p, configuration: &c}
 }
 
-//
 func (r *Repository) InitDB() error {
 	var err error
 

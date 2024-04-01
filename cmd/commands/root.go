@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package commands
 
 import (
 	"os"
@@ -22,8 +22,8 @@ import (
 
 	"github.com/gi4nks/quant"
 
-	repos "github.com/gi4nks/ambros/repos"
-	utils "github.com/gi4nks/ambros/utils"
+	repos "github.com/gi4nks/ambros/internal/repos"
+	utils "github.com/gi4nks/ambros/internal/utils"
 )
 
 var cfgFile string
@@ -59,7 +59,7 @@ func init() {
 	// Cobra supports Persistent Flags, which, if defined here,
 	// will be global for your application.
 
-	RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.ambros.yaml)")
+	RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is <executable folder>/.ambros.yaml)")
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	RootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
@@ -67,19 +67,6 @@ func init() {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
-	if cfgFile != "" { // enable ability to specify config file via flag
-		viper.SetConfigFile(cfgFile)
-	}
-
-	viper.SetConfigName(".ambros") // name of config file (without extension)
-	viper.AddConfigPath("$HOME")   // adding home directory as first search path
-	viper.AutomaticEnv()           // read in environment variables that match
-
-	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		Parrot.Debug("Using config file:", viper.ConfigFileUsed())
-	}
-
 	/* -------------------------- */
 	/* initialize the application */
 	/* -------------------------- */
@@ -87,6 +74,20 @@ func initConfig() {
 
 	if err != nil {
 		Parrot.Error("Executable folder error", err)
+	}
+
+	if cfgFile != "" { // enable ability to specify config file via flag
+		viper.SetConfigFile(cfgFile)
+	}
+
+	viper.SetConfigName(".ambros") // name of config file (without extension)
+	// viper.AddConfigPath("$HOME")   // adding home directory as first search path
+	viper.AddConfigPath(folder) // adding home directory as first search path
+	viper.AutomaticEnv()        // read in environment variables that match
+
+	// If a config file is found, read it in.
+	if err := viper.ReadInConfig(); err == nil {
+		Parrot.Debug("Using config file:", viper.ConfigFileUsed())
 	}
 
 	if viper.GetString("repositoryDirectory") != "" {
