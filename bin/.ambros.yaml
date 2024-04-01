@@ -1,0 +1,4 @@
+repositoryDirectory: "tmp"
+repositoryFile: "/Users/gi4nks/Projects/golang/ambros/bin/ambros.db"
+lastCountDefault: 10
+debugMode: false

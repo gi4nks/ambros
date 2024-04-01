@@ -1,4 +1,4 @@
-package cmd
+package commands
 
 import (
 	"bufio"
@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	models "github.com/gi4nks/ambros/models"
+	models "github.com/gi4nks/ambros/internal/models"
 	"github.com/gi4nks/quant"
 )
 

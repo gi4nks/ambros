@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package commands
 
 import (
 	"os"
@@ -22,8 +22,8 @@ import (
 
 	"github.com/gi4nks/quant"
 
-	repos "github.com/gi4nks/ambros/repos"
-	utils "github.com/gi4nks/ambros/utils"
+	repos "github.com/gi4nks/ambros/internal/repos"
+	utils "github.com/gi4nks/ambros/internal/utils"
 )
 
 var cfgFile string
