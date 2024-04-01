@@ -1,4 +1,4 @@
-package cmd
+package commands
 
 import (
 	"github.com/spf13/cobra"
@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	models "github.com/gi4nks/ambros/models"
+	models "github.com/gi4nks/ambros/internal/models"
 )
 
 // exportCmd represents the export command

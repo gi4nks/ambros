@@ -1,9 +1,9 @@
-package cmd
+package commands
 
 import (
 	"github.com/spf13/cobra"
 
-	models "github.com/gi4nks/ambros/models"
+	models "github.com/gi4nks/ambros/internal/models"
 )
 
 // recallCmd represents the output command

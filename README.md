@@ -9,6 +9,10 @@ ambros creates a local history of executed commands, keeipng track also of the o
 
 > go get github.com/gi4nks/ambros
 
+## how to build
+
+> go build -o bin/ambros cmd/main.go
+
 ## how to use
 
 ### run a command
