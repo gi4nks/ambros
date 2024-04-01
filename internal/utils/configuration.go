@@ -39,8 +39,10 @@ func (c Configuration) String() string {
 
 func (c Configuration) RepositoryFullName() string {
 
-	/*c.parrot.Println("1", c.RepositoryDirectory)
-	c.parrot.Println("2", string(filepath.Separator))
-	c.parrot.Println("3", c.RepositoryFile)*/
+	/*
+		c.parrot.Println("1", c.RepositoryDirectory)
+		c.parrot.Println("2", string(filepath.Separator))
+		c.parrot.Println("3", c.RepositoryFile)
+	*/
 	return c.RepositoryDirectory + string(filepath.Separator) + c.RepositoryFile
 }
