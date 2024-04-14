@@ -145,18 +145,21 @@ func (r *Repository) Put(c models.Command) error {
 			return err
 		}
 
-		err = cc.Put([]byte(c.ID), encoded1)
-
-		if err != nil {
+		if err = cc.Put([]byte(c.ID), encoded1); err != nil {
 			return err
 		}
 
 		ii, err := tx.CreateBucketIfNotExists([]byte("CommandsIndex"))
+
 		if err != nil {
 			return err
 		}
 
-		return ii.Put([]byte(c.CreatedAt.Format(time.RFC3339)), []byte(c.ID))
+		if err := ii.Put([]byte(c.TerminatedAt.Format(time.RFC3339Nano)), []byte(c.ID)); err != nil {
+			return err
+		}
+
+		return nil
 	})
 }
 
