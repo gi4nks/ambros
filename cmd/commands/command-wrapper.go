@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os/exec"
 	"strconv"
+	"strings"
 	"time"
 
 	models "github.com/gi4nks/ambros/internal/models"
@@ -54,11 +55,36 @@ func initializeCommand(name string, arguments []string) models.Command {
 	return command
 }
 
+func initializeCommands(cmds [][]string) []models.Command {
+	var commands = []models.Command{}
+
+	for _, cmdParts := range cmds {
+		var command = models.Command{}
+		command.ID = Utilities.Random()
+
+		command.Name = cmdParts[0]
+		command.Arguments = cmdParts[1:]
+		command.CreatedAt = time.Now()
+
+		// Append the command to the commands slice
+		commands = append(commands, command)
+	}
+	return commands
+}
+
 func finalizeCommand(command *models.Command) {
 	command.TerminatedAt = time.Now()
 	Repository.Put(*command)
 
 	Parrot.Println("[" + command.ID + "]")
+}
+
+func finalizeCommands(commands []*models.Command) {
+	for _, command := range commands {
+		command.TerminatedAt = time.Now()
+		Repository.Put(*command)
+		Parrot.Println("[" + command.ID + "]")
+	}
 }
 
 func pushCommand(command *models.Command, showid bool) {
@@ -67,6 +93,20 @@ func pushCommand(command *models.Command, showid bool) {
 
 	if showid {
 		Parrot.Println("[" + command.ID + "]")
+	}
+}
+
+func pushCommands(commands []*models.Command, showid bool) {
+	for _, command := range commands {
+
+		Parrot.Println(command.AsStoredCommand())
+
+		command.TerminatedAt = time.Now()
+		Repository.Push(*command)
+
+		if showid {
+			Parrot.Println("[" + command.ID + "]")
+		}
 	}
 }
 
@@ -143,9 +183,75 @@ func executeCommand(command *models.Command) {
 	command.Status = true
 }
 
+func executeCommands(commands []*models.Command) {
+	var output []byte
+
+	// Execute commands sequentially, capturing intermediate output
+	for _, cmdParts := range commands {
+		cmdParts.CreatedAt = time.Now()
+		cmd := exec.Command(cmdParts.Name, cmdParts.Arguments...)
+		var intermediate bytes.Buffer
+		cmd.Stdout = &intermediate
+		cmd.Stderr = &intermediate // use stderr to capture combined output
+
+		// Write previous command output to stdin of current command if needed
+		if len(output) > 0 {
+			cmd.Stdin = bytes.NewReader(output)
+		}
+
+		// Executing the command and managing the error and sthe status at the end
+		err := cmd.Run()
+		output = intermediate.Bytes()
+
+		Parrot.Println(string(output))
+		cmdParts.Output = string(output)
+		cmdParts.Error = ""
+
+		if err != nil {
+			Parrot.Error("Error running the command", err)
+			cmdParts.Error = err.Error()
+			cmdParts.Status = false
+		} else {
+			Parrot.Println(string(output))
+			cmdParts.Status = true
+		}
+
+		cmdParts.TerminatedAt = time.Now()
+
+		if err1 := Repository.Put(*cmdParts); err1 != nil {
+			Parrot.Error("Error storing the command", err1)
+		}
+
+		Parrot.Println(cmdParts.AsStoredCommand() + "\n")
+
+		if !cmdParts.Status {
+			return
+		}
+	}
+}
+
 // ----------------
 // Arguments from command string
 // ----------------
+
+func commandsFromArguments(args []string) ([][]string, error) {
+	if len(args) <= 0 {
+		return nil, errors.New("Value must be provided!")
+	}
+
+	var command = strings.Join(args, " ")
+	// Split the command string by pipe characters
+	pipeCommands := strings.Split(command, "|")
+
+	// Split each command by spaces
+	var result [][]string
+	for _, cmd := range pipeCommands {
+		parts := strings.Fields(strings.TrimSpace(cmd))
+		result = append(result, parts)
+	}
+	return result, nil
+}
+
 func commandFromArguments(args []string) (string, []string, error) {
 	if len(args) <= 0 {
 		return "", nil, errors.New("Value must be provided!")

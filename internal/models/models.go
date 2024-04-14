@@ -37,6 +37,27 @@ type ExecutedCommand struct {
 	When    time.Time
 }
 
+func (c *Command) Clone() *Command {
+	// Create a new Command object with the same field values as the original
+	clone := &Command{
+		Entity: Entity{
+			ID:           c.ID,
+			CreatedAt:    c.CreatedAt,
+			TerminatedAt: c.TerminatedAt,
+		},
+		Name:      c.Name,
+		Arguments: make([]string, len(c.Arguments)),
+		Status:    c.Status,
+		Output:    c.Output,
+		Error:     c.Error,
+	}
+
+	// Copy the elements of the Arguments slice to the clone's Arguments slice
+	copy(clone.Arguments, c.Arguments)
+
+	return clone
+}
+
 func (c Command) String() (string, error) {
 	b, err := json.Marshal(c)
 

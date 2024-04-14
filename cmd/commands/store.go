@@ -100,11 +100,10 @@ var storeCmd = &cobra.Command{
 func init() {
 	RootCmd.AddCommand(storeCmd)
 
-	storeCmd.Flags().StringP("push", "p", "", "Pushed the given command to the store")
-	storeCmd.Flags().StringP("run", "r", "", "Run a command stored in the store")
-	storeCmd.Flags().StringP("delete", "d", "", "Delete a command stored from the store")
-
-	storeCmd.Flags().BoolP("show", "s", false, "Shows all the commands in the store")
-	storeCmd.Flags().BoolP("clear", "c", false, "Removes all the commands in the store")
+	storeCmd.Flags().StringP("push", "p", "", "pushed the given command to the store")
+	storeCmd.Flags().StringP("run", "r", "", "run a command stored in the store")
+	storeCmd.Flags().StringP("delete", "d", "", "delete a command stored from the store")
+	storeCmd.Flags().BoolP("show", "s", false, "shows all the commands in the store")
+	storeCmd.Flags().BoolP("clear", "c", false, "removes all the commands in the store")
 
 }

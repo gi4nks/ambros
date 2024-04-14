@@ -1,6 +1,7 @@
 package commands
 
 import (
+	models "github.com/gi4nks/ambros/internal/models"
 	"github.com/spf13/cobra"
 )
 
@@ -13,21 +14,33 @@ var runCmd = &cobra.Command{
 		commandWrapper(args, func() {
 			Parrot.Debug("Run command invoked")
 
-			c, as, err := commandFromArguments(args)
+			cmds, err := commandsFromArguments(args)
 
 			if err != nil {
 				Parrot.Println("Please provide a valid command")
 				return
 			}
 
-			var command = initializeCommand(c, as)
-			executeCommand(&command)
-			finalizeCommand(&command)
+			var commands = initializeCommands(cmds)
+
+			var commandPointers []*models.Command
+			for i := range commands {
+				commandPointers = append(commandPointers, &commands[i])
+			}
+
+			// Now call executeCommands with []*models.Command
+			executeCommands(commandPointers)
+
+			/*
+				var command = initializeCommand(c, as)
+				executeCommand(&command)
+				finalizeCommand(&command)
+			*/
 
 			//Parrot.Println("> flag: ", cmd.Flag("store").Changed)
-			if cmd.Flag("store").Changed == true {
-				//Parrot.Println("Storing command")
-				pushCommand(&command, false)
+			if cmd.Flag("store").Changed {
+				Parrot.Println("Storing command")
+				pushCommands(commandPointers, false)
 			}
 		})
 	},
