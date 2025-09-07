@@ -1,4 +1,19 @@
-repositoryDirectory: "tmp"
-repositoryFile: "repositoryFile: "/Users/gianluca/Projects/golang/ambros/bin/ambros.db"
-lastCountDefault: 10
-debugMode: false
+# Database configuration
+repository:
+  # Directory where the database will be stored
+  directory: "${HOME}/.ambros"
+  # Database filename
+  file: "ambros.db"
+  # Default count for last command listing
+  lastCountDefault: 10
+  # Debug mode
+  debugMode: false
+
+# Logging configuration
+logging:
+  # Log level (debug, info, warn, error)
+  level: "info"
+  # Log format (json or console)
+  format: "console"
+  # Enable development mode
+  development: false

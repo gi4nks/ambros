@@ -1,316 +1,367 @@
 package repos
 
 import (
+	"context"
 	"encoding/json"
-	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
-	"github.com/boltdb/bolt"
-	models "github.com/gi4nks/ambros/internal/models"
-	utils "github.com/gi4nks/ambros/internal/utils"
-	"github.com/gi4nks/quant"
+	"github.com/dgraph-io/badger/v4"
+	"go.uber.org/zap"
+
+	"github.com/gi4nks/ambros/internal/models"
 )
 
 type Repository struct {
-	parrot        *quant.Parrot
-	configuration *utils.Configuration
-
-	DB *bolt.DB
+	logger *zap.Logger
+	db     *badger.DB
+	dbPath string
 }
 
-func NewRepository(p quant.Parrot, c utils.Configuration) *Repository {
-	return &Repository{parrot: &p, configuration: &c}
+// NewRepository creates a new repository instance
+func NewRepository(dbPath string, logger *zap.Logger) (*Repository, error) {
+	repo := &Repository{
+		logger: logger,
+		dbPath: dbPath,
+	}
+
+	if err := repo.initDB(); err != nil {
+		return nil, err
+	}
+
+	return repo, nil
 }
 
-func (r *Repository) InitDB() error {
+func (r *Repository) initDB() error {
+	// Ensure directory exists
+	dir := filepath.Dir(r.dbPath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create repository directory: %w", err)
+	}
+
+	opts := badger.DefaultOptions(r.dbPath)
+	opts.Logger = nil // Disable Badger's internal logger
+
 	var err error
-
-	b, err := quant.ExistsPath(r.configuration.RepositoryDirectory)
+	r.db, err = badger.Open(opts)
 	if err != nil {
-		return errors.New("Ambros repository path does not exist, please ckeck if following path exists: " + r.configuration.RepositoryDirectory)
+		return fmt.Errorf("failed to open database: %w", err)
 	}
 
-	if !b {
-		quant.CreatePath(r.configuration.RepositoryDirectory)
-	}
-
-	r.DB, err = bolt.Open(r.configuration.RepositoryFullName(), 0600, nil)
-	if err != nil {
-		return errors.New("Ambros was not able to open db: please check if following path exists: " + r.configuration.RepositoryFullName())
-	}
-
-	//r.parrot.Println(r.DB)
 	return nil
 }
 
-func (r *Repository) InitSchema() error {
-	err := r.DB.Update(func(tx *bolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists([]byte("Commands"))
-		if err != nil {
-			//r.parrot.Println(">err", err)
-			return err
-		}
-		_, err = tx.CreateBucketIfNotExists([]byte("CommandsStored"))
-		if err != nil {
-			//r.parrot.Println(">err", err)
-			return err
-		}
-		_, err = tx.CreateBucketIfNotExists([]byte("CommandsIndex"))
-		if err != nil {
-			//r.parrot.Println(">err", err)
+func (r *Repository) Close() error {
+	if r.db != nil {
+		return r.db.Close()
+	}
+	return nil
+}
+
+// Put stores a command in the repository
+func (r *Repository) Put(ctx context.Context, c models.Command) error {
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("context error: %w", err)
+	}
+
+	data, err := json.Marshal(c)
+	if err != nil {
+		return fmt.Errorf("failed to marshal command: %w", err)
+	}
+
+	return r.db.Update(func(txn *badger.Txn) error {
+		// Store command by ID
+		if err := txn.Set([]byte("cmd:"+c.ID), data); err != nil {
 			return err
 		}
 
+		// Store index by timestamp for ordering
+		timeKey := fmt.Sprintf("time:%s:%s", c.CreatedAt.Format(time.RFC3339Nano), c.ID)
+		return txn.Set([]byte(timeKey), []byte(c.ID))
+	})
+}
+
+// Get retrieves a command by ID
+func (r *Repository) Get(id string) (*models.Command, error) {
+	var command models.Command
+
+	err := r.db.View(func(txn *badger.Txn) error {
+		item, err := txn.Get([]byte("cmd:" + id))
+		if err != nil {
+			return err
+		}
+
+		return item.Value(func(val []byte) error {
+			return json.Unmarshal(val, &command)
+		})
+	})
+
+	if err != nil {
+		return nil, err
+	}
+	return &command, nil
+}
+
+// FindById retrieves a command by ID (legacy method)
+func (r *Repository) FindById(id string) (models.Command, error) {
+	cmd, err := r.Get(id)
+	if err != nil {
+		return models.Command{}, err
+	}
+	return *cmd, nil
+}
+
+// GetLimitCommands retrieves the most recent commands up to the specified limit
+func (r *Repository) GetLimitCommands(limit int) ([]models.Command, error) {
+	var commands []models.Command
+
+	err := r.db.View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.Reverse = true
+		opts.Prefix = []byte("time:")
+		it := txn.NewIterator(opts)
+		defer it.Close()
+
+		count := 0
+		for it.Rewind(); it.Valid() && count < limit; it.Next() {
+			item := it.Item()
+			var cmdID []byte
+			err := item.Value(func(val []byte) error {
+				cmdID = append([]byte{}, val...)
+				return nil
+			})
+			if err != nil {
+				continue
+			}
+
+			cmdItem, err := txn.Get([]byte("cmd:" + string(cmdID)))
+			if err != nil {
+				continue
+			}
+
+			err = cmdItem.Value(func(val []byte) error {
+				var cmd models.Command
+				if err := json.Unmarshal(val, &cmd); err != nil {
+					return err
+				}
+				commands = append(commands, cmd)
+				return nil
+			})
+			if err != nil {
+				continue
+			}
+
+			count++
+		}
 		return nil
 	})
 
-	return err
+	return commands, err
 }
 
-func (r *Repository) DeleteSchema(complete bool) error {
-	err := r.DB.Update(func(tx *bolt.Tx) error {
-		err := tx.DeleteBucket([]byte("Commands"))
-		if err != nil {
-			return err
-		}
+// GetAllCommands retrieves all commands from the repository
+func (r *Repository) GetAllCommands() ([]models.Command, error) {
+	var commands []models.Command
 
-		if complete {
+	err := r.db.View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.Prefix = []byte("cmd:")
+		it := txn.NewIterator(opts)
+		defer it.Close()
 
-			err = tx.DeleteBucket([]byte("CommandsStored"))
+		for it.Rewind(); it.Valid(); it.Next() {
+			item := it.Item()
+			err := item.Value(func(val []byte) error {
+				var command models.Command
+				if err := json.Unmarshal(val, &command); err != nil {
+					return err
+				}
+				commands = append(commands, command)
+				return nil
+			})
 			if err != nil {
 				return err
 			}
 		}
-
-		err = tx.DeleteBucket([]byte("CommandsIndex"))
-		if err != nil {
-			return err
-		}
-
 		return nil
 	})
 
-	return err
+	return commands, err
 }
 
-func (r *Repository) CloseDB() error {
-	if err := r.DB.Close(); err != nil {
-		return errors.New("Error closing DB")
+// SearchByTag searches for commands by tag
+func (r *Repository) SearchByTag(tag string) ([]models.Command, error) {
+	allCommands, err := r.GetAllCommands()
+	if err != nil {
+		return nil, err
+	}
+
+	var filtered []models.Command
+	for _, cmd := range allCommands {
+		for _, cmdTag := range cmd.Tags {
+			if strings.EqualFold(cmdTag, tag) {
+				filtered = append(filtered, cmd)
+				break
+			}
+		}
+	}
+	return filtered, nil
+}
+
+// SearchByStatus searches for commands by status
+func (r *Repository) SearchByStatus(success bool) ([]models.Command, error) {
+	allCommands, err := r.GetAllCommands()
+	if err != nil {
+		return nil, err
+	}
+
+	var filtered []models.Command
+	for _, cmd := range allCommands {
+		if cmd.Status == success {
+			filtered = append(filtered, cmd)
+		}
+	}
+	return filtered, nil
+}
+
+// GetTemplate retrieves a command template by name
+func (r *Repository) GetTemplate(name string) (*models.Template, error) {
+	// This is a placeholder implementation
+	// Templates could be stored in a separate key prefix
+	return nil, fmt.Errorf("template not found: %s", name)
+}
+
+// Push stores a command for future use (bookmark/favorite)
+func (r *Repository) Push(command models.Command) error {
+	// Store as a "stored" command for bookmarking
+	data, err := json.Marshal(command)
+	if err != nil {
+		return fmt.Errorf("failed to marshal command: %w", err)
+	}
+
+	return r.db.Update(func(txn *badger.Txn) error {
+		return txn.Set([]byte("stored:"+command.ID), data)
+	})
+}
+
+// Legacy/Additional methods for backward compatibility
+
+// BackupSchema creates a backup of the database
+func (r *Repository) BackupSchema() error {
+	backupFile := r.dbPath + ".bkp"
+	f, err := os.Create(backupFile)
+	if err != nil {
+		return fmt.Errorf("failed to create backup file: %w", err)
+	}
+	defer f.Close()
+
+	_, err = r.db.Backup(f, 0)
+	if err != nil {
+		return fmt.Errorf("failed to backup database: %w", err)
+	}
+
+	return nil
+}
+
+// DeleteSchema deletes all data from the database
+func (r *Repository) DeleteSchema(complete bool) error {
+	if err := r.db.DropAll(); err != nil {
+		return fmt.Errorf("failed to delete schema: %w", err)
 	}
 	return nil
 }
 
-func (r *Repository) BackupSchema() error {
-	b, _ := quant.ExistsPath(r.configuration.RepositoryDirectory)
-	if !b {
-		return errors.New("Ambros repository path does not exist")
-	}
+// GetAllStoredCommands retrieves all stored/bookmarked commands
+func (r *Repository) GetAllStoredCommands() ([]models.Command, error) {
+	var commands []models.Command
 
-	err := r.DB.View(func(tx *bolt.Tx) error {
-		return tx.CopyFile(r.configuration.RepositoryFullName()+".bkp", 0600)
-	})
+	err := r.db.View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.Prefix = []byte("stored:")
+		it := txn.NewIterator(opts)
+		defer it.Close()
 
-	return err
-}
-
-// functionalities
-
-func (r *Repository) Push(c models.Command) error {
-	return r.DB.Update(func(tx *bolt.Tx) error {
-		cc, err := tx.CreateBucketIfNotExists([]byte("CommandsStored"))
-
-		if err != nil {
-			return err
+		for it.Rewind(); it.Valid(); it.Next() {
+			err := it.Item().Value(func(val []byte) error {
+				var cmd models.Command
+				if err := json.Unmarshal(val, &cmd); err != nil {
+					return err
+				}
+				commands = append(commands, cmd)
+				return nil
+			})
+			if err != nil {
+				return err
+			}
 		}
-
-		encoded1, err := json.Marshal(c)
-		if err != nil {
-			return err
-		}
-
-		return cc.Put([]byte(c.ID), encoded1)
-	})
-}
-
-func (r *Repository) Put(c models.Command) error {
-	return r.DB.Update(func(tx *bolt.Tx) error {
-		cc, err := tx.CreateBucketIfNotExists([]byte("Commands"))
-
-		if err != nil {
-			return err
-		}
-
-		encoded1, err := json.Marshal(c)
-		if err != nil {
-			return err
-		}
-
-		if err = cc.Put([]byte(c.ID), encoded1); err != nil {
-			return err
-		}
-
-		ii, err := tx.CreateBucketIfNotExists([]byte("CommandsIndex"))
-
-		if err != nil {
-			return err
-		}
-
-		if err := ii.Put([]byte(c.TerminatedAt.Format(time.RFC3339Nano)), []byte(c.ID)); err != nil {
-			return err
-		}
-
 		return nil
 	})
+
+	return commands, err
 }
 
-func (r *Repository) findById(id string, collection string) (models.Command, error) {
-	var command = models.Command{}
+// FindInStoreById retrieves a stored command by ID
+func (r *Repository) FindInStoreById(id string) (models.Command, error) {
+	var command models.Command
 
-	err := r.DB.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(collection))
-		v := b.Get([]byte(id))
-
-		err := json.Unmarshal(v, &command)
+	err := r.db.View(func(txn *badger.Txn) error {
+		item, err := txn.Get([]byte("stored:" + id))
 		if err != nil {
 			return err
 		}
 
-		return nil
+		return item.Value(func(val []byte) error {
+			return json.Unmarshal(val, &command)
+		})
 	})
 
 	return command, err
 }
 
-func (r *Repository) deleteById(id string, collection string) error {
-	return r.DB.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(collection))
-		return b.Delete([]byte(id))
-	})
-}
-
-func (r *Repository) FindById(id string) (models.Command, error) {
-	return r.findById(id, "Commands")
-}
-
-func (r *Repository) FindInStoreById(id string) (models.Command, error) {
-	return r.findById(id, "CommandsStored")
-}
-
+// DeleteStoredCommand removes a stored command
 func (r *Repository) DeleteStoredCommand(id string) error {
-	return r.deleteById(id, "CommandsStored")
+	return r.db.Update(func(txn *badger.Txn) error {
+		return txn.Delete([]byte("stored:" + id))
+	})
 }
 
+// DeleteAllStoredCommands removes all stored commands
 func (r *Repository) DeleteAllStoredCommands() error {
-	err := r.DB.Update(func(tx *bolt.Tx) error {
-		err := tx.DeleteBucket([]byte("CommandsStored"))
-		if err != nil {
-			r.parrot.Error("delete bucket: ", err)
-			return err
+	return r.db.Update(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.Prefix = []byte("stored:")
+		it := txn.NewIterator(opts)
+		defer it.Close()
+
+		var keysToDelete [][]byte
+		for it.Rewind(); it.Valid(); it.Next() {
+			key := it.Item().KeyCopy(nil)
+			keysToDelete = append(keysToDelete, key)
 		}
 
-		_, err = tx.CreateBucketIfNotExists([]byte("CommandsStored"))
-		if err != nil {
-			r.parrot.Error("create bucket: ", err)
-			return err
-		}
-
-		return nil
-	})
-
-	return err
-}
-
-func (r *Repository) getAllCommands(collection string) ([]models.Command, error) {
-	commands := []models.Command{}
-
-	err := r.DB.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(collection))
-		c := b.Cursor()
-
-		for k, v := c.First(); k != nil; k, v = c.Next() {
-			var command = models.Command{}
-			err := json.Unmarshal(v, &command)
-			if err != nil {
+		for _, key := range keysToDelete {
+			if err := txn.Delete(key); err != nil {
 				return err
 			}
-
-			commands = append(commands, command)
 		}
-
 		return nil
 	})
-
-	return commands, err
 }
 
-func (r *Repository) GetAllStoredCommands() ([]models.Command, error) {
-	return r.getAllCommands("CommandsStored")
-}
-
-func (r *Repository) GetAllCommands() ([]models.Command, error) {
-	return r.getAllCommands("Commands")
-}
-
-func (r *Repository) GetLimitCommands(limit int) ([]models.Command, error) {
-	commands := []models.Command{}
-
-	err := r.DB.View(func(tx *bolt.Tx) error {
-		cc := tx.Bucket([]byte("Commands"))
-		ii := tx.Bucket([]byte("CommandsIndex")).Cursor()
-
-		var i = limit
-
-		for k, v := ii.Last(); k != nil && i > 0; k, v = ii.Prev() {
-			var command = models.Command{}
-
-			vv := cc.Get(v)
-
-			err := json.Unmarshal(vv, &command)
-			if err != nil {
-				return err
-			}
-			commands = append(commands, command)
-
-			i--
-		}
-
-		return nil
-	})
-
-	return commands, err
-}
-
+// GetExecutedCommands converts commands to executed command format
 func (r *Repository) GetExecutedCommands(count int) ([]models.ExecutedCommand, error) {
 	commands, err := r.GetLimitCommands(count)
+	if err != nil {
+		return nil, err
+	}
 
 	executedCommands := make([]models.ExecutedCommand, len(commands))
-
 	for i := 0; i < len(commands); i++ {
 		executedCommands[i] = commands[i].AsExecutedCommand(i)
 	}
 
-	return executedCommands, err
-}
-
-func (r *Repository) extend(slice []models.Command, element models.Command) []models.Command {
-	n := len(slice)
-	if n == cap(slice) {
-		// Slice is full; must grow.
-		// We double its size and add 1, so if the size is zero we still grow.
-		newSlice := make([]models.Command, len(slice), 2*len(slice)+1)
-		copy(newSlice, slice)
-		slice = newSlice
-	}
-	slice = slice[0 : n+1]
-	slice[n] = element
-	return slice
-}
-
-// Append appends the items to the slice.
-// First version: just loop calling Extend.
-func (r *Repository) append(slice []models.Command, items ...models.Command) []models.Command {
-	for _, item := range items {
-		slice = r.extend(slice, item)
-	}
-	return slice
+	return executedCommands, nil
 }
