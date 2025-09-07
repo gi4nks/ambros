@@ -78,8 +78,7 @@ func TestStoreCommand(t *testing.T) {
 
 	t.Run("store command with existing name with force", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		existingCmd := &models.Command{Entity: models.Entity{ID: "existing"}}
-		mockRepo.On("Get", "existing").Return(existingCmd, nil) // Command exists
+		// No Get expectation needed when force=true, as existence check is skipped
 		mockRepo.On("Put", mock.Anything, mock.MatchedBy(func(cmd models.Command) bool {
 			return cmd.ID == "existing" && cmd.Name == "echo"
 		})).Return(nil)
@@ -183,6 +182,8 @@ func TestStoreCommand_WithComplexArguments(t *testing.T) {
 
 	t.Run("store command with multiple arguments", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
+		// Command doesn't exist, so Get returns an error
+		mockRepo.On("Get", "backup-sync").Return(nil, assert.AnError)
 		mockRepo.On("Put", mock.Anything, mock.MatchedBy(func(cmd models.Command) bool {
 			return cmd.Name == "rsync" &&
 				len(cmd.Arguments) == 3 &&

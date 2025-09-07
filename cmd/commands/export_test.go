@@ -99,7 +99,6 @@ func TestExportCommand_ValidateFlags(t *testing.T) {
 
 func TestExportCommand(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	mockRepo := new(mocks.MockRepository)
 
 	// Sample commands for export
 	sampleCommands := []models.Command{
@@ -138,7 +137,6 @@ func TestExportCommand(t *testing.T) {
 		format        string
 		tag           string
 		filter        string
-		setupMocks    func()
 		expectedError bool
 		verifyOutput  func(*testing.T, string)
 	}{
@@ -146,9 +144,6 @@ func TestExportCommand(t *testing.T) {
 			name:       "Success - Export all commands as JSON",
 			outputFile: filepath.Join(tmpDir, "all.json"),
 			format:     "json",
-			setupMocks: func() {
-				mockRepo.On("GetAllCommands").Return(sampleCommands, nil)
-			},
 			verifyOutput: func(t *testing.T, path string) {
 				data, err := os.ReadFile(path)
 				assert.NoError(t, err)
@@ -172,11 +167,6 @@ func TestExportCommand(t *testing.T) {
 			outputFile: filepath.Join(tmpDir, "tagged.json"),
 			format:     "json",
 			tag:        "test",
-			setupMocks: func() {
-				mockRepo.On("SearchByTag", "test").Return(
-					[]models.Command{sampleCommands[0]}, nil,
-				)
-			},
 			verifyOutput: func(t *testing.T, path string) {
 				data, err := os.ReadFile(path)
 				assert.NoError(t, err)
@@ -195,11 +185,6 @@ func TestExportCommand(t *testing.T) {
 			outputFile: filepath.Join(tmpDir, "success.json"),
 			format:     "json",
 			filter:     "success",
-			setupMocks: func() {
-				mockRepo.On("SearchByStatus", true).Return(
-					[]models.Command{sampleCommands[0]}, nil,
-				)
-			},
 			verifyOutput: func(t *testing.T, path string) {
 				data, err := os.ReadFile(path)
 				assert.NoError(t, err)
@@ -214,12 +199,9 @@ func TestExportCommand(t *testing.T) {
 			},
 		},
 		{
-			name:       "Error - Repository error",
-			outputFile: filepath.Join(tmpDir, "error.json"),
-			format:     "json",
-			setupMocks: func() {
-				mockRepo.On("GetAllCommands").Return(nil, assert.AnError)
-			},
+			name:          "Error - Repository error",
+			outputFile:    filepath.Join(tmpDir, "error.json"),
+			format:        "json",
 			expectedError: true,
 		},
 	}
@@ -236,11 +218,19 @@ func TestExportCommand(t *testing.T) {
 			cmd.tag = tt.tag
 			cmd.filter = tt.filter
 
-			// Setup mocks
-			if tt.setupMocks != nil {
-				// Replace the mock repo with our test mock
-				cmd.repository = testMockRepo
-				tt.setupMocks()
+			// Setup mocks based on test requirements
+			if tt.name == "Success - Export all commands as JSON" {
+				testMockRepo.On("GetAllCommands").Return(sampleCommands, nil)
+			} else if tt.name == "Success - Export by tag" {
+				testMockRepo.On("SearchByTag", "test").Return(
+					[]models.Command{sampleCommands[0]}, nil,
+				)
+			} else if tt.name == "Success - Export by status" {
+				testMockRepo.On("SearchByStatus", true).Return(
+					[]models.Command{sampleCommands[0]}, nil,
+				)
+			} else if tt.name == "Error - Repository error" {
+				testMockRepo.On("GetAllCommands").Return(nil, assert.AnError)
 			}
 
 			// Execute command

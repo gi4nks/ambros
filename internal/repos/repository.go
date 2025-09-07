@@ -79,7 +79,7 @@ func (r *Repository) Put(ctx context.Context, c models.Command) error {
 		}
 
 		// Store index by timestamp for ordering
-		timeKey := fmt.Sprintf("time:%s:%s", c.CreatedAt.Format(time.RFC3339Nano), c.ID)
+		timeKey := fmt.Sprintf("time:%s:%s", c.CreatedAt.Format("20060102T150405.999999999Z0700"), c.ID)
 		return txn.Set([]byte(timeKey), []byte(c.ID))
 	})
 }
@@ -121,13 +121,19 @@ func (r *Repository) GetLimitCommands(limit int) ([]models.Command, error) {
 	err := r.db.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
 		opts.Reverse = true
-		opts.Prefix = []byte("time:")
 		it := txn.NewIterator(opts)
 		defer it.Close()
 
 		count := 0
 		for it.Rewind(); it.Valid() && count < limit; it.Next() {
 			item := it.Item()
+			key := string(item.Key())
+
+			// Skip non-time keys
+			if !strings.HasPrefix(key, "time:") {
+				continue
+			}
+
 			var cmdID []byte
 			err := item.Value(func(val []byte) error {
 				cmdID = append([]byte{}, val...)

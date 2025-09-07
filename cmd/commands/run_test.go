@@ -2,6 +2,7 @@ package commands
 
 import (
 	"testing"
+	"time"
 
 	"github.com/gi4nks/ambros/internal/models"
 	"github.com/gi4nks/ambros/internal/repos/mocks"
@@ -153,7 +154,7 @@ func TestRunCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		runCmd := NewRunCommand(logger, mockRepo)
 
-		assert.Equal(t, "run -- [command]", runCmd.cmd.Use)
+		assert.Equal(t, "run [flags] [--] <command> [args...]", runCmd.cmd.Use)
 		assert.Equal(t, "Run a command and optionally store its execution details", runCmd.cmd.Short)
 		assert.NotNil(t, runCmd.Command())
 		assert.Equal(t, runCmd.cmd, runCmd.Command())
@@ -226,6 +227,7 @@ func TestRunCommand_GenerateCommandID(t *testing.T) {
 	runCmd := NewRunCommand(logger, mockRepo)
 
 	id1 := runCmd.generateCommandID()
+	time.Sleep(1 * time.Millisecond) // Ensure different timestamps
 	id2 := runCmd.generateCommandID()
 
 	assert.NotEmpty(t, id1)

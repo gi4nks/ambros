@@ -34,7 +34,7 @@ func TestLastCommand(t *testing.T) {
 			},
 		}
 
-		mockRepo.On("GetLimitCommands", 10).Return(expectedCommands, nil)
+		mockRepo.On("GetAllCommands").Return(expectedCommands, nil)
 
 		lastCmd := NewLastCommand(logger, mockRepo)
 		err := lastCmd.runE(lastCmd.cmd, []string{})
@@ -56,7 +56,7 @@ func TestLastCommand(t *testing.T) {
 			},
 		}
 
-		mockRepo.On("GetLimitCommands", 5).Return(expectedCommands, nil)
+		mockRepo.On("GetAllCommands").Return(expectedCommands, nil)
 
 		lastCmd := NewLastCommand(logger, mockRepo)
 		lastCmd.limit = 5
@@ -88,7 +88,7 @@ func TestLastCommand(t *testing.T) {
 			},
 		}
 
-		mockRepo.On("GetLimitCommands", 10).Return(expectedCommands, nil)
+		mockRepo.On("GetAllCommands").Return(expectedCommands, nil)
 
 		lastCmd := NewLastCommand(logger, mockRepo)
 		lastCmd.failedOnly = true
@@ -101,7 +101,7 @@ func TestLastCommand(t *testing.T) {
 
 	t.Run("repository error handling", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		mockRepo.On("GetLimitCommands", 10).Return(nil, assert.AnError)
+		mockRepo.On("GetAllCommands").Return(nil, assert.AnError)
 
 		lastCmd := NewLastCommand(logger, mockRepo)
 		err := lastCmd.runE(lastCmd.cmd, []string{})
@@ -112,7 +112,7 @@ func TestLastCommand(t *testing.T) {
 
 	t.Run("empty commands list", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		mockRepo.On("GetLimitCommands", 10).Return([]models.Command{}, nil)
+		mockRepo.On("GetAllCommands").Return([]models.Command{}, nil)
 
 		lastCmd := NewLastCommand(logger, mockRepo)
 		err := lastCmd.runE(lastCmd.cmd, []string{})
