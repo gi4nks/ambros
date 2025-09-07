@@ -50,8 +50,6 @@ func TestImportCommand(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Setup mocks
-		mockRepo.On("Get", "cmd1").Return(nil, assert.AnError) // Command doesn't exist
-		mockRepo.On("Get", "cmd2").Return(nil, assert.AnError) // Command doesn't exist
 		mockRepo.On("Put", mock.Anything, mock.AnythingOfType("models.Command")).Return(nil).Twice()
 
 		importCmd := NewImportCommand(logger, mockRepo)
@@ -85,7 +83,6 @@ func TestImportCommand(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Setup mocks
-		mockRepo.On("Get", "cmd1").Return(nil, assert.AnError)
 		mockRepo.On("Put", mock.Anything, mock.AnythingOfType("models.Command")).Return(nil)
 
 		importCmd := NewImportCommand(logger, mockRepo)
@@ -278,12 +275,12 @@ func TestImportCommand_FormatStatus(t *testing.T) {
 		{
 			name:     "success status",
 			status:   true,
-			expected: "Success",
+			expected: "✅ Success",
 		},
 		{
 			name:     "failed status",
 			status:   false,
-			expected: "Failed",
+			expected: "❌ Failed",
 		},
 	}
 

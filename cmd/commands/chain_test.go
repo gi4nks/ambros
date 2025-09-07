@@ -7,6 +7,7 @@ import (
 	"github.com/gi4nks/ambros/internal/models"
 	"github.com/gi4nks/ambros/internal/repos/mocks"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"
 )
 
@@ -15,19 +16,49 @@ func TestChainCommand(t *testing.T) {
 
 	t.Run("execute chain", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
+
+		// Mock GetLimitCommands for createDemoChain
+		demoCommands := []models.Command{
+			{Entity: models.Entity{ID: "demo1"}, Name: "echo", Command: "echo hello"},
+			{Entity: models.Entity{ID: "demo2"}, Name: "ls", Command: "ls -la"},
+			{Entity: models.Entity{ID: "demo3"}, Name: "pwd", Command: "pwd"},
+		}
+		mockRepo.On("GetLimitCommands", 3).Return(demoCommands, nil)
+
+		// Mock Get calls for each command execution
+		for _, cmd := range demoCommands {
+			mockRepo.On("Get", cmd.ID).Return(&cmd, nil)
+		}
+
 		chainCmd := NewChainCommand(logger, mockRepo)
 
 		err := chainCmd.runE(chainCmd.cmd, []string{"exec", "testchain"})
 		assert.NoError(t, err)
+		mockRepo.AssertExpectations(t)
 	})
 
 	t.Run("execute chain with conditional flag", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
+
+		// Mock GetLimitCommands for createDemoChain
+		demoCommands := []models.Command{
+			{Entity: models.Entity{ID: "demo1"}, Name: "echo", Command: "echo hello"},
+			{Entity: models.Entity{ID: "demo2"}, Name: "ls", Command: "ls -la"},
+			{Entity: models.Entity{ID: "demo3"}, Name: "pwd", Command: "pwd"},
+		}
+		mockRepo.On("GetLimitCommands", 3).Return(demoCommands, nil)
+
+		// Mock Get calls for each command execution
+		for _, cmd := range demoCommands {
+			mockRepo.On("Get", cmd.ID).Return(&cmd, nil)
+		}
+
 		chainCmd := NewChainCommand(logger, mockRepo)
 		chainCmd.conditional = true
 
 		err := chainCmd.runE(chainCmd.cmd, []string{"exec", "testchain"})
 		assert.NoError(t, err)
+		mockRepo.AssertExpectations(t)
 	})
 
 	t.Run("execute chain - missing name", func(t *testing.T) {
@@ -123,7 +154,7 @@ func TestChainCommand(t *testing.T) {
 		chainCmd := NewChainCommand(logger, mockRepo)
 
 		assert.Equal(t, "chain", chainCmd.cmd.Use)
-		assert.Equal(t, "Execute or manage command chains", chainCmd.cmd.Short)
+		assert.Equal(t, "🔗 Execute and manage command chains (Phase 3)", chainCmd.cmd.Short)
 		assert.NotNil(t, chainCmd.Command())
 		assert.Equal(t, chainCmd.cmd, chainCmd.Command())
 
@@ -209,19 +240,52 @@ func TestChainCommand_ExecuteChain(t *testing.T) {
 
 	t.Run("execute chain with store flag", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
+
+		// Mock GetLimitCommands for createDemoChain
+		demoCommands := []models.Command{
+			{Entity: models.Entity{ID: "demo1"}, Name: "echo", Command: "echo hello"},
+			{Entity: models.Entity{ID: "demo2"}, Name: "ls", Command: "ls -la"},
+			{Entity: models.Entity{ID: "demo3"}, Name: "pwd", Command: "pwd"},
+		}
+		mockRepo.On("GetLimitCommands", 3).Return(demoCommands, nil)
+
+		// Mock Get calls for each command execution
+		for _, cmd := range demoCommands {
+			mockRepo.On("Get", cmd.ID).Return(&cmd, nil)
+		}
+
+		// Mock Put call for storing execution result when store flag is set
+		mockRepo.On("Put", mock.Anything, mock.AnythingOfType("models.Command")).Return(nil)
+
 		chainCmd := NewChainCommand(logger, mockRepo)
 		chainCmd.store = true
 
 		err := chainCmd.executeChain("testchain")
 		assert.NoError(t, err)
+		mockRepo.AssertExpectations(t)
 	})
 
 	t.Run("execute chain without conditional flag", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
+
+		// Mock GetLimitCommands for createDemoChain
+		demoCommands := []models.Command{
+			{Entity: models.Entity{ID: "demo1"}, Name: "echo", Command: "echo hello"},
+			{Entity: models.Entity{ID: "demo2"}, Name: "ls", Command: "ls -la"},
+			{Entity: models.Entity{ID: "demo3"}, Name: "pwd", Command: "pwd"},
+		}
+		mockRepo.On("GetLimitCommands", 3).Return(demoCommands, nil)
+
+		// Mock Get calls for each command execution
+		for _, cmd := range demoCommands {
+			mockRepo.On("Get", cmd.ID).Return(&cmd, nil)
+		}
+
 		chainCmd := NewChainCommand(logger, mockRepo)
 		chainCmd.conditional = false
 
 		err := chainCmd.executeChain("testchain")
 		assert.NoError(t, err)
+		mockRepo.AssertExpectations(t)
 	})
 }

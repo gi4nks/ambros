@@ -98,6 +98,10 @@ func addCommands(logger *zap.Logger, repo RepositoryInterface) {
 	rootCmd.AddCommand(NewReviveCommand(logger, repo).Command())
 	rootCmd.AddCommand(NewSchedulerCommand(logger, repo).Command())
 
+	// Phase 3 Commands
+	rootCmd.AddCommand(NewServerCommand(logger, repo).Command())
+	rootCmd.AddCommand(NewPluginCommand(logger, repo).Command())
+
 	// Commands that don't need repository
 	rootCmd.AddCommand(NewVersionCommand(logger).Command())
 	rootCmd.AddCommand(NewConfigurationCommand(logger).Command())
