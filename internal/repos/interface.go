@@ -17,4 +17,5 @@ type RepositoryInterface interface {
 	SearchByStatus(success bool) ([]models.Command, error)
 	GetTemplate(name string) (*models.Template, error)
 	Push(command models.Command) error
+	Delete(id string) error
 }

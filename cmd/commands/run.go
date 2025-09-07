@@ -172,11 +172,12 @@ func (rc *RunCommand) runE(cmd *cobra.Command, args []string) error {
 				zap.Error(err),
 				zap.String("commandId", command.ID))
 		} else {
-			// Show user-friendly confirmation message with color
+			// Show user-friendly confirmation message with color and timing
+			duration := command.TerminatedAt.Sub(command.CreatedAt)
 			if success {
-				color.Green("[%s]", command.ID)
+				color.Green("[%s] ✅ Success (%v)", command.ID, duration.Round(time.Millisecond))
 			} else {
-				color.Red("[%s]", command.ID)
+				color.Red("[%s] ❌ Failed (%v)", command.ID, duration.Round(time.Millisecond))
 			}
 		}
 	}

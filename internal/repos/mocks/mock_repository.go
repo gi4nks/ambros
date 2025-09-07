@@ -91,3 +91,9 @@ func (m *MockRepository) Push(command models.Command) error {
 	args := m.Called(command)
 	return args.Error(0)
 }
+
+// Delete implements Repository.Delete
+func (m *MockRepository) Delete(id string) error {
+	args := m.Called(id)
+	return args.Error(0)
+}
