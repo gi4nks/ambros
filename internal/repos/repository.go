@@ -321,6 +321,47 @@ func (r *Repository) FindInStoreById(id string) (models.Command, error) {
 	return command, err
 }
 
+// Delete removes a command by ID
+func (r *Repository) Delete(id string) error {
+	return r.db.Update(func(txn *badger.Txn) error {
+		// First, get the command to get its timestamp for time index removal
+		cmdKey := []byte("cmd:" + id)
+		item, err := txn.Get(cmdKey)
+		if err != nil {
+			return err
+		}
+
+		var cmd models.Command
+		err = item.Value(func(val []byte) error {
+			return json.Unmarshal(val, &cmd)
+		})
+		if err != nil {
+			return err
+		}
+
+		// Delete the main command entry
+		if err := txn.Delete(cmdKey); err != nil {
+			return err
+		}
+
+		// Delete the time index entry
+		timeKey := []byte("time:" + cmd.CreatedAt.Format(time.RFC3339Nano))
+		if err := txn.Delete(timeKey); err != nil {
+			// Continue even if time index deletion fails
+		}
+
+		// Delete any tag entries for this command
+		for _, tag := range cmd.Tags {
+			tagKey := []byte("tag:" + tag + ":" + id)
+			if err := txn.Delete(tagKey); err != nil {
+				// Continue even if tag deletion fails
+			}
+		}
+
+		return nil
+	})
+}
+
 // DeleteStoredCommand removes a stored command
 func (r *Repository) DeleteStoredCommand(id string) error {
 	return r.db.Update(func(txn *badger.Txn) error {
