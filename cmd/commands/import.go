@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
@@ -170,14 +172,14 @@ func (ic *ImportCommand) processCommands(commands []models.Command) error {
 	}
 
 	// Display summary
-	fmt.Printf("Import completed:\n")
-	fmt.Printf("Total commands: %d\n", len(commands))
-	fmt.Printf("Imported: %d\n", imported)
+	color.Cyan("📥 Import completed:")
+	fmt.Printf("Total commands: %s\n", color.YellowString("%d", len(commands)))
+	fmt.Printf("Imported: %s\n", color.GreenString("%d", imported))
 	if skipped > 0 {
-		fmt.Printf("Skipped: %d\n", skipped)
+		fmt.Printf("Skipped: %s\n", color.YellowString("%d", skipped))
 	}
 	if errors > 0 {
-		fmt.Printf("Errors: %d\n", errors)
+		fmt.Printf("Errors: %s\n", color.RedString("%d", errors))
 	}
 
 	ic.logger.Info("Import process completed",
@@ -190,9 +192,9 @@ func (ic *ImportCommand) processCommands(commands []models.Command) error {
 }
 
 func (ic *ImportCommand) previewImport(commands []models.Command) error {
-	fmt.Printf("Import preview for file: %s\n", ic.inputFile)
-	fmt.Printf("Format: %s\n", ic.format)
-	fmt.Printf("Total commands to import: %d\n\n", len(commands))
+	color.Cyan("📋 Import preview for file: %s", ic.inputFile)
+	fmt.Printf("Format: %s\n", color.YellowString(ic.format))
+	fmt.Printf("Total commands to import: %s\n\n", color.GreenString("%d", len(commands)))
 
 	existing := 0
 	for i, command := range commands {
@@ -200,16 +202,19 @@ func (ic *ImportCommand) previewImport(commands []models.Command) error {
 			existing++
 		}
 
-		fmt.Printf("%d. %s %s\n", i+1, command.Name, fmt.Sprintf("(ID: %s)", command.ID))
+		fmt.Printf("%d. %s %s\n", i+1,
+			color.WhiteString(command.Name),
+			color.CyanString("(ID: %s)", command.ID))
 		fmt.Printf("   Created: %s\n", command.CreatedAt.Format("2006-01-02 15:04:05"))
 		fmt.Printf("   Status: %s\n", ic.formatStatus(command.Status))
 
 		if len(command.Tags) > 0 {
-			fmt.Printf("   Tags: %s\n", fmt.Sprintf("[%s]", fmt.Sprintf("%v", command.Tags)))
+			tagList := strings.Join(command.Tags, ", ")
+			fmt.Printf("   Tags: %s\n", color.YellowString("[%s]", tagList))
 		}
 
 		if ic.commandExists(command.ID) {
-			fmt.Printf("   Note: Command already exists\n")
+			color.Yellow("   ⚠️  Command already exists")
 		}
 
 		if i < len(commands)-1 {
@@ -218,11 +223,12 @@ func (ic *ImportCommand) previewImport(commands []models.Command) error {
 	}
 
 	if existing > 0 {
-		fmt.Printf("\nNote: %d command(s) already exist\n", existing)
+		fmt.Printf("\n%s %d command(s) already exist\n",
+			color.YellowString("⚠️"), existing)
 		if ic.skipExisting {
-			fmt.Printf("These will be skipped due to --skip-existing flag\n")
+			color.Cyan("These will be skipped due to --skip-existing flag")
 		} else {
-			fmt.Printf("These will be overwritten\n")
+			color.Red("These will be overwritten")
 		}
 	}
 
@@ -240,9 +246,9 @@ func (ic *ImportCommand) commandExists(id string) bool {
 
 func (ic *ImportCommand) formatStatus(status bool) string {
 	if status {
-		return "Success"
+		return color.GreenString("✅ Success")
 	}
-	return "Failed"
+	return color.RedString("❌ Failed")
 }
 
 func (ic *ImportCommand) Command() *cobra.Command {
