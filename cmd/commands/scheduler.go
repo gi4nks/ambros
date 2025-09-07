@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fatih/color"
+	"github.com/robfig/cron/v3"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
@@ -98,15 +100,14 @@ func (sc *SchedulerCommand) runE(cmd *cobra.Command, args []string) error {
 }
 
 func (sc *SchedulerCommand) listScheduled() error {
-	sc.logger.Debug("Listing scheduled commands")
-
+	// Get all commands and filter for scheduled ones
 	commands, err := sc.repository.GetAllCommands()
 	if err != nil {
-		sc.logger.Error("Failed to retrieve commands", zap.Error(err))
-		return errors.NewError(errors.ErrRepositoryRead, "failed to retrieve commands", err)
+		sc.logger.Error("Failed to get commands", zap.Error(err))
+		return errors.NewError(errors.ErrRepositoryRead, "failed to get commands", err)
 	}
 
-	scheduledCommands := make([]models.Command, 0)
+	var scheduledCommands []models.Command
 	for _, cmd := range commands {
 		if cmd.Schedule != nil {
 			scheduledCommands = append(scheduledCommands, cmd)
@@ -114,31 +115,30 @@ func (sc *SchedulerCommand) listScheduled() error {
 	}
 
 	if len(scheduledCommands) == 0 {
-		fmt.Println("No scheduled commands found")
+		color.Yellow("📅 No scheduled commands found")
+		color.Cyan("\nCreate a scheduled command:")
+		color.White("  ambros scheduler add <command-id> \"0 9 * * 1-5\"")
 		return nil
 	}
 
-	fmt.Printf("Scheduled commands (%d):\n\n", len(scheduledCommands))
+	color.Cyan("📅 Scheduled Commands (%d):", len(scheduledCommands))
 
 	for i, cmd := range scheduledCommands {
-		fmt.Printf("%d. %s %s\n", i+1, cmd.Name, strings.Join(cmd.Arguments, " "))
-		fmt.Printf("   ID: %s\n", cmd.ID)
-		fmt.Printf("   Cron: %s\n", cmd.Schedule.CronExpr)
-		fmt.Printf("   Enabled: %t\n", cmd.Schedule.Enabled)
+		status := "🟢 Enabled"
+		if !cmd.Schedule.Enabled {
+			status = "🔴 Disabled"
+		}
+
+		fmt.Printf("\n%d. %s\n", i+1, color.WhiteString(cmd.Command))
+		fmt.Printf("   ID: %s\n", color.CyanString(cmd.ID))
+		fmt.Printf("   Cron: %s\n", color.YellowString(cmd.Schedule.CronExpr))
+		fmt.Printf("   Status: %s\n", status)
+		fmt.Printf("   Next Run: %s\n", cmd.Schedule.NextRun.Format("2006-01-02 15:04:05"))
+
 		if !cmd.Schedule.LastRun.IsZero() {
 			fmt.Printf("   Last Run: %s\n", cmd.Schedule.LastRun.Format("2006-01-02 15:04:05"))
 		}
-		if !cmd.Schedule.NextRun.IsZero() {
-			fmt.Printf("   Next Run: %s\n", cmd.Schedule.NextRun.Format("2006-01-02 15:04:05"))
-		}
-
-		if i < len(scheduledCommands)-1 {
-			fmt.Println()
-		}
 	}
-
-	sc.logger.Info("Listed scheduled commands",
-		zap.Int("count", len(scheduledCommands)))
 
 	return nil
 }
@@ -192,11 +192,12 @@ func (sc *SchedulerCommand) addScheduled(commandId string, scheduleArgs []string
 		return errors.NewError(errors.ErrRepositoryWrite, "failed to schedule command", err)
 	}
 
-	fmt.Printf("Command scheduled successfully:\n")
-	fmt.Printf("ID: %s\n", commandId)
-	fmt.Printf("Cron: %s\n", cronExpr)
-	fmt.Printf("Enabled: %t\n", sc.enabled)
-	fmt.Printf("Next Run: %s\n", schedule.NextRun.Format("2006-01-02 15:04:05"))
+	color.Green("✅ Command scheduled successfully:")
+	fmt.Printf("ID: %s\n", color.CyanString(commandId))
+	fmt.Printf("Command: %s\n", color.WhiteString(command.Command))
+	fmt.Printf("Cron: %s\n", color.YellowString(cronExpr))
+	fmt.Printf("Enabled: %s\n", color.GreenString("%t", sc.enabled))
+	fmt.Printf("Next Run: %s\n", color.CyanString(schedule.NextRun.Format("2006-01-02 15:04:05")))
 
 	sc.logger.Info("Command scheduled successfully",
 		zap.String("commandId", commandId),
@@ -350,17 +351,24 @@ func (sc *SchedulerCommand) intervalToCron(interval string) string {
 }
 
 func (sc *SchedulerCommand) validateCronExpr(cronExpr string) error {
-	// Basic validation - could be enhanced with proper cron parsing
-	parts := strings.Fields(cronExpr)
-	if len(parts) != 5 {
-		return fmt.Errorf("cron expression must have 5 fields")
+	// Use proper cron parser for validation
+	parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
+	_, err := parser.Parse(cronExpr)
+	if err != nil {
+		return fmt.Errorf("invalid cron expression: %w", err)
 	}
 	return nil
 }
 
 func (sc *SchedulerCommand) calculateNextRun(cronExpr string) time.Time {
-	// Simple calculation - in a real implementation, use a proper cron parser
-	return time.Now().Add(time.Hour)
+	// Use proper cron parser to calculate next run
+	parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
+	schedule, err := parser.Parse(cronExpr)
+	if err != nil {
+		// Fallback to simple calculation
+		return time.Now().Add(time.Hour)
+	}
+	return schedule.Next(time.Now())
 }
 
 func (sc *SchedulerCommand) Command() *cobra.Command {

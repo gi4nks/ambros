@@ -87,6 +87,8 @@ func addCommands(logger *zap.Logger, repo RepositoryInterface) {
 	rootCmd.AddCommand(NewOutputCommand(logger, repo).Command())
 	rootCmd.AddCommand(NewTemplateCommand(logger, repo).Command())
 	rootCmd.AddCommand(NewAnalyticsCommand(logger, repo).Command())
+	rootCmd.AddCommand(NewEnvCommand(logger, repo).Command())
+	rootCmd.AddCommand(NewInteractiveCommand(logger, repo).Command())
 	rootCmd.AddCommand(NewExportCommand(logger, repo).Command())
 	rootCmd.AddCommand(NewImportCommand(logger, repo).Command())
 	rootCmd.AddCommand(NewLogsCommand(logger, repo).Command())
