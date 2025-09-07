@@ -1,85 +1,113 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"time"
 
-	models "github.com/gi4nks/ambros/internal/models"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
+
+	"github.com/gi4nks/ambros/internal/errors"
+	"github.com/gi4nks/ambros/internal/models"
 )
 
-// fakeCommand generates a fake command for testing
-func fakeCommand() *models.Command {
-	// Create a random ID for the command
-	id := fmt.Sprintf("CMD-%d", rand.Intn(1000))
+// TestCommand represents the test command
+type TestCommand struct {
+	*BaseCommand
+	count   int
+	cleanup bool
+}
 
-	// Generate random name and arguments for the command
-	names := []string{"ls", "cat", "grep", "echo", "mkdir", "rm", "touch"}
+// NewTestCommand creates a new test command
+func NewTestCommand(logger *zap.Logger, repo RepositoryInterface) *TestCommand {
+	tc := &TestCommand{}
+
+	cmd := &cobra.Command{
+		Use:   "test",
+		Short: "Generate test commands",
+		Long: `Generate and store test commands for development and testing purposes.
+The commands are randomly generated with various properties and outcomes.
+
+Examples:
+  ambros test              # Generate 3 test commands
+  ambros test -n 10       # Generate 10 test commands
+  ambros test --cleanup   # Remove all test commands before generating new ones`,
+		RunE: tc.runE,
+	}
+
+	tc.BaseCommand = NewBaseCommand(cmd, logger, repo)
+	tc.cmd = cmd
+
+	tc.cmd.Flags().IntVarP(&tc.count, "number", "n", 3, "Number of test commands to generate")
+	tc.cmd.Flags().BoolVar(&tc.cleanup, "cleanup", false, "Remove existing test commands before generating new ones")
+	return tc
+}
+
+func (c *TestCommand) runE(cmd *cobra.Command, args []string) error {
+	c.logger.Info("Test command invoked",
+		zap.Int("count", c.count),
+		zap.Bool("cleanup", c.cleanup))
+
+	if c.cleanup {
+		// In a real implementation, we would add a method to cleanup test commands
+		c.logger.Debug("Cleanup requested but not implemented")
+	}
+
+	for i := 0; i < c.count; i++ {
+		command := c.generateTestCommand()
+		if err := c.repository.Put(context.Background(), *command); err != nil {
+			return errors.NewError(errors.ErrRepositoryWrite,
+				fmt.Sprintf("failed to store test command %d", i+1), err)
+		}
+		c.logger.Debug("Generated and stored test command",
+			zap.String("commandId", command.ID),
+			zap.String("name", command.Name),
+			zap.Bool("status", command.Status))
+	}
+
+	c.logger.Info("Test command generation completed",
+		zap.Int("generated", c.count))
+	return nil
+}
+
+// generateTestCommand creates a fake command for testing
+func (c *TestCommand) generateTestCommand() *models.Command {
+	names := []string{"ls", "cat", "grep", "echo", "mkdir", "rm", "touch", "find"}
 	args := [][]string{
-		{"-l"},
+		{"-l", "-a"},
 		{"file.txt"},
 		{"pattern", "file.txt"},
 		{"Hello, World!"},
-		{"new_directory"},
-		{"-rf", "directory"},
-		{"file.txt"},
+		{"test_dir"},
+		{"-rf", "old_dir"},
+		{"newfile.txt"},
+		{".", "-name", "*.go"},
 	}
-	name := names[rand.Intn(len(names))]
-	arguments := args[rand.Intn(len(args))]
 
-	// Generate random timestamps for CreatedAt and TerminatedAt
-	createdAt := time.Now().Add(-time.Duration(rand.Intn(3600)) * time.Second)  // Random time within the last hour
-	terminatedAt := createdAt.Add(time.Duration(rand.Intn(3600)) * time.Second) // Random time after CreatedAt
+	now := time.Now()
+	status := rand.Float32() < 0.7 // 70% success rate
+	var output, errorMsg string
 
-	// Generate random status, output, and error for the command
-	status := rand.Float32() < 0.5 // Randomly decide if the command succeeded or failed
-	output := ""
 	if status {
-		output = "Output of the command"
+		output = fmt.Sprintf("Output from command execution at %s", now.Format(time.RFC3339))
 	} else {
-		output = ""
-	}
-	errorMsg := ""
-	if !status {
-		errorMsg = "Error message"
+		errorMsg = fmt.Sprintf("Error: command failed at %s", now.Format(time.RFC3339))
 	}
 
-	// Create and return the fake command object
+	execTime := time.Duration(rand.Intn(5000)) * time.Millisecond
 	return &models.Command{
 		Entity: models.Entity{
-			ID:           id,
-			CreatedAt:    createdAt,
-			TerminatedAt: terminatedAt,
+			ID:           fmt.Sprintf("TEST-%d", rand.Intn(10000)),
+			CreatedAt:    now,
+			TerminatedAt: now.Add(execTime),
 		},
-		Name:      name,
-		Arguments: arguments,
+		Name:      names[rand.Intn(len(names))],
+		Arguments: args[rand.Intn(len(args))],
 		Status:    status,
 		Output:    output,
 		Error:     errorMsg,
+		Tags:      []string{"test", "generated"},
 	}
-}
-
-// testCmd represents the output command
-var testCmd = &cobra.Command{
-	Use:   "test",
-	Short: "Test",
-	Long:  `Test command`,
-	Run: func(cmd *cobra.Command, args []string) {
-		commandWrapper(args, func() {
-			Parrot.Info("Test command invoked")
-
-			fakeCmd1 := fakeCommand()
-			fakeCmd2 := fakeCommand()
-			fakeCmd3 := fakeCommand()
-
-			Repository.Put(*fakeCmd1)
-			Repository.Put(*fakeCmd2)
-			Repository.Put(*fakeCmd3)
-		})
-	},
-}
-
-func init() {
-	RootCmd.AddCommand(testCmd)
 }

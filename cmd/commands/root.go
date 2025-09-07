@@ -1,115 +1,105 @@
-// Copyright © 2017 gi4nks <gi4nks@gmail.com>
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package commands
 
 import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
+	"go.uber.org/zap"
 
-	"github.com/gi4nks/quant"
-
-	repos "github.com/gi4nks/ambros/internal/repos"
-	utils "github.com/gi4nks/ambros/internal/utils"
+	"github.com/gi4nks/ambros/internal/repos"
+	"github.com/gi4nks/ambros/internal/utils"
 )
 
-var cfgFile string
+var (
+	cfgFile string
+	debug   bool
+)
 
-var Parrot = quant.NewParrot("ambros")
-var Utilities = utils.NewUtilities(*Parrot)
-var Configuration = utils.NewConfiguration(*Parrot)
-var Repository = &repos.Repository{}
-
-// RootCmd represents the base command when called without any subcommands
-var RootCmd = &cobra.Command{
+// rootCmd represents the base command when called without any subcommands
+var rootCmd = &cobra.Command{
 	Use:   "ambros",
-	Short: "Ambros is a command butler.",
-	Long:  `Ambros is a command butler.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	//	Run: func(cmd *cobra.Command, args []string) { },
+	Short: "The command butler!",
+	Long: `Ambros creates a local history of executed commands, keeping track of output and metadata.
+It helps you manage, search, and replay commands with ease.
+
+Examples:
+  ambros run -- ls -la              # Run and store a command
+  ambros last                       # Show recent commands
+  ambros search "grep"              # Search command history
+  ambros export -o backup.json      # Export command history`,
 }
 
-// Execute adds all child commands to the root command sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
+// Execute adds all child commands to the root command and sets flags appropriately.
 func Execute() {
-	if err := RootCmd.Execute(); err != nil {
-		Parrot.Println(err)
-		os.Exit(-1)
+	err := rootCmd.Execute()
+	if err != nil {
+		os.Exit(1)
 	}
 }
 
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	// Here you will define your flags and configuration settings.
-	// Cobra supports Persistent Flags, which, if defined here,
-	// will be global for your application.
+	// Global flags
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.ambros.yaml)")
+	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "enable debug mode")
 
-	RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is <executable folder>/.ambros.yaml)")
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	RootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// Initialize logger
+	logger := initLogger()
+
+	// Initialize repository
+	config := utils.NewConfiguration(logger)
+	repo, err := repos.NewRepository(config.RepositoryFullName(), logger)
+	if err != nil {
+		logger.Fatal("Failed to initialize repository", zap.Error(err))
+	}
+
+	// Add subcommands
+	addCommands(logger, repo)
 }
 
-// initConfig reads in config file and ENV variables if set.
-func initConfig() {
-	/* -------------------------- */
-	/* initialize the application */
-	/* -------------------------- */
-	folder, err := quant.ExecutableFolder()
+func initLogger() *zap.Logger {
+	var logger *zap.Logger
+	var err error
+
+	if debug {
+		logger, err = zap.NewDevelopment()
+	} else {
+		// For CLI tools, we want quieter logging in production
+		// Only log warnings and errors to avoid cluttering user output
+		config := zap.NewProductionConfig()
+		config.Level = zap.NewAtomicLevelAt(zap.WarnLevel)
+		logger, err = config.Build()
+	}
 
 	if err != nil {
-		Parrot.Error("Executable folder error", err)
+		panic(err)
 	}
 
-	if cfgFile != "" { // enable ability to specify config file via flag
-		viper.SetConfigFile(cfgFile)
-	}
+	return logger
+}
 
-	viper.SetConfigName(".ambros") // name of config file (without extension)
-	// viper.AddConfigPath("$HOME")   // adding home directory as first search path
-	viper.AddConfigPath(folder) // adding home directory as first search path
-	viper.AutomaticEnv()        // read in environment variables that match
+func addCommands(logger *zap.Logger, repo RepositoryInterface) {
+	// Add all command implementations
+	rootCmd.AddCommand(NewRunCommand(logger, repo).Command())
+	rootCmd.AddCommand(NewLastCommand(logger, repo).Command())
+	rootCmd.AddCommand(NewSearchCommand(logger, repo).Command())
+	rootCmd.AddCommand(NewOutputCommand(logger, repo).Command())
+	rootCmd.AddCommand(NewExportCommand(logger, repo).Command())
+	rootCmd.AddCommand(NewImportCommand(logger, repo).Command())
+	rootCmd.AddCommand(NewLogsCommand(logger, repo).Command())
+	rootCmd.AddCommand(NewChainCommand(logger, repo).Command())
+	rootCmd.AddCommand(NewStoreCommand(logger, repo).Command())
+	rootCmd.AddCommand(NewRecallCommand(logger, repo).Command())
+	rootCmd.AddCommand(NewReviveCommand(logger, repo).Command())
+	rootCmd.AddCommand(NewSchedulerCommand(logger, repo).Command())
 
-	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		Parrot.Debug("Using config file:", viper.ConfigFileUsed())
-	}
+	// Commands that don't need repository
+	rootCmd.AddCommand(NewVersionCommand(logger).Command())
+	rootCmd.AddCommand(NewConfigurationCommand(logger).Command())
+}
 
-	if viper.GetString("repositoryDirectory") != "" {
-		Configuration.RepositoryDirectory = folder + "/" + viper.GetString("repositoryDirectory")
-	} else {
-		Configuration.RepositoryDirectory = folder + "/" + Configuration.RepositoryDirectory
-	}
-
-	if viper.GetString("repositoryFile") != "" {
-		Configuration.RepositoryFile = viper.GetString("repositoryFile")
-	}
-
-	if viper.GetInt("lastCountDefault") >= 0 {
-		Configuration.LastCountDefault = viper.GetInt("lastCountDefault")
-	}
-
-	Configuration.DebugMode = viper.GetBool("debugMode")
-
-	if Configuration.DebugMode {
-		Parrot = quant.NewVerboseParrot("ambros")
-	}
-
-	Repository = repos.NewRepository(*Parrot, *Configuration)
-
+func initConfig() {
+	// Configuration initialization can be added here
+	// For now, we'll use the default configuration
 }

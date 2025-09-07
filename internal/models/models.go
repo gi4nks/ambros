@@ -6,35 +6,70 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ttacon/chalk"
-
-	"github.com/gi4nks/quant"
+	"go.uber.org/zap"
 )
 
 type Entity struct {
-	ID           string
-	CreatedAt    time.Time
-	TerminatedAt time.Time
+	ID           string    `json:"id"`
+	CreatedAt    time.Time `json:"created_at"`
+	TerminatedAt time.Time `json:"terminated_at"`
 }
 
 type Command struct {
 	Entity
+	Name      string            `json:"name"`
+	Command   string            `json:"command"`
+	Arguments []string          `json:"arguments"`
+	Status    bool              `json:"status"`
+	Output    string            `json:"output"`
+	Error     string            `json:"error"`
+	Tags      []string          `json:"tags,omitempty"`
+	Category  string            `json:"category,omitempty"`
+	Variables map[string]string `json:"variables,omitempty"`
+	Schedule  *Schedule         `json:"schedule,omitempty"`
+}
 
-	Name      string
-	Arguments []string
-	Status    bool
-	Output    string
-	Error     string
+type Schedule struct {
+	CronExpr string    `json:"cron_expr"`
+	NextRun  time.Time `json:"next_run"`
+	LastRun  time.Time `json:"last_run"`
+	Enabled  bool      `json:"enabled"`
+}
+
+type CommandChain struct {
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	Commands    []string  `json:"commands"` // Command IDs
+	Conditional bool      `json:"conditional"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+type CommandTemplate struct {
+	ID          string            `json:"id"`
+	Name        string            `json:"name"`
+	Description string            `json:"description"`
+	Command     string            `json:"command"`
+	Arguments   []string          `json:"arguments"`
+	Variables   map[string]string `json:"variables"`
+}
+
+type SearchQuery struct {
+	Text     string    `json:"text"`
+	Tags     []string  `json:"tags,omitempty"`
+	Category string    `json:"category,omitempty"`
+	DateFrom time.Time `json:"date_from,omitempty"`
+	DateTo   time.Time `json:"date_to,omitempty"`
+	Status   *bool     `json:"status,omitempty"`
 }
 
 type ExecutedCommand struct {
-	parrot *quant.Parrot
-
-	Order   int
-	ID      string
-	Command string
-	Status  bool
-	When    time.Time
+	ID      string    `json:"id"`
+	Command string    `json:"command"`
+	Status  bool      `json:"status"`
+	When    time.Time `json:"when"`
+	Index   int       `json:"index"`
+	Order   int       `json:"order"`
 }
 
 func (c *Command) Clone() *Command {
@@ -50,6 +85,11 @@ func (c *Command) Clone() *Command {
 		Status:    c.Status,
 		Output:    c.Output,
 		Error:     c.Error,
+		Command:   c.Command,
+		Tags:      append([]string{}, c.Tags...),
+		Category:  c.Category,
+		Variables: make(map[string]string),
+		Schedule:  c.Schedule,
 	}
 
 	// Copy the elements of the Arguments slice to the clone's Arguments slice
@@ -84,6 +124,11 @@ func (c Command) ToMap() map[string]interface{} {
 		"Status":       c.Status,
 		"Output":       c.Output,
 		"Error":        c.Error,
+		"Command":      c.Command,
+		"Tags":         c.Tags,
+		"Category":     c.Category,
+		"Variables":    c.Variables,
+		"Schedule":     c.Schedule,
 		"CreatedAt":    c.CreatedAt,
 		"TerminatedAt": c.TerminatedAt,
 	}
@@ -108,13 +153,11 @@ func (c ExecutedCommand) AsFlatCommand() string {
 	return "{" + c.When.Format("02.01.2006 15:04:05") + "} [id: " + c.ID + ", status: " + strconv.FormatBool(c.Status) + "] " + c.Command
 }
 
-func (c ExecutedCommand) Print(parrot *quant.Parrot) {
-	parrot.Print("{", chalk.Yellow, c.When.Format("02.01.2006 15:04:05"), chalk.Reset, "} ")
-
-	if c.Status {
-		parrot.Print("[", chalk.Green, c.ID, chalk.Reset, "] ")
-	} else {
-		parrot.Print("[", chalk.Red, c.ID, chalk.Reset, "] ")
-	}
-	parrot.Println(c.Command)
+func (c ExecutedCommand) Print(logger zap.Logger) {
+	logger.Info("Executed Command",
+		zap.String("when", c.When.Format("02.01.2006 15:04:05")),
+		zap.String("id", c.ID),
+		zap.Bool("status", c.Status),
+		zap.String("command", c.Command),
+	)
 }

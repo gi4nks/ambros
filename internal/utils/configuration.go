@@ -1,48 +1,47 @@
 package utils
 
 import (
-	"encoding/json"
+	"fmt"
+	"os"
 	"path/filepath"
 
-	"github.com/gi4nks/quant"
+	"go.uber.org/zap"
 )
 
 type Configuration struct {
-	parrot *quant.Parrot
-
+	logger              *zap.Logger
 	RepositoryDirectory string
 	RepositoryFile      string
 	LastCountDefault    int
 	DebugMode           bool
 }
 
-func NewConfiguration(p quant.Parrot) *Configuration {
-	var c = Configuration{}
-	c.parrot = &p
-
-	c.RepositoryDirectory = ConstRepositoryDirectory
-	c.RepositoryFile = ConstRepositoryFile
-	c.LastCountDefault = ConstLastCountDefault
-	c.DebugMode = ConstDebugMode
-
-	return &c
-}
-
-func (c Configuration) String() string {
-	b, err := json.Marshal(c)
-	if err != nil {
-		c.parrot.Error("Warning", err)
-		return "{}"
+func NewConfiguration(logger *zap.Logger) *Configuration {
+	c := &Configuration{
+		logger: logger,
 	}
-	return string(b)
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		logger.Error("Failed to get home directory", zap.Error(err))
+		c.RepositoryDirectory = filepath.Join(os.TempDir(), ".ambros")
+	} else {
+		c.RepositoryDirectory = filepath.Join(home, ".ambros")
+	}
+
+	c.RepositoryFile = "ambros.db"
+	return c
 }
 
-func (c Configuration) RepositoryFullName() string {
+func (c *Configuration) RepositoryFullName() string {
+	return filepath.Join(c.RepositoryDirectory, c.RepositoryFile)
+}
 
-	/*
-		c.parrot.Println("1", c.RepositoryDirectory)
-		c.parrot.Println("2", string(filepath.Separator))
-		c.parrot.Println("3", c.RepositoryFile)
-	*/
-	return c.RepositoryDirectory + string(filepath.Separator) + c.RepositoryFile
+func (c *Configuration) String() string {
+	return fmt.Sprintf(`{
+	"repositoryDirectory": "%s",
+	"repositoryFile": "%s",
+	"lastCountDefault": %d,
+	"debugMode": %t
+}`, c.RepositoryDirectory, c.RepositoryFile, c.LastCountDefault, c.DebugMode)
 }

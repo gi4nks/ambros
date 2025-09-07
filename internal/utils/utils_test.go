@@ -2,15 +2,22 @@ package utils_test
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/gi4nks/ambros/internal/utils"
-	"github.com/gi4nks/quant"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAsJson(t *testing.T) {
 	// Create a new instance of Utilities
-	u := utils.NewUtilities(quant.Parrot{})
+	f := setupTest(t)
+	defer f.tearDown()
+	logger := f.logger
+
+	u := utils.NewUtilities(logger)
 
 	// Test case: Valid input
 	input := map[string]interface{}{
@@ -35,18 +42,38 @@ func TestAsJson(t *testing.T) {
 
 func TestRandom(t *testing.T) {
 	// Create a new instance of Utilities
-	u := utils.NewUtilities(quant.Parrot{})
+	f := setupTest(t)
+	defer f.tearDown()
+	logger := f.logger
 
-	// Test case: Check length of generated random string
-	result := u.Random()
-	if len(result) != 12 {
-		t.Errorf("Random() returned string of unexpected length: got %d, want %d", len(result), 12)
+	tests := []struct {
+		name    string
+		wantLen int
+		wantErr bool
+	}{
+		{
+			name:    "valid random string",
+			wantLen: 12,
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			u := utils.NewUtilities(logger)
+			got := u.Random()
+			assert.Equal(t, tt.wantLen, len(got))
+		})
 	}
 }
 
 func TestTail(t *testing.T) {
+	f := setupTest(t)
+	defer f.tearDown()
+	logger := f.logger
+
 	// Create a new instance of Utilities
-	u := utils.NewUtilities(quant.Parrot{})
+	u := utils.NewUtilities(logger)
 
 	// Test case: Slice with more than 2 elements
 	input := []string{"a", "b", "c"}
@@ -66,8 +93,12 @@ func TestTail(t *testing.T) {
 }
 
 func TestCheck(t *testing.T) {
+	f := setupTest(t)
+	defer f.tearDown()
+	logger := f.logger
+
 	// Create a new instance of Utilities
-	u := utils.NewUtilities(quant.Parrot{})
+	u := utils.NewUtilities(logger)
 
 	// Test case: No error
 	noError := error(nil)
@@ -79,8 +110,12 @@ func TestCheck(t *testing.T) {
 }
 
 func TestFatal(t *testing.T) {
+	f := setupTest(t)
+	defer f.tearDown()
+	logger := f.logger
+
 	// Create a new instance of Utilities
-	u := utils.NewUtilities(quant.Parrot{})
+	u := utils.NewUtilities(logger)
 
 	// Test case: No error
 	noError := error(nil)
@@ -95,4 +130,132 @@ func TestFatal(t *testing.T) {
 		}
 	}()
 	u.Fatal(testError)
+}
+
+func TestUtilities_ExistsPath(t *testing.T) {
+	f := setupTest(t)
+	defer f.tearDown()
+	logger := f.logger
+
+	// Create a new instance of Utilities
+	u := utils.NewUtilities(logger)
+
+	// Create a temporary directory
+	tmpDir, err := os.MkdirTemp("", "utils-test")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	tests := []struct {
+		name     string
+		path     string
+		expected bool
+	}{
+		{
+			name:     "existing directory",
+			path:     tmpDir,
+			expected: true,
+		},
+		{
+			name:     "non-existing path",
+			path:     filepath.Join(tmpDir, "nonexistent"),
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := u.ExistsPath(tt.path)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestUtilities_CreatePath(t *testing.T) {
+	f := setupTest(t)
+	defer f.tearDown()
+	logger := f.logger
+
+	// Create a new instance of Utilities
+	u := utils.NewUtilities(logger)
+
+	// Create a temporary base directory
+	tmpDir, err := os.MkdirTemp("", "utils-test")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	tests := []struct {
+		name    string
+		path    string
+		wantErr bool
+	}{
+		{
+			name:    "create new directory",
+			path:    filepath.Join(tmpDir, "newdir"),
+			wantErr: false,
+		},
+		{
+			name:    "create nested directories",
+			path:    filepath.Join(tmpDir, "nested", "dirs"),
+			wantErr: false,
+		},
+		{
+			name:    "create in readonly directory",
+			path:    "/root/test",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := u.CreatePath(tt.path)
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.True(t, u.ExistsPath(tt.path))
+		})
+	}
+}
+
+func TestUtilities_GetAbsolutePath(t *testing.T) {
+	f := setupTest(t)
+	defer f.tearDown()
+	logger := f.logger
+
+	u := utils.NewUtilities(logger)
+
+	tests := []struct {
+		name    string
+		path    string
+		wantErr bool
+	}{
+		{
+			name:    "current directory",
+			path:    ".",
+			wantErr: false,
+		},
+		{
+			name:    "relative path",
+			path:    "test/path",
+			wantErr: false,
+		},
+		{
+			name:    "absolute path",
+			path:    "/tmp/test",
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			abs, err := u.GetAbsolutePath(tt.path)
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.True(t, filepath.IsAbs(abs))
+		})
+	}
 }
