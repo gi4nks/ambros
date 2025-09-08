@@ -240,13 +240,6 @@ func (sc *SearchCommand) outputText(commands []models.Command) error {
 	return nil
 }
 
-func (sc *SearchCommand) formatStatus(status bool) string {
-	if status {
-		return "Success"
-	}
-	return "Failed"
-}
-
 func (sc *SearchCommand) Command() *cobra.Command {
 	return sc.cmd
 }

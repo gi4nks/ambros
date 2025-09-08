@@ -32,7 +32,9 @@ func NewOutputCommand(logger *zap.Logger, repo RepositoryInterface) *OutputComma
 
 func (oc *OutputCommand) setupFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVarP(&oc.commandId, "id", "i", "", "ID of the command to show output for")
-	cmd.MarkFlagRequired("id")
+	if err := cmd.MarkFlagRequired("id"); err != nil {
+		oc.logger.Error("Failed to mark flag as required", zap.Error(err))
+	}
 }
 
 func (oc *OutputCommand) runE(cmd *cobra.Command, args []string) error {

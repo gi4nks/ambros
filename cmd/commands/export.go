@@ -58,7 +58,9 @@ func (c *ExportCommand) setupFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&c.toDate, "to", "", "End date (YYYY-MM-DD)")
 	cmd.Flags().BoolVarP(&c.history, "history", "H", false, "Export command history")
 
-	cmd.MarkFlagRequired("output")
+	if err := cmd.MarkFlagRequired("output"); err != nil {
+		c.logger.Error("Failed to mark flag as required", zap.Error(err))
+	}
 }
 
 func (c *ExportCommand) runE(cmd *cobra.Command, args []string) error {

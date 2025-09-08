@@ -48,7 +48,7 @@ func (s *Scheduler) Start() {
 func (s *Scheduler) checkSchedules() {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	
+
 	now := time.Now()
 	for _, schedule := range s.schedules {
 		if schedule.Enabled && now.After(schedule.NextRun) {

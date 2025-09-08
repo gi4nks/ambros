@@ -146,7 +146,7 @@ func TestTestCommand_Integration(t *testing.T) {
 	}
 
 	suite := NewCommandTestSuite(t)
-	suite.MockRepo.On("Put", mock.AnythingOfType("models.Command")).Return(nil)
+	suite.MockRepo.On("Put", mock.AnythingOfType("*context.emptyCtx"), mock.AnythingOfType("models.Command")).Return(nil)
 
 	cmd := NewTestCommand(suite.Logger, suite.MockRepo)
 
