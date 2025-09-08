@@ -24,7 +24,6 @@ type ChainCommand struct {
 	*BaseCommand
 	name        string
 	description string
-	cmdIds      []string
 	conditional bool
 	store       bool
 	parallel    bool

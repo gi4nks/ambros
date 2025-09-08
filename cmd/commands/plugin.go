@@ -16,7 +16,6 @@ import (
 // PluginCommand represents the plugin management command
 type PluginCommand struct {
 	*BaseCommand
-	action     string
 	pluginName string
 	configFile string
 }
