@@ -269,7 +269,11 @@ func (sc *ServerCommand) handleEnvironments(w http.ResponseWriter, r *http.Reque
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(envMap)
+		if err := json.NewEncoder(w).Encode(envMap); err != nil {
+			sc.logger.Error("Failed to encode environment map", zap.Error(err))
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
 
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -284,7 +288,11 @@ func (sc *ServerCommand) handleTemplates(w http.ResponseWriter, r *http.Request)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(templates)
+	if err := json.NewEncoder(w).Encode(templates); err != nil {
+		sc.logger.Error("Failed to encode templates", zap.Error(err))
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (sc *ServerCommand) handleScheduler(w http.ResponseWriter, r *http.Request) {
@@ -302,7 +310,11 @@ func (sc *ServerCommand) handleScheduler(w http.ResponseWriter, r *http.Request)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(scheduled)
+	if err := json.NewEncoder(w).Encode(scheduled); err != nil {
+		sc.logger.Error("Failed to encode scheduled commands", zap.Error(err))
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (sc *ServerCommand) handleChains(w http.ResponseWriter, r *http.Request) {
@@ -318,7 +330,11 @@ func (sc *ServerCommand) handleChains(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(chains)
+	if err := json.NewEncoder(w).Encode(chains); err != nil {
+		sc.logger.Error("Failed to encode chains", zap.Error(err))
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (sc *ServerCommand) handlePlugins(w http.ResponseWriter, r *http.Request) {
@@ -348,7 +364,11 @@ func (sc *ServerCommand) handlePlugins(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(plugins)
+	if err := json.NewEncoder(w).Encode(plugins); err != nil {
+		sc.logger.Error("Failed to encode plugins", zap.Error(err))
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (sc *ServerCommand) handleSmartSearch(w http.ResponseWriter, r *http.Request) {
@@ -375,7 +395,11 @@ func (sc *ServerCommand) handleSmartSearch(w http.ResponseWriter, r *http.Reques
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		sc.logger.Error("Failed to encode smart search response", zap.Error(err))
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (sc *ServerCommand) handleWebApp(w http.ResponseWriter, r *http.Request) {
@@ -635,7 +659,9 @@ func (sc *ServerCommand) handleWebApp(w http.ResponseWriter, r *http.Request) {
 </html>`
 
 	w.Header().Set("Content-Type", "text/html")
-	w.Write([]byte(html))
+	if _, err := w.Write([]byte(html)); err != nil {
+		sc.logger.Error("Failed to write HTML response", zap.Error(err))
+	}
 }
 
 func (sc *ServerCommand) handleStatic(w http.ResponseWriter, r *http.Request) {

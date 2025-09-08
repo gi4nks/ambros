@@ -8,29 +8,29 @@ import (
 // Error codes for the application
 const (
 	// Command related errors
-	ErrCommandNotFound   = "command_not_found"
-	ErrCommandExists     = "command_exists"
-	ErrInvalidCommand    = "invalid_command"
-	ErrExecutionFailed   = "execution_failed"
-	
+	ErrCommandNotFound = "command_not_found"
+	ErrCommandExists   = "command_exists"
+	ErrInvalidCommand  = "invalid_command"
+	ErrExecutionFailed = "execution_failed"
+
 	// Repository related errors
-	ErrRepositoryOpen    = "repository_open"
-	ErrRepositoryClose   = "repository_close"
-	ErrRepositoryWrite   = "repository_write"
-	ErrRepositoryRead    = "repository_read"
-	
+	ErrRepositoryOpen  = "repository_open"
+	ErrRepositoryClose = "repository_close"
+	ErrRepositoryWrite = "repository_write"
+	ErrRepositoryRead  = "repository_read"
+
 	// Configuration related errors
-	ErrConfigInvalid     = "config_invalid"
-	ErrConfigNotFound    = "config_not_found"
-	
+	ErrConfigInvalid  = "config_invalid"
+	ErrConfigNotFound = "config_not_found"
+
 	// Scheduler related errors
-	ErrScheduleInvalid   = "schedule_invalid"
-	ErrScheduleConflict  = "schedule_conflict"
-	
+	ErrScheduleInvalid  = "schedule_invalid"
+	ErrScheduleConflict = "schedule_conflict"
+
 	// API related errors
-	ErrInvalidRequest    = "invalid_request"
-	ErrUnauthorized      = "unauthorized"
-	ErrInternalServer    = "internal_server"
+	ErrInvalidRequest = "invalid_request"
+	ErrUnauthorized   = "unauthorized"
+	ErrInternalServer = "internal_server"
 )
 
 // AppError represents an application-specific error
@@ -87,10 +87,10 @@ func IsInvalidInput(err error) bool {
 	} else {
 		return false
 	}
-	return appErr.Code == ErrInvalidCommand || 
-		   appErr.Code == ErrConfigInvalid || 
-		   appErr.Code == ErrScheduleInvalid ||
-		   appErr.Code == ErrInvalidRequest
+	return appErr.Code == ErrInvalidCommand ||
+		appErr.Code == ErrConfigInvalid ||
+		appErr.Code == ErrScheduleInvalid ||
+		appErr.Code == ErrInvalidRequest
 }
 
 // IsInternalError returns true if the error is an internal error
@@ -104,10 +104,10 @@ func IsInternalError(err error) bool {
 	} else {
 		return false
 	}
-	return appErr.Code == ErrRepositoryOpen || 
-		   appErr.Code == ErrRepositoryClose || 
-		   appErr.Code == ErrRepositoryWrite ||
-		   appErr.Code == ErrRepositoryRead ||
-		   appErr.Code == ErrInternalServer ||
-		   appErr.Code == ErrExecutionFailed
+	return appErr.Code == ErrRepositoryOpen ||
+		appErr.Code == ErrRepositoryClose ||
+		appErr.Code == ErrRepositoryWrite ||
+		appErr.Code == ErrRepositoryRead ||
+		appErr.Code == ErrInternalServer ||
+		appErr.Code == ErrExecutionFailed
 }

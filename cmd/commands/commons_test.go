@@ -1,22 +1,4 @@
 package commands_test
 
-import (
-	"testing"
-
-	"go.uber.org/zap"
-)
-
-type testFixture struct {
-	logger *zap.Logger
-}
-
-func setupTest(t *testing.T) *testFixture {
-	logger := zap.NewNop()
-	return &testFixture{
-		logger: logger,
-	}
-}
-
-func (f *testFixture) tearDown() {
-
-}
+// This file serves as a test package declaration for command tests
+// Individual test files contain their own test fixtures and setup functions

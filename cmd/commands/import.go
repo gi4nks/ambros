@@ -57,7 +57,9 @@ func (ic *ImportCommand) setupFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolVar(&ic.dryRun, "dry-run", false, "Show what would be imported without making changes")
 	cmd.Flags().BoolVar(&ic.skipExisting, "skip-existing", false, "Skip commands that already exist")
 
-	cmd.MarkFlagRequired("input")
+	if err := cmd.MarkFlagRequired("input"); err != nil {
+		ic.logger.Error("Failed to mark flag as required", zap.Error(err))
+	}
 }
 
 func (ic *ImportCommand) runE(cmd *cobra.Command, args []string) error {

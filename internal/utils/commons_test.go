@@ -1,24 +1,4 @@
 package utils_test
 
-import (
-	"testing"
-
-	"go.uber.org/zap"
-	"go.uber.org/zap/zaptest"
-)
-
-type testFixture struct {
-	logger *zap.Logger
-}
-
-func setupTest(t *testing.T) *testFixture {
-	logger := zaptest.NewLogger(t)
-
-	return &testFixture{
-		logger: logger,
-	}
-}
-
-func (f *testFixture) tearDown() {
-
-}
+// This file serves as a test package declaration for utility tests
+// Individual test files contain their own test fixtures and setup functions
