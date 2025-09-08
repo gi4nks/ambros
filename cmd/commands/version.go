@@ -59,7 +59,7 @@ func (vc *VersionCommand) setupFlags(cmd *cobra.Command) {
 
 func (vc *VersionCommand) runE(cmd *cobra.Command, args []string) error {
 	actualVersion := getVersion()
-	
+
 	if vc.short {
 		fmt.Println(actualVersion)
 		return nil
