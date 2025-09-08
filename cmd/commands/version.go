@@ -1,12 +1,17 @@
 package commands
 
 import (
+	_ "embed"
 	"fmt"
 	"runtime"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
+
+//go:embed version.txt
+var embeddedVersion string
 
 // Version information - these can be set at build time
 var (
@@ -15,6 +20,14 @@ var (
 	BuildDate = "unknown"
 	GoVersion = runtime.Version()
 )
+
+// getVersion returns the actual version, preferring build-time injection over embedded
+func getVersion() string {
+	if Version != "dev" && Version != "" {
+		return Version
+	}
+	return strings.TrimSpace(embeddedVersion)
+}
 
 // VersionCommand represents the version command
 type VersionCommand struct {
@@ -45,19 +58,21 @@ func (vc *VersionCommand) setupFlags(cmd *cobra.Command) {
 }
 
 func (vc *VersionCommand) runE(cmd *cobra.Command, args []string) error {
+	actualVersion := getVersion()
+	
 	if vc.short {
-		fmt.Println(Version)
+		fmt.Println(actualVersion)
 		return nil
 	}
 
-	fmt.Printf("ambros version %s\n", Version)
+	fmt.Printf("ambros version %s\n", actualVersion)
 	fmt.Printf("Git commit: %s\n", GitCommit)
 	fmt.Printf("Build date: %s\n", BuildDate)
 	fmt.Printf("Go version: %s\n", GoVersion)
 	fmt.Printf("OS/Arch: %s/%s\n", runtime.GOOS, runtime.GOARCH)
 
 	vc.logger.Debug("Version information displayed",
-		zap.String("version", Version),
+		zap.String("version", actualVersion),
 		zap.String("gitCommit", GitCommit),
 		zap.String("buildDate", BuildDate),
 		zap.String("goVersion", GoVersion),
