@@ -17,7 +17,7 @@ GOGET=$(GOCMD) get
 GOMOD=$(GOCMD) mod
 
 # Source files - Updated to correct path
-MAIN_FILE=cmd/main.go
+MAIN_FILE=main.go
 MIGRATE_FILE=cmd/migrate/main.go
 SRC_DIRS=./...
 
