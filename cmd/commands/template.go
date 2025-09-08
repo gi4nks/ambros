@@ -17,7 +17,6 @@ import (
 
 type TemplateCommand struct {
 	*BaseCommand
-	action string
 }
 
 func NewTemplateCommand(logger *zap.Logger, repo RepositoryInterface) *TemplateCommand {

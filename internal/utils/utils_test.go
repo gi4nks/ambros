@@ -105,7 +105,8 @@ func TestCheck(t *testing.T) {
 	u.Check(noError) // Ensure no panic or error
 
 	// Test case: Error
-	testError := json.Unmarshal([]byte("{"), nil)
+	var dummy interface{}
+	testError := json.Unmarshal([]byte("{"), &dummy)
 	u.Check(testError) // Ensure no panic or error
 }
 
@@ -122,7 +123,8 @@ func TestFatal(t *testing.T) {
 	u.Fatal(noError) // Ensure no panic or error
 
 	// Test case: Error
-	testError := json.Unmarshal([]byte("{"), nil)
+	var dummy interface{}
+	testError := json.Unmarshal([]byte("{"), &dummy)
 	// Fatal should panic, so we need to use a recover function
 	defer func() {
 		if r := recover(); r == nil {

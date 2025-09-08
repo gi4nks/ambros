@@ -353,14 +353,16 @@ func (r *Repository) Delete(id string) error {
 		// Delete the time index entry
 		timeKey := []byte("time:" + cmd.CreatedAt.Format(time.RFC3339Nano))
 		if err := txn.Delete(timeKey); err != nil {
-			// Continue even if time index deletion fails
+			// Ignore error - continue even if time index deletion fails
+			r.logger.Warn("Failed to delete time index entry", zap.Error(err))
 		}
 
 		// Delete any tag entries for this command
 		for _, tag := range cmd.Tags {
 			tagKey := []byte("tag:" + tag + ":" + id)
 			if err := txn.Delete(tagKey); err != nil {
-				// Continue even if tag deletion fails
+				// Ignore error - continue even if tag deletion fails
+				r.logger.Warn("Failed to delete tag index entry", zap.Error(err), zap.String("tag", tag))
 			}
 		}
 
