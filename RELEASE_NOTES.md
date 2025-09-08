@@ -120,7 +120,7 @@ We're thrilled to announce **Ambros v3.0.0**, a major release that transforms Am
 ### Quick Install
 ```bash
 # Via Go
-go install github.com/gi4nks/ambros/v3@latest
+go install github.com/gi4nks/ambros/v3/cmd@latest
 
 # Via Git
 git clone https://github.com/gi4nks/ambros.git
@@ -263,7 +263,7 @@ Ambros v3.0.0 maintains backward compatibility for core commands. However, new f
 ambros export --output backup.json
 
 # Update to v3.0.0
-go install github.com/gi4nks/ambros/v3@latest
+go install github.com/gi4nks/ambros/v3/cmd@latest
 
 # Import data (automatic migration)
 ambros import --input backup.json
