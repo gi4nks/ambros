@@ -3,7 +3,7 @@ package analytics
 import (
 	"go.uber.org/zap"
 
-	"github.com/gi4nks/ambros/internal/models"
+	"github.com/gi4nks/ambros/v3/internal/models"
 )
 
 // Analytics provides analytics functionality

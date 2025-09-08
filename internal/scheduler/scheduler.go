@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gi4nks/ambros/internal/models"
+	"github.com/gi4nks/ambros/v3/internal/models"
 )
 
 // Scheduler manages scheduled command executions

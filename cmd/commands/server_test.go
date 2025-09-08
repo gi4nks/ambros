@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap/zaptest"
 
-	"github.com/gi4nks/ambros/internal/models"
+	"github.com/gi4nks/ambros/v3/internal/models"
 )
 
 // MockServerRepository for testing server command

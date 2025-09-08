@@ -7,7 +7,7 @@ import (
 
 	"github.com/boltdb/bolt"
 	"github.com/dgraph-io/badger/v4"
-	"github.com/gi4nks/ambros/internal/models"
+	"github.com/gi4nks/ambros/v3/internal/models"
 )
 
 func main() {

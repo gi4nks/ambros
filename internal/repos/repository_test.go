@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gi4nks/ambros/internal/models"
-	"github.com/gi4nks/ambros/internal/repos"
+	"github.com/gi4nks/ambros/v3/internal/models"
+	"github.com/gi4nks/ambros/v3/internal/repos"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"

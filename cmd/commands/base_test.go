@@ -3,7 +3,7 @@ package commands
 import (
 	"testing"
 
-	"github.com/gi4nks/ambros/internal/repos/mocks"
+	"github.com/gi4nks/ambros/v3/internal/repos/mocks"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"

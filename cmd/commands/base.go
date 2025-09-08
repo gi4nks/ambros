@@ -4,7 +4,7 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	"github.com/gi4nks/ambros/internal/repos"
+	"github.com/gi4nks/ambros/v3/internal/repos"
 )
 
 // BaseCommand is the base structure for all commands

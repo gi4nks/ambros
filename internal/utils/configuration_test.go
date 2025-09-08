@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/gi4nks/ambros/internal/utils"
+	"github.com/gi4nks/ambros/v3/internal/utils"
 )
 
 func TestNewConfiguration(t *testing.T) {

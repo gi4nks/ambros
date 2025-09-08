@@ -11,8 +11,8 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 
-	"github.com/gi4nks/ambros/internal/errors"
-	"github.com/gi4nks/ambros/internal/models"
+	"github.com/gi4nks/ambros/v3/internal/errors"
+	"github.com/gi4nks/ambros/v3/internal/models"
 )
 
 type SearchCommand struct {

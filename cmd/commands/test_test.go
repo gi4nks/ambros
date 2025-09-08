@@ -6,9 +6,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/gi4nks/ambros/internal/errors"
-	"github.com/gi4nks/ambros/internal/models"
-	"github.com/gi4nks/ambros/internal/repos/mocks"
+	"github.com/gi4nks/ambros/v3/internal/errors"
+	"github.com/gi4nks/ambros/v3/internal/models"
+	"github.com/gi4nks/ambros/v3/internal/repos/mocks"
 )
 
 func TestTestCommand(t *testing.T) {

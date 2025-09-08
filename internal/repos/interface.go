@@ -3,7 +3,7 @@ package repos
 import (
 	"context"
 
-	"github.com/gi4nks/ambros/internal/models"
+	"github.com/gi4nks/ambros/v3/internal/models"
 )
 
 // RepositoryInterface defines the methods that a repository must implement
