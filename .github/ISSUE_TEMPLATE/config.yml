@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Discussions
+    url: https://github.com/gi4nks/ambros/discussions
+    about: Ask questions and discuss ideas with the community
+  - name: 🔐 Security Issues
+    url: https://github.com/gi4nks/ambros/security/advisories
+    about: Report security vulnerabilities privately
+  - name: 📖 Documentation
+    url: https://github.com/gi4nks/ambros/blob/main/README.md
+    about: Read the official documentation
+  - name: 🚀 Quick Start Guide
+    url: https://github.com/gi4nks/ambros/blob/main/CONTRIBUTING.md#quick-start
+    about: Get up and running quickly with Ambros

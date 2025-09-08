@@ -1,0 +1,124 @@
+name: 🐛 Bug Report
+description: Create a report to help us improve Ambros
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report! Please provide as much detail as possible to help us reproduce and fix the issue.
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Prerequisites
+      description: By submitting this issue, you agree to follow our [Code of Conduct](https://github.com/gi4nks/ambros/blob/main/CODE_OF_CONDUCT.md)
+      options:
+        - label: I have searched existing issues and this is not a duplicate
+          required: true
+        - label: I have read the documentation
+          required: true
+        - label: I am running the latest version of Ambros
+          required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: Ambros Version
+      description: What version of Ambros are you using?
+      placeholder: "v3.0.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      description: What operating system are you using?
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - Other (please specify in description)
+    validations:
+      required: true
+
+  - type: input
+    id: go-version
+    attributes:
+      label: Go Version
+      description: What version of Go are you using?
+      placeholder: "go1.23.0"
+    validations:
+      required: false
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear and concise description of what the bug is.
+      placeholder: Tell us what you see!
+      value: "A bug happened!"
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: A clear and concise description of what you expected to happen.
+      placeholder: What should have happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior
+      placeholder: |
+        1. Run command '...'
+        2. Set configuration '...'
+        3. Execute '...'
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks.
+      render: shell
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Configuration
+      description: Please share your Ambros configuration (remove any sensitive information)
+      render: yaml
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add any other context about the problem here, including screenshots if applicable.
+
+  - type: checkboxes
+    id: features
+    attributes:
+      label: Affected Features
+      description: Which Ambros features are affected by this bug?
+      options:
+        - label: Command execution (run, test, etc.)
+        - label: Configuration management
+        - label: Workflow chaining
+        - label: Template system
+        - label: Import/Export functionality
+        - label: Scheduler
+        - label: Analytics
+        - label: Web dashboard
+        - label: Plugin system
+        - label: Documentation
+        - label: Other (please specify in additional context)

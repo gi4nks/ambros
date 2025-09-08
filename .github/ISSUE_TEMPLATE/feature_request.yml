@@ -1,0 +1,125 @@
+name: ✨ Feature Request
+description: Suggest an idea for Ambros
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a new feature! Please provide as much detail as possible to help us understand your request.
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Prerequisites
+      description: By submitting this feature request, you agree to follow our [Code of Conduct](https://github.com/gi4nks/ambros/blob/main/CODE_OF_CONDUCT.md)
+      options:
+        - label: I have searched existing issues and this feature hasn't been requested yet
+          required: true
+        - label: I have read the documentation and this feature doesn't exist
+          required: true
+
+  - type: dropdown
+    id: feature-type
+    attributes:
+      label: Feature Type
+      description: What type of feature are you requesting?
+      options:
+        - New command or subcommand
+        - Enhancement to existing command
+        - Configuration option
+        - Web dashboard feature
+        - Plugin system enhancement
+        - Template system improvement
+        - Workflow/chaining feature
+        - Analytics feature
+        - Performance improvement
+        - Developer experience improvement
+        - Documentation improvement
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: Is your feature request related to a problem? Please describe the current limitation or pain point.
+      placeholder: "I'm always frustrated when..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: A clear and concise description of what you want to happen.
+      placeholder: "I would like Ambros to..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: A clear and concise description of any alternative solutions or features you've considered.
+
+  - type: textarea
+    id: use-cases
+    attributes:
+      label: Use Cases
+      description: Describe specific use cases where this feature would be beneficial.
+      placeholder: |
+        1. When developing applications, I need to...
+        2. In CI/CD pipelines, this would help by...
+        3. For team collaboration, this feature would...
+
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Implementation Ideas
+      description: If you have ideas about how this could be implemented, please share them (optional).
+
+  - type: checkboxes
+    id: impact
+    attributes:
+      label: Impact Assessment
+      description: How would this feature impact your workflow?
+      options:
+        - label: This would significantly improve my productivity
+        - label: This would solve a major pain point in my workflow
+        - label: This would enable new use cases for my team
+        - label: This would improve team collaboration
+        - label: This would reduce manual work/repetition
+        - label: This would improve code quality or reliability
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this feature to you?
+      options:
+        - Low - Nice to have
+        - Medium - Would be helpful
+        - High - Important for my workflow
+        - Critical - Blocking my adoption/usage
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add any other context, screenshots, mockups, or examples about the feature request here.
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      description: Would you be interested in contributing to this feature?
+      options:
+        - label: I would be willing to help implement this feature
+        - label: I can provide testing and feedback
+        - label: I can help with documentation
+        - label: I can provide use case examples
