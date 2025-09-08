@@ -1,0 +1,125 @@
+name: 📚 Documentation Issue
+description: Report an issue with documentation or suggest improvements
+title: "[Docs]: "
+labels: ["documentation", "needs-triage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping us improve the Ambros documentation! Clear and accurate documentation is essential for the community.
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Prerequisites
+      description: By submitting this documentation issue, you agree to follow our [Code of Conduct](https://github.com/gi4nks/ambros/blob/main/CODE_OF_CONDUCT.md)
+      options:
+        - label: I have searched existing issues for similar documentation problems
+          required: true
+
+  - type: dropdown
+    id: doc-type
+    attributes:
+      label: Documentation Type
+      description: What type of documentation issue are you reporting?
+      options:
+        - README.md
+        - CONTRIBUTING.md
+        - Installation guide
+        - Command reference
+        - Configuration guide
+        - Tutorial/Getting started
+        - Examples
+        - API documentation
+        - Release notes
+        - Code comments
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: issue-type
+    attributes:
+      label: Issue Type
+      description: What kind of documentation issue is this?
+      options:
+        - Information is missing
+        - Information is incorrect/outdated
+        - Information is unclear/confusing
+        - Typo or grammar error
+        - Broken link
+        - Missing examples
+        - Formatting issue
+        - New documentation needed
+        - Organization/structure improvement
+    validations:
+      required: true
+
+  - type: input
+    id: location
+    attributes:
+      label: Location
+      description: Where is the documentation issue located?
+      placeholder: "e.g., README.md line 45, docs/configuration.md, command help text for 'ambros run'"
+    validations:
+      required: true
+
+  - type: textarea
+    id: current-content
+    attributes:
+      label: Current Content
+      description: What does the documentation currently say? (copy/paste the problematic text)
+      render: markdown
+
+  - type: textarea
+    id: issue-description
+    attributes:
+      label: Issue Description
+      description: What is wrong with the current documentation?
+      placeholder: "The documentation says X, but it should say Y because..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggested-improvement
+    attributes:
+      label: Suggested Improvement
+      description: How would you improve this documentation?
+      placeholder: "The documentation should instead say..."
+
+  - type: textarea
+    id: context
+    attributes:
+      label: User Context
+      description: What were you trying to accomplish when you found this issue?
+      placeholder: "I was trying to... when I encountered this documentation problem."
+
+  - type: checkboxes
+    id: audience
+    attributes:
+      label: Target Audience
+      description: Who would benefit from fixing this documentation?
+      options:
+        - label: New users getting started
+        - label: Existing users learning new features
+        - label: Advanced users/power users
+        - label: Contributors/developers
+        - label: System administrators
+        - label: CI/CD pipeline users
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add any other context, screenshots, or examples that would help improve the documentation.
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      description: Would you be interested in helping fix this documentation?
+      options:
+        - label: I would be willing to submit a PR with the fix
+        - label: I can help review proposed changes
+        - label: I can provide additional examples or use cases
