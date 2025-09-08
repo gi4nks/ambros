@@ -26,7 +26,10 @@ TEST_FLAGS=-race -v
 BENCH_FLAGS=-bench=. -benchmem
 
 # Build flags
-LDFLAGS=-ldflags "-X main.Version=${VERSION} -s -w"
+LDFLAGS=-ldflags "-X 'github.com/gi4nks/ambros/v3/cmd/commands.Version=${VERSION}' \
+		 -X 'github.com/gi4nks/ambros/v3/cmd/commands.GitCommit=$(shell git rev-parse HEAD)' \
+		 -X 'github.com/gi4nks/ambros/v3/cmd/commands.BuildDate=$(shell date -u '+%Y-%m-%d %H:%M:%S UTC')' \
+		 -s -w"
 BUILD_FLAGS=-trimpath $(LDFLAGS)
 
 # Docker parameters
