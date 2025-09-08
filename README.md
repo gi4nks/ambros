@@ -51,7 +51,7 @@
 
 ```bash
 # Using Go (requires Go 1.23.0+)
-go install github.com/gi4nks/ambros@latest
+go install github.com/gi4nks/ambros/v3@latest
 
 # Verify installation
 ambros version

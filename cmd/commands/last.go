@@ -9,8 +9,8 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	"github.com/gi4nks/ambros/internal/errors"
-	"github.com/gi4nks/ambros/internal/models"
+	"github.com/gi4nks/ambros/v3/internal/errors"
+	"github.com/gi4nks/ambros/v3/internal/models"
 )
 
 type LastCommand struct {

@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"text/template"
 
-	"github.com/gi4nks/ambros/internal/models"
-	"github.com/gi4nks/ambros/internal/repos"
+	"github.com/gi4nks/ambros/v3/internal/models"
+	"github.com/gi4nks/ambros/v3/internal/repos"
 )
 
 type CommandTemplate struct {

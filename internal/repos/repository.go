@@ -12,7 +12,7 @@ import (
 	"github.com/dgraph-io/badger/v4"
 	"go.uber.org/zap"
 
-	"github.com/gi4nks/ambros/internal/models"
+	"github.com/gi4nks/ambros/v3/internal/models"
 )
 
 type Repository struct {

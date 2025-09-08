@@ -15,9 +15,9 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	"github.com/gi4nks/ambros/internal/api"
-	"github.com/gi4nks/ambros/internal/errors"
-	"github.com/gi4nks/ambros/internal/models"
+	"github.com/gi4nks/ambros/v3/internal/api"
+	"github.com/gi4nks/ambros/v3/internal/errors"
+	"github.com/gi4nks/ambros/v3/internal/models"
 )
 
 // ServerCommand represents the web server command
@@ -688,7 +688,7 @@ func (sc *ServerCommand) displayStartupInfo() {
 	color.Cyan("╔══════════════════════════════════════════════════════════════╗")
 	color.Cyan("║                    🎯 AMBROS DASHBOARD                       ║")
 	color.Cyan("╠══════════════════════════════════════════════════════════════╣")
-	color.Cyan("║  Phase 3 Features:                                          ║")
+	color.Cyan("║  Features:                                                  ║")
 	color.Cyan("║  • 📱 Web Dashboard Interface                                ║")
 	color.Cyan("║  • 🔍 Smart Search & Analytics                               ║")
 	color.Cyan("║  • 🌍 Environment Management                                 ║")

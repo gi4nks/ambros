@@ -12,8 +12,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/gi4nks/ambros/internal/models"
-	"github.com/gi4nks/ambros/internal/utils"
+	"github.com/gi4nks/ambros/v3/internal/models"
+	"github.com/gi4nks/ambros/v3/internal/utils"
 )
 
 // CommandWrapper provides utilities for command execution and management

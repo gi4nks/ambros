@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gi4nks/ambros/internal/models"
-	"github.com/gi4nks/ambros/internal/repos/mocks"
+	"github.com/gi4nks/ambros/v3/internal/models"
+	"github.com/gi4nks/ambros/v3/internal/repos/mocks"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 )
