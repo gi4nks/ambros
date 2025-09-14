@@ -47,7 +47,7 @@ func NewPluginCommand(logger *zap.Logger, repo RepositoryInterface) *PluginComma
 
 	cmd := &cobra.Command{
 		Use:   "plugin",
-		Short: "🔌 Manage Ambros plugins (Phase 3)",
+		Short: "🔌 Manage Ambros plugins",
 		Long: `🔌 Advanced Plugin Management System
 
 The plugin system allows extending Ambros with custom functionality through

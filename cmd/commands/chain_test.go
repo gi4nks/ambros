@@ -154,7 +154,7 @@ func TestChainCommand(t *testing.T) {
 		chainCmd := NewChainCommand(logger, mockRepo)
 
 		assert.Equal(t, "chain", chainCmd.cmd.Use)
-		assert.Equal(t, "🔗 Execute and manage command chains (Phase 3)", chainCmd.cmd.Short)
+		assert.Equal(t, "🔗 Execute and manage command chains", chainCmd.cmd.Short)
 		assert.NotNil(t, chainCmd.Command())
 		assert.Equal(t, chainCmd.cmd, chainCmd.Command())
 
