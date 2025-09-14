@@ -436,4 +436,8 @@ Highlights
 - docs: bump embedded version file to v3.1.2
 - scripts: update installer helper usage reference to v3.1.2
 
+Small changelog
+- Fixed a few typos in the README and RELEASE_NOTES
+- Clarified install instructions and usage examples for macOS and Linux
+
 If you want me to produce release artifacts (binaries + checksums) and attach them to the GitHub release, I can build and upload them next.
