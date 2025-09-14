@@ -397,6 +397,9 @@ func (ic *InteractiveCommand) interactiveSelect() error {
 
 		if strings.ToLower(modeChoice) == "c" || strings.ToLower(modeChoice) == "capture" {
 			// Capture output and show after
+			// Show the command being executed
+			color.Cyan("\n🔁 Executing: %s", selectedCmd.Command)
+
 			exitCode, out, err := rc.ExecuteCapture(parts)
 			if err != nil {
 				ic.logger.Error("failed to execute selected command (capture)", zap.Error(err))
@@ -415,6 +418,9 @@ func (ic *InteractiveCommand) interactiveSelect() error {
 			}
 		} else {
 			// Stream live to terminal
+			// Show the command being executed
+			color.Cyan("\n🔁 Executing: %s", selectedCmd.Command)
+
 			exitCode, err := rc.Execute(parts)
 			if err != nil {
 				ic.logger.Error("failed to execute selected command (stream)", zap.Error(err))
