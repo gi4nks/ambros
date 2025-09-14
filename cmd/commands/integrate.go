@@ -6,7 +6,6 @@ import (
 	"bufio"
 	"embed"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -74,11 +73,11 @@ func (c *IntegrateCommand) install(cmd *cobra.Command, args []string, shell stri
 	}
 
 	// Idempotent write: only write if different
-	existing, _ := ioutil.ReadFile(target)
+	existing, _ := os.ReadFile(target)
 	if string(existing) == string(content) {
 		c.logger.Info("integration script already up-to-date", zap.String("target", target))
 	} else {
-		if err := ioutil.WriteFile(target, content, 0755); err != nil {
+		if err := os.WriteFile(target, content, 0755); err != nil {
 			return err
 		}
 		fmt.Printf("Installed integration script to %s\n", target)
@@ -110,10 +109,10 @@ func (c *IntegrateCommand) install(cmd *cobra.Command, args []string, shell stri
 }
 
 func addSourceIfMissing(rcPath, line string) {
-	data, err := ioutil.ReadFile(rcPath)
+	data, err := os.ReadFile(rcPath)
 	if err != nil {
 		// file might not exist; create with the line
-		_ = ioutil.WriteFile(rcPath, []byte(line+"\n"), 0644)
+		_ = os.WriteFile(rcPath, []byte(line+"\n"), 0644)
 		return
 	}
 	if !containsLine(string(data), line) {
@@ -166,7 +165,7 @@ func (c *IntegrateCommand) uninstall(cmd *cobra.Command, args []string, shell st
 }
 
 func removeSourceLine(rcPath, line string) {
-	data, err := ioutil.ReadFile(rcPath)
+	data, err := os.ReadFile(rcPath)
 	if err != nil {
 		return
 	}
@@ -186,5 +185,5 @@ func removeSourceLine(rcPath, line string) {
 	if afterIdx < len(content) {
 		after = content[afterIdx:]
 	}
-	_ = ioutil.WriteFile(rcPath, []byte(before+after), 0644)
+	_ = os.WriteFile(rcPath, []byte(before+after), 0644)
 }
