@@ -2,8 +2,10 @@ package commands
 
 import (
 	"context"
+	"embed"
 	"encoding/json"
 	"fmt"
+	iofs "io/fs"
 	"net/http"
 	"os"
 	"os/signal"
@@ -20,6 +22,9 @@ import (
 	"github.com/gi4nks/ambros/v3/internal/errors"
 	"github.com/gi4nks/ambros/v3/internal/models"
 )
+
+//go:embed web/static/*
+var staticFiles embed.FS
 
 // ServerCommand represents the web server command
 type ServerCommand struct {
@@ -137,9 +142,14 @@ func (sc *ServerCommand) createEnhancedAPI(apiServer *api.Server) http.Handler {
 
 	// Static files for web dashboard
 	mux.HandleFunc("/", sc.handleWebApp)
-	// Serve files under ./web/static at the /static/ URL path
-	fs := http.FileServer(http.Dir("./web/static"))
-	mux.Handle("/static/", http.StripPrefix("/static/", fs))
+	// Serve embedded static files at /static/ using Go embed
+	sub, err := iofs.Sub(staticFiles, "web/static")
+	if err == nil {
+		mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(sub))))
+	} else {
+		// Fallback to on-disk static serving when embed FS is unavailable
+		mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./web/static"))))
+	}
 
 	if sc.cors {
 		return handler
@@ -456,11 +466,6 @@ func (sc *ServerCommand) handleWebApp(w http.ResponseWriter, r *http.Request) {
 	if _, err := w.Write([]byte(html)); err != nil {
 		sc.logger.Error("Failed to write HTML response", zap.Error(err))
 	}
-}
-
-func (sc *ServerCommand) handleStatic(w http.ResponseWriter, r *http.Request) {
-	// Serve static files (CSS, JS, images)
-	http.NotFound(w, r)
 }
 
 func (sc *ServerCommand) corsMiddleware(next http.Handler) http.Handler {
