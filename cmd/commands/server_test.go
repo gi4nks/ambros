@@ -162,6 +162,12 @@ func TestServerCommand_GetMostUsedCommands(t *testing.T) {
 	// Should return most used commands
 	assert.NotNil(t, result)
 	assert.IsType(t, []string{}, result)
+
+	// Ensure the result strings include a count like "name (N)"
+	for _, v := range result {
+		assert.Contains(t, v, "(")
+		assert.Contains(t, v, ")")
+	}
 }
 
 func TestServerCommand_CalculateAverageExecutionTime(t *testing.T) {
@@ -224,7 +230,7 @@ func TestServerCommand_AnalyzeCommandPatterns(t *testing.T) {
 	result := cmd.analyzeCommandPatterns(commands)
 
 	assert.NotNil(t, result)
-	assert.IsType(t, map[string]interface{}{}, result)
+	assert.IsType(t, CommandPatterns{}, result)
 }
 
 func TestServerCommand_AnalyzeExecutionTrends(t *testing.T) {
@@ -246,7 +252,7 @@ func TestServerCommand_AnalyzeExecutionTrends(t *testing.T) {
 	result := cmd.analyzeExecutionTrends(commands)
 
 	assert.NotNil(t, result)
-	assert.IsType(t, map[string]interface{}{}, result)
+	assert.IsType(t, ExecutionTrends{}, result)
 }
 
 func TestServerCommand_AnalyzeFailures(t *testing.T) {
@@ -274,7 +280,7 @@ func TestServerCommand_AnalyzeFailures(t *testing.T) {
 	result := cmd.analyzeFailures(commands)
 
 	assert.NotNil(t, result)
-	assert.IsType(t, map[string]interface{}{}, result)
+	assert.IsType(t, FailureAnalysis{}, result)
 }
 
 func TestServerCommand_Command(t *testing.T) {
