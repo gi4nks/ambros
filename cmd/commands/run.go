@@ -371,7 +371,8 @@ func (rc *RunCommand) executeCommandAuto(name string, args []string) (int, error
 
 		// Handle window size changes
 		sigwinch := make(chan os.Signal, 1)
-		signal.Notify(sigwinch, syscall.SIGWINCH)
+		// platform-specific registration: may be a no-op on Windows
+		notifyWinch(sigwinch)
 		go func() {
 			for range sigwinch {
 				_ = pty.InheritSize(os.Stdin, ptmx)
