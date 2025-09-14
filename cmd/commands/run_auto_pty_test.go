@@ -44,9 +44,3 @@ func TestExecuteCommandAuto_NonPTY(t *testing.T) {
 		t.Fatalf("expected exit code 0, got %d", exitCode)
 	}
 }
-
-func isTerminalForTests() bool {
-	// Keep backward compatibility, but prefer pty.Open
-	_, _, err := pty.Open()
-	return err == nil
-}

@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,7 +9,7 @@ import (
 )
 
 func TestIntegrateInstallUninstall(t *testing.T) {
-	tmp, err := ioutil.TempDir("", "ambros-integ-test")
+	tmp, err := os.MkdirTemp("", "ambros-integ-test")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +36,7 @@ func TestIntegrateInstallUninstall(t *testing.T) {
 	}
 
 	bashrc := filepath.Join(tmp, ".bashrc")
-	data, _ := ioutil.ReadFile(bashrc)
+	data, _ := os.ReadFile(bashrc)
 	if string(data) == "" || !containsLine(string(data), "source ~/.ambros-integration.sh") {
 		t.Fatalf("bashrc not updated")
 	}
