@@ -85,15 +85,49 @@ func (rc *RunCommand) setupFlags(cmd *cobra.Command) {
 }
 
 func (rc *RunCommand) runE(cmd *cobra.Command, args []string) error {
-	rc.logger.Debug("Run command invoked",
-		zap.Strings("args", args),
+	// Delegate to the new Execute API which returns an exit code and error
+	exitCode, err := rc.Execute(args)
+	if err != nil {
+		// If Execute returned an error (parsing or execution), log and wrap
+		rc.logger.Error("Run execution error", zap.Error(err))
+		return err
+	}
+
+	// Preserve previous behavior: for --auto, exit with child's code; for non-auto, exit 1 on failure
+	if rc.opts.auto {
+		if exitCode != 0 {
+			rc.logger.Debug("Command failed in auto mode, exiting with child exit code",
+				zap.Int("exitCode", exitCode))
+			rc.exitFunc(exitCode)
+		}
+		return nil
+	}
+
+	if exitCode != 0 {
+		rc.logger.Debug("Command failed, exiting with code 1")
+		rc.exitFunc(1)
+	}
+
+	return nil
+}
+
+// Execute parses flags from args, executes the command according to options and returns the
+// child's exit code and any error encountered during setup/execution. It does not call rc.exitFunc.
+func (rc *RunCommand) Execute(args []string) (int, error) {
+	rc.logger.Debug("Execute invoked",
+		zap.Strings("rawArgs", args),
 		zap.String("template", rc.opts.template),
 		zap.Bool("dryRun", rc.opts.dryRun),
 		zap.Bool("store", rc.opts.store))
 
-	// Check if command was provided
-	if len(args) == 0 {
-		return errors.NewError(errors.ErrInvalidCommand,
+	// The args parameter is expected to be the command and its args (this matches the
+	// previous behavior of runE when invoked directly in tests). We do NOT parse
+	// cobra flags here because when Cobra calls runE it already parsed flags and
+	// supplied only the non-flag args. Tests call runE directly and set rc.opts
+	// manually.
+	rem := args
+	if len(rem) == 0 {
+		return 1, errors.NewError(errors.ErrInvalidCommand,
 			"No command specified. Use: ambros run [flags] -- <command> [args...]", nil)
 	}
 
@@ -104,22 +138,17 @@ func (rc *RunCommand) runE(cmd *cobra.Command, args []string) error {
 			rc.logger.Error("Template not found",
 				zap.String("template", rc.opts.template),
 				zap.Error(err))
-			return errors.NewError(errors.ErrCommandNotFound,
+			return 1, errors.NewError(errors.ErrCommandNotFound,
 				fmt.Sprintf("template not found: %s", rc.opts.template), err)
 		}
-		args = template.BuildCommand(args)
+		rem = template.BuildCommand(rem)
 		rc.logger.Debug("Template applied",
 			zap.String("template", rc.opts.template),
-			zap.Strings("resultArgs", args))
+			zap.Strings("resultArgs", rem))
 	}
 
-	if len(args) == 0 {
-		rc.logger.Error("No command specified")
-		return errors.NewError(errors.ErrInvalidCommand, "no command specified", nil)
-	}
-
-	commandName := args[0]
-	commandArgs := args[1:]
+	commandName := rem[0]
+	commandArgs := rem[1:]
 
 	// Create command record
 	command := &models.Command{
@@ -146,8 +175,11 @@ func (rc *RunCommand) runE(cmd *cobra.Command, args []string) error {
 		rc.logger.Info("Dry run completed",
 			zap.String("command", commandName),
 			zap.Strings("args", commandArgs))
-		return nil
+		return 0, nil
 	}
+
+	// ExecuteCapture runs the command similarly to Execute but always captures combined
+	// stdout/stderr into a byte buffer and returns (exitCode, output, error).
 
 	// Execute the command (support transparent --auto mode)
 	var output, errorMsg string
@@ -156,6 +188,9 @@ func (rc *RunCommand) runE(cmd *cobra.Command, args []string) error {
 	var exitCode int
 
 	if rc.opts.auto {
+		// Default auto behavior streams output to the terminal. For callers who want
+		// to capture the output (like the interactive UI), call ExecuteCapture
+		// instead. Here we keep the default behavior for Execute.
 		exitCode, execErr = rc.executeCommandAuto(commandName, commandArgs)
 		success = execErr == nil && exitCode == 0
 		// executeCommandAuto streams output directly; we don't capture combined output here
@@ -174,7 +209,7 @@ func (rc *RunCommand) runE(cmd *cobra.Command, args []string) error {
 			zap.String("command", commandName),
 			zap.Strings("args", commandArgs),
 			zap.Error(execErr))
-		return errors.NewError(errors.ErrExecutionFailed, "failed to execute command", execErr)
+		return 1, errors.NewError(errors.ErrExecutionFailed, "failed to execute command", execErr)
 	}
 
 	// Update command with results
@@ -217,31 +252,90 @@ func (rc *RunCommand) runE(cmd *cobra.Command, args []string) error {
 		zap.Duration("duration", command.TerminatedAt.Sub(command.CreatedAt)),
 		zap.Bool("stored", rc.opts.store))
 
-	// For --auto we must preserve the actual exit code of the child process
+	// Return child's exit code (0 for success, non-zero for failure)
 	if rc.opts.auto {
-		if !success {
-			// If executeCommandAuto returned a non-zero exitCode, use that
-			if exitCode != 0 {
-				rc.logger.Debug("Command failed in auto mode, exiting with child exit code",
-					zap.String("commandId", command.ID),
-					zap.Int("exitCode", exitCode))
-				rc.exitFunc(exitCode)
-			} else {
-				// Generic failure
-				rc.exitFunc(1)
+		if execErr != nil && exitCode == 0 {
+			// child failed to start
+			return 1, execErr
+		}
+		return exitCode, nil
+	}
+
+	if !success {
+		return 1, nil
+	}
+
+	return 0, nil
+}
+
+// ExecuteCapture runs the command similarly to Execute but always captures combined
+// stdout/stderr into a byte buffer and returns (exitCode, output, error).
+func (rc *RunCommand) ExecuteCapture(args []string) (int, string, error) {
+	rc.logger.Debug("ExecuteCapture invoked", zap.Strings("rawArgs", args))
+
+	if len(args) == 0 {
+		return 1, "", errors.NewError(errors.ErrInvalidCommand,
+			"No command specified. Use: ambros run [flags] -- <command> [args...]", nil)
+	}
+
+	commandName := args[0]
+	commandArgs := args[1:]
+
+	// If not a TTY, use CombinedOutput for simplicity
+	if !isatty.IsTerminal(os.Stdin.Fd()) {
+		cmd := exec.Command(commandName, commandArgs...)
+		out, err := cmd.CombinedOutput()
+		if err == nil {
+			return 0, string(out), nil
+		}
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
+				return status.ExitStatus(), string(out), nil
 			}
 		}
-		return nil
+		return 1, string(out), err
 	}
 
-	// Non-auto behavior: exit with code 1 on failure
-	if !success {
-		rc.logger.Debug("Command failed, exiting with code 1",
-			zap.String("commandId", command.ID))
-		rc.exitFunc(1)
+	// TTY case: allocate a pty and capture output by copying into a buffer
+	cmd := exec.Command(commandName, commandArgs...)
+	ptmx, err := pty.Start(cmd)
+	if err != nil {
+		return 1, "", err
 	}
+	defer func() { _ = ptmx.Close() }()
 
-	return nil
+	// Copy output into buffer while also writing to stdout so user sees it
+	var buf strings.Builder
+	done := make(chan struct{})
+	go func() {
+		// Read from PTY and copy to both buffer and stdout
+		b := make([]byte, 1024)
+		for {
+			n, rerr := ptmx.Read(b)
+			if n > 0 {
+				s := string(b[:n])
+				buf.WriteString(s)
+				_, _ = os.Stdout.Write(b[:n])
+			}
+			if rerr != nil {
+				break
+			}
+		}
+		close(done)
+	}()
+
+	err = cmd.Wait()
+	<-done
+
+	if err == nil {
+		return 0, buf.String(), nil
+	}
+	if exitErr, ok := err.(*exec.ExitError); ok {
+		if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
+			return status.ExitStatus(), buf.String(), nil
+		}
+	}
+	return 1, buf.String(), err
 }
 
 func (rc *RunCommand) executeCommand(name string, args []string) (string, string, bool, error) {
