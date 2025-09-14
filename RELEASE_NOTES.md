@@ -398,3 +398,28 @@ shasum -a 256 bin/ambros_v3.1.0
 ```
 
 If you want, I can attach the artifact and checksum to the GitHub release (requires `gh` CLI or a PAT to upload via API).
+
+---
+
+## Ambros v3.1.1 - Patch release
+
+**Release Date**: September 14, 2025
+
+This patch release includes minor fixes and packaging updates following v3.1.0. Notable items:
+
+- scripts: updated install helper usage and documentation to reference v3.1.1
+- run: small cross-platform guard fixes and formatting cleanups
+- docs: bumped embedded version and release notes
+
+### Download & Checksums
+Rebuild locally for reproducible binaries:
+
+```bash
+# Build (macOS):
+GOOS=darwin GOARCH=$(uname -m) go build -o bin/ambros_v3.1.1 ./
+
+# Compute SHA-256 checksum:
+shasum -a 256 bin/ambros_v3.1.1
+```
+
+If you want, I can attach the binary and checksum to the GitHub release (requires `gh` CLI or a PAT to upload).
