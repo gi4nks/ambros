@@ -440,4 +440,6 @@ Small changelog
 - Fixed a few typos in the README and RELEASE_NOTES
 - Clarified install instructions and usage examples for macOS and Linux
 
+Note: this release only updates documentation and helper scripts; no runtime or API changes were made.
+
 If you want me to produce release artifacts (binaries + checksums) and attach them to the GitHub release, I can build and upload them next.
