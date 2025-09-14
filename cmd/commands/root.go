@@ -97,6 +97,8 @@ func addCommands(logger *zap.Logger, repo RepositoryInterface) {
 	rootCmd.AddCommand(NewRecallCommand(logger, repo).Command())
 	rootCmd.AddCommand(NewReviveCommand(logger, repo).Command())
 	rootCmd.AddCommand(NewSchedulerCommand(logger, repo).Command())
+	// Database utilities
+	rootCmd.AddCommand(NewDBCommand(logger, repo).Command())
 
 	// Additional server and plugin commands
 	rootCmd.AddCommand(NewServerCommand(logger, repo).Command())
