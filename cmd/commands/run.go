@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/fatih/color"
@@ -28,6 +30,7 @@ type RunOptions struct {
 	category string
 	template string
 	dryRun   bool
+	auto     bool
 }
 
 func NewRunCommand(logger *zap.Logger, repo RepositoryInterface) *RunCommand {
@@ -74,6 +77,8 @@ func (rc *RunCommand) setupFlags(cmd *cobra.Command) {
 		"Use a command template")
 	cmd.Flags().BoolVar(&rc.opts.dryRun, "dry-run", false,
 		"Show what would be executed without running")
+	cmd.Flags().BoolVar(&rc.opts.auto, "auto", false,
+		"Transparent execution: stream output and preserve exit code")
 }
 
 func (rc *RunCommand) runE(cmd *cobra.Command, args []string) error {
@@ -141,14 +146,32 @@ func (rc *RunCommand) runE(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Execute the command
-	output, errorMsg, success, err := rc.executeCommand(commandName, commandArgs)
-	if err != nil {
+	// Execute the command (support transparent --auto mode)
+	var output, errorMsg string
+	var success bool
+	var execErr error
+	var exitCode int
+
+	if rc.opts.auto {
+		exitCode, execErr = rc.executeCommandAuto(commandName, commandArgs)
+		success = execErr == nil && exitCode == 0
+		// executeCommandAuto streams output directly; we don't capture combined output here
+		output = ""
+		if execErr != nil && exitCode == 0 {
+			// start failed
+			errorMsg = execErr.Error()
+		}
+	} else {
+		// Execute the command normally and capture output
+		output, errorMsg, success, execErr = rc.executeCommand(commandName, commandArgs)
+	}
+
+	if execErr != nil && !rc.opts.auto {
 		rc.logger.Error("Command execution failed",
 			zap.String("command", commandName),
 			zap.Strings("args", commandArgs),
-			zap.Error(err))
-		return errors.NewError(errors.ErrExecutionFailed, "failed to execute command", err)
+			zap.Error(execErr))
+		return errors.NewError(errors.ErrExecutionFailed, "failed to execute command", execErr)
 	}
 
 	// Update command with results
@@ -191,7 +214,24 @@ func (rc *RunCommand) runE(cmd *cobra.Command, args []string) error {
 		zap.Duration("duration", command.TerminatedAt.Sub(command.CreatedAt)),
 		zap.Bool("stored", rc.opts.store))
 
-	// Exit with the same code as the executed command if it failed
+	// For --auto we must preserve the actual exit code of the child process
+	if rc.opts.auto {
+		if !success {
+			// If executeCommandAuto returned a non-zero exitCode, use that
+			if exitCode != 0 {
+				rc.logger.Debug("Command failed in auto mode, exiting with child exit code",
+					zap.String("commandId", command.ID),
+					zap.Int("exitCode", exitCode))
+				rc.exitFunc(exitCode)
+			} else {
+				// Generic failure
+				rc.exitFunc(1)
+			}
+		}
+		return nil
+	}
+
+	// Non-auto behavior: exit with code 1 on failure
 	if !success {
 		rc.logger.Debug("Command failed, exiting with code 1",
 			zap.String("commandId", command.ID))
@@ -215,6 +255,59 @@ func (rc *RunCommand) executeCommand(name string, args []string) (string, string
 	}
 
 	return string(output), errorMsg, success, nil
+}
+
+// executeCommandAuto runs the target command transparently: it attaches the current
+// process stdin/stdout/stderr to the child, forwards signals and returns the child's
+// exit code. If the command fails to start, an error is returned and exit code will be 1.
+func (rc *RunCommand) executeCommandAuto(name string, args []string) (int, error) {
+	cmd := exec.Command(name, args...)
+
+	// Attach stdio directly for transparent behavior
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	// Start the command
+	if err := cmd.Start(); err != nil {
+		return 1, err
+	}
+
+	// Forward signals to child
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs)
+	done := make(chan struct{})
+
+	go func() {
+		for s := range sigs {
+			// forward to process
+			if cmd.Process != nil {
+				_ = cmd.Process.Signal(s)
+			}
+		}
+		close(done)
+	}()
+
+	// Wait for command to exit
+	err := cmd.Wait()
+
+	// Stop forwarding
+	signal.Stop(sigs)
+	close(sigs)
+	<-done
+
+	if err == nil {
+		return 0, nil
+	}
+
+	// If it's an ExitError, extract exit code
+	if exitErr, ok := err.(*exec.ExitError); ok {
+		if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
+			return status.ExitStatus(), nil
+		}
+	}
+	// Unknown error
+	return 1, err
 }
 
 func (rc *RunCommand) generateCommandID() string {
