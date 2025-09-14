@@ -115,13 +115,14 @@ func addSourceIfMissing(rcPath, line string) {
 		_ = os.WriteFile(rcPath, []byte(line+"\n"), 0644)
 		return
 	}
-	if !containsLine(string(data), line) {
-		f, err := os.OpenFile(rcPath, os.O_APPEND|os.O_WRONLY, 0644)
-		if err != nil {
-			return
+	content := string(data)
+	if !containsLine(content, line) {
+		// Ensure file ends with a newline before appending
+		if !strings.HasSuffix(content, "\n") {
+			content += "\n"
 		}
-		defer f.Close()
-		_, _ = f.WriteString("\n" + line + "\n")
+		content += line + "\n"
+		_ = os.WriteFile(rcPath, []byte(content), 0644)
 	}
 }
 
@@ -144,7 +145,13 @@ func confirm(prompt string) bool {
 }
 
 func containsLine(content, line string) bool {
-	return strings.Contains(content, line)
+	scanner := bufio.NewScanner(strings.NewReader(content))
+	for scanner.Scan() {
+		if strings.TrimSpace(scanner.Text()) == strings.TrimSpace(line) {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *IntegrateCommand) uninstall(cmd *cobra.Command, args []string, shell string, yes bool) error {
@@ -156,11 +163,32 @@ func (c *IntegrateCommand) uninstall(cmd *cobra.Command, args []string, shell st
 	target := filepath.Join(home, ".ambros-integration.sh")
 	_ = os.Remove(target)
 
-	// Remove source lines from common shells
-	removeSourceLine(filepath.Join(home, ".bashrc"), "source ~/.ambros-integration.sh")
-	removeSourceLine(filepath.Join(home, ".zshrc"), "source ~/.ambros-integration.sh")
+	sourceLine := "source ~/.ambros-integration.sh"
 
-	fmt.Println("Uninstalled Ambros integration script and removed source lines from ~/.bashrc and ~/.zshrc")
+	// If a specific shell rc file was provided, only operate on that
+	if shell != "" {
+		rc := expandPath(shell)
+		if !yes && !confirm(fmt.Sprintf("Remove '%s' from %s?", sourceLine, rc)) {
+			fmt.Println("skipping shell update")
+			return nil
+		}
+		removeSourceLine(rc, sourceLine)
+		fmt.Printf("Updated %s\n", rc)
+		fmt.Println("Uninstalled Ambros integration script")
+		return nil
+	}
+
+	// default: both bashrc and zshrc
+	bashrc := filepath.Join(home, ".bashrc")
+	zshrc := filepath.Join(home, ".zshrc")
+	if !yes && !confirm(fmt.Sprintf("Remove '%s' from %s and %s?", sourceLine, bashrc, zshrc)) {
+		fmt.Println("skipping shell updates")
+		return nil
+	}
+	removeSourceLine(bashrc, sourceLine)
+	removeSourceLine(zshrc, sourceLine)
+	fmt.Printf("Updated %s and %s\n", bashrc, zshrc)
+	fmt.Println("Uninstalled Ambros integration script")
 	return nil
 }
 
