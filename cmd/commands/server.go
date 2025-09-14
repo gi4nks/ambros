@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -625,32 +626,76 @@ func (sc *ServerCommand) handleWebApp(w http.ResponseWriter, r *http.Request) {
             ` + "`" + `;
         }
         
-        async function loadAnalytics() {
-            const response = await fetch('/api/analytics/advanced');
-            const analytics = await response.json();
-            
-            const content = document.getElementById('main-content');
-            content.innerHTML = ` + "`" + `
-                <h2>📈 Advanced Analytics</h2>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
-                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
-                        <h3>🔍 Command Patterns</h3>
-                        <p>Most common commands and usage patterns detected.</p>
-                        <small>AI-powered analysis coming soon</small>
-                    </div>
-                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
-                        <h3>📊 Execution Trends</h3>
-                        <p>Performance trends and execution patterns over time.</p>
-                        <small>Time series analysis available</small>
-                    </div>
-                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
-                        <h3>🔧 Recommendations</h3>
-                        <p>Smart suggestions for command optimization.</p>
-                        <small>ML recommendations in development</small>
-                    </div>
-                </div>
-            ` + "`" + `;
-        }
+		async function loadAnalytics() {
+			const response = await fetch('/api/analytics/advanced');
+			const analytics = await response.json();
+
+			const cp = analytics.command_patterns || {};
+			const et = analytics.execution_trends || {};
+			const fa = analytics.failure_analysis || {};
+			const pm = analytics.performance_metrics || {};
+			const up = analytics.usage_predictions || {};
+			const recs = analytics.recommendations || [];
+
+			const content = document.getElementById('main-content');
+			var out = '';
+			out += '<h2>📈 Advanced Analytics</h2>';
+			out += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1rem;">';
+
+			// Command Patterns
+			out += '<div style="background:#f8f9fa;padding:1rem;border-radius:8px;">';
+			out += '<h3>🔍 Command Patterns</h3>';
+			out += '<p><strong>Most common:</strong></p>';
+			out += '<ul>';
+			(cp.most_common || []).forEach(function(c){ out += '<li>' + c + '</li>'; });
+			out += '</ul>';
+			out += '<p><strong>Detected patterns:</strong> ' + ((cp.patterns || []).join(', ')) + '</p>';
+			out += '</div>';
+
+			// Execution Trends
+			out += '<div style="background:#f8f9fa;padding:1rem;border-radius:8px;">';
+			out += '<h3>📊 Execution Trends</h3>';
+			out += '<p><strong>Trend:</strong> ' + (et.trend || 'stable') + '</p>';
+			out += '<p><strong>Predicted peak hour:</strong> ' + (up.predicted_peak || 'N/A') + '</p>';
+			out += '<p><strong>Peak hours:</strong> ' + ((et.peak_hours || []).join(', ')) + '</p>';
+			out += '<div style="max-height:180px;overflow:auto;margin-top:0.5rem;background:white;padding:0.5rem;border-radius:4px;">';
+			out += '<strong>Activity by day</strong><ul>';
+			Object.keys(et.by_day || {}).sort().forEach(function(d){ out += '<li>' + d + ': ' + (et.by_day[d] || 0) + '</li>'; });
+			out += '</ul></div></div>';
+
+			// Failure Analysis
+			out += '<div style="background:#f8f9fa;padding:1rem;border-radius:8px;">';
+			out += '<h3>🔧 Failure Analysis</h3>';
+			out += '<p><strong>Total failures:</strong> ' + (fa.total_failures || 0) + '</p>';
+			var failureRate = fa.failure_rate;
+			if (typeof failureRate === 'number') {
+				out += '<p><strong>Failure rate:</strong> ' + (failureRate.toFixed(1) + '%') + '</p>';
+			} else {
+				out += '<p><strong>Failure rate:</strong> 0.0%</p>';
+			}
+			out += '<p><strong>Common causes:</strong> ' + ((fa.common_causes || []).join(', ')) + '</p>';
+			out += '</div>';
+
+			// Performance Metrics
+			out += '<div style="background:#f8f9fa;padding:1rem;border-radius:8px;">';
+			out += '<h3>⏱️ Performance Metrics</h3>';
+			out += '<p><strong>Average duration:</strong> ' + (pm.avg_duration || 'N/A') + '</p>';
+			out += '<p><strong>Slowest commands:</strong></p><ol>';
+			(pm.slowest_commands || []).forEach(function(s){ out += '<li><code>' + s.command + '</code> — ' + s.duration + '</li>'; });
+			out += '</ol></div>';
+
+			// Usage Predictions & Recommendations
+			out += '<div style="background:#f8f9fa;padding:1rem;border-radius:8px;grid-column:span 2;">';
+			out += '<h3>📈 Usage Predictions & Trends</h3>';
+			out += '<p><strong>Predicted peak:</strong> ' + (up.predicted_peak || 'N/A') + '</p>';
+			out += '<p><strong>Trending commands:</strong> ' + ((up.trending_commands || []).join(', ')) + '</p>';
+			out += '<div style="margin-top:0.5rem;"><strong>Recommendations:</strong><ul>';
+			(recs || []).forEach(function(r){ out += '<li>' + r + '</li>'; });
+			out += '</ul></div></div>';
+
+			out += '</div>';
+			content.innerHTML = out;
+		}
         
         // Load dashboard on page load
         window.onload = () => loadSection('dashboard');
@@ -717,8 +762,54 @@ func (sc *ServerCommand) handleShutdown(server *http.Server) {
 
 // Helper functions for analytics
 func (sc *ServerCommand) getMostUsedCommands(commands []models.Command, days int) []string {
-	// Simple implementation - can be enhanced with more sophisticated analysis
-	return []string{"ls", "echo", "git"}
+	// Return empty slice if no commands
+	if len(commands) == 0 {
+		return []string{}
+	}
+
+	// Compute cutoff time
+	cutoff := time.Now().AddDate(0, 0, -days)
+
+	freq := make(map[string]int)
+	for _, c := range commands {
+		if !c.CreatedAt.After(cutoff) {
+			continue
+		}
+		name := c.Name
+		if name == "" && len(c.Arguments) > 0 {
+			name = c.Arguments[0]
+		}
+		if name == "" {
+			continue
+		}
+		freq[name]++
+	}
+
+	type kv struct {
+		k string
+		v int
+	}
+	var pairs []kv
+	for k, v := range freq {
+		pairs = append(pairs, kv{k, v})
+	}
+	sort.Slice(pairs, func(i, j int) bool {
+		if pairs[i].v == pairs[j].v {
+			return pairs[i].k < pairs[j].k
+		}
+		return pairs[i].v > pairs[j].v
+	})
+
+	limit := 10
+	if len(pairs) < limit {
+		limit = len(pairs)
+	}
+
+	res := make([]string, 0, limit)
+	for i := 0; i < limit; i++ {
+		res = append(res, fmt.Sprintf("%s (%d)", pairs[i].k, pairs[i].v))
+	}
+	return res
 }
 
 func (sc *ServerCommand) calculateAverageExecutionTime(commands []models.Command) time.Duration {
@@ -735,46 +826,280 @@ func (sc *ServerCommand) calculateAverageExecutionTime(commands []models.Command
 	return total / time.Duration(len(commands))
 }
 
-func (sc *ServerCommand) analyzeCommandPatterns(commands []models.Command) map[string]interface{} {
-	return map[string]interface{}{
-		"most_common": []string{"ls", "echo", "git"},
-		"patterns":    []string{"file operations", "version control", "system info"},
-	}
+// Typed analytics outputs
+type CommandPatterns struct {
+	MostCommon []string `json:"most_common"`
+	Patterns   []string `json:"patterns"`
 }
 
-func (sc *ServerCommand) analyzeExecutionTrends(commands []models.Command) map[string]interface{} {
-	return map[string]interface{}{
-		"trend":      "increasing",
-		"peak_hours": []int{9, 14, 16},
-	}
+type ExecutionTrends struct {
+	Trend     string         `json:"trend"`
+	PeakHours []int          `json:"peak_hours"`
+	ByDay     map[string]int `json:"by_day"`
 }
 
-func (sc *ServerCommand) analyzeFailures(commands []models.Command) map[string]interface{} {
+type FailureAnalysis struct {
+	TotalFailures int      `json:"total_failures"`
+	FailureRate   float64  `json:"failure_rate"`
+	CommonCauses  []string `json:"common_causes"`
+}
+
+type SlowCommand struct {
+	Command  string `json:"command"`
+	Duration string `json:"duration"`
+}
+
+type PerformanceMetrics struct {
+	AvgDuration     string        `json:"avg_duration"`
+	SlowestCommands []SlowCommand `json:"slowest_commands"`
+}
+
+type UsagePredictions struct {
+	PredictedPeak    string   `json:"predicted_peak"`
+	TrendingCommands []string `json:"trending_commands"`
+}
+
+func (sc *ServerCommand) analyzeCommandPatterns(commands []models.Command) CommandPatterns {
+	// Count by command name (fallback to first argument)
+	freq := make(map[string]int)
+	for _, c := range commands {
+		name := c.Name
+		if name == "" && len(c.Arguments) > 0 {
+			name = c.Arguments[0]
+		}
+		if name == "" {
+			continue
+		}
+		freq[name]++
+	}
+
+	type kv struct {
+		k string
+		v int
+	}
+	var pairs []kv
+	for k, v := range freq {
+		pairs = append(pairs, kv{k, v})
+	}
+	sort.Slice(pairs, func(i, j int) bool {
+		if pairs[i].v == pairs[j].v {
+			return pairs[i].k < pairs[j].k
+		}
+		return pairs[i].v > pairs[j].v
+	})
+
+	top := make([]string, 0, min(len(pairs), 10))
+	for i := 0; i < min(len(pairs), 10); i++ {
+		top = append(top, pairs[i].k)
+	}
+
+	patternsSet := make(map[string]struct{})
+	for name := range freq {
+		lower := strings.ToLower(name)
+		switch {
+		case strings.HasPrefix(lower, "git") || strings.HasPrefix(lower, "gh"):
+			patternsSet["version control"] = struct{}{}
+		case strings.HasPrefix(lower, "ls") || strings.HasPrefix(lower, "cp") || strings.HasPrefix(lower, "mv") || strings.HasPrefix(lower, "rm"):
+			patternsSet["file operations"] = struct{}{}
+		case strings.HasPrefix(lower, "docker") || strings.HasPrefix(lower, "kubectl"):
+			patternsSet["container/orchestration"] = struct{}{}
+		case strings.HasPrefix(lower, "npm") || strings.HasPrefix(lower, "yarn"):
+			patternsSet["package management"] = struct{}{}
+		default:
+			patternsSet["system/other"] = struct{}{}
+		}
+	}
+	patterns := make([]string, 0, len(patternsSet))
+	for p := range patternsSet {
+		patterns = append(patterns, p)
+	}
+
+	return CommandPatterns{MostCommon: top, Patterns: patterns}
+}
+
+func (sc *ServerCommand) analyzeExecutionTrends(commands []models.Command) ExecutionTrends {
+	if len(commands) == 0 {
+		return ExecutionTrends{Trend: "stable", PeakHours: []int{}, ByDay: map[string]int{}}
+	}
+
+	now := time.Now()
+	dayCounts := make(map[string]int)
+	hourCounts := make(map[int]int)
+	for _, c := range commands {
+		day := c.CreatedAt.Format("2006-01-02")
+		dayCounts[day]++
+		hourCounts[c.CreatedAt.Hour()]++
+	}
+
+	days := 14
+	var daySeq []int
+	for i := days - 1; i >= 0; i-- {
+		d := now.AddDate(0, 0, -i).Format("2006-01-02")
+		daySeq = append(daySeq, dayCounts[d])
+	}
+	firstHalf := 0
+	secondHalf := 0
+	for i, v := range daySeq {
+		if i < len(daySeq)/2 {
+			firstHalf += v
+		} else {
+			secondHalf += v
+		}
+	}
+	trend := "stable"
+	if secondHalf > firstHalf {
+		trend = "increasing"
+	}
+	if secondHalf < firstHalf {
+		trend = "decreasing"
+	}
+
+	type hv struct {
+		h int
+		v int
+	}
+	var hvs []hv
+	for h, v := range hourCounts {
+		hvs = append(hvs, hv{h, v})
+	}
+	sort.Slice(hvs, func(i, j int) bool {
+		if hvs[i].v == hvs[j].v {
+			return hvs[i].h < hvs[j].h
+		}
+		return hvs[i].v > hvs[j].v
+	})
+	peak := make([]int, 0, min(3, len(hvs)))
+	for i := 0; i < min(3, len(hvs)); i++ {
+		peak = append(peak, hvs[i].h)
+	}
+
+	return ExecutionTrends{Trend: trend, PeakHours: peak, ByDay: dayCounts}
+}
+
+func (sc *ServerCommand) analyzeFailures(commands []models.Command) FailureAnalysis {
 	failures := 0
 	for _, cmd := range commands {
 		if !cmd.Status {
 			failures++
 		}
 	}
-
-	return map[string]interface{}{
-		"total_failures": failures,
-		"common_causes":  []string{"permission denied", "command not found"},
+	total := len(commands)
+	failureRate := 0.0
+	if total > 0 {
+		failureRate = float64(failures) / float64(total) * 100.0
 	}
+
+	causes := make(map[string]int)
+	for _, cmd := range commands {
+		if cmd.Status {
+			continue
+		}
+		txt := strings.ToLower(cmd.Command)
+		if strings.Contains(txt, "permission denied") || strings.Contains(txt, "permission") {
+			causes["permission denied"]++
+		} else if strings.Contains(txt, "not found") || strings.Contains(txt, "command not found") {
+			causes["command not found"]++
+		} else if strings.Contains(txt, "timeout") {
+			causes["timeout"]++
+		} else {
+			causes["other"]++
+		}
+	}
+	type kvs struct {
+		k string
+		v int
+	}
+	var pairs []kvs
+	for k, v := range causes {
+		pairs = append(pairs, kvs{k, v})
+	}
+	sort.Slice(pairs, func(i, j int) bool {
+		if pairs[i].v == pairs[j].v {
+			return pairs[i].k < pairs[j].k
+		}
+		return pairs[i].v > pairs[j].v
+	})
+	common := make([]string, 0, len(pairs))
+	for _, p := range pairs {
+		common = append(common, p.k)
+	}
+
+	return FailureAnalysis{TotalFailures: failures, FailureRate: failureRate, CommonCauses: common}
 }
 
-func (sc *ServerCommand) analyzePerformance(commands []models.Command) map[string]interface{} {
-	return map[string]interface{}{
-		"avg_duration":     sc.calculateAverageExecutionTime(commands).String(),
-		"slowest_commands": []string{"npm install", "docker build"},
+func (sc *ServerCommand) analyzePerformance(commands []models.Command) PerformanceMetrics {
+	type sv struct {
+		cmd string
+		d   time.Duration
 	}
+	var slow []sv
+	for _, c := range commands {
+		d := c.TerminatedAt.Sub(c.CreatedAt)
+		slow = append(slow, sv{c.Command, d})
+	}
+	sort.Slice(slow, func(i, j int) bool { return slow[i].d > slow[j].d })
+	slowest := make([]SlowCommand, 0, min(5, len(slow)))
+	for i := 0; i < min(5, len(slow)); i++ {
+		slowest = append(slowest, SlowCommand{Command: slow[i].cmd, Duration: slow[i].d.String()})
+	}
+	return PerformanceMetrics{AvgDuration: sc.calculateAverageExecutionTime(commands).String(), SlowestCommands: slowest}
 }
 
-func (sc *ServerCommand) generateUsagePredictions(commands []models.Command) map[string]interface{} {
-	return map[string]interface{}{
-		"predicted_peak":    "2:00 PM",
-		"trending_commands": []string{"docker", "kubectl"},
+func (sc *ServerCommand) generateUsagePredictions(commands []models.Command) UsagePredictions {
+	now := time.Now()
+	cutoffRecent := now.AddDate(0, 0, -7)
+	cutoffPrev := now.AddDate(0, 0, -14)
+
+	recent := make(map[string]int)
+	prev := make(map[string]int)
+	for _, c := range commands {
+		name := c.Name
+		if name == "" && len(c.Arguments) > 0 {
+			name = c.Arguments[0]
+		}
+		if name == "" {
+			continue
+		}
+		if c.CreatedAt.After(cutoffRecent) {
+			recent[name]++
+		} else if c.CreatedAt.After(cutoffPrev) {
+			prev[name]++
+		}
 	}
+	type gv struct {
+		k string
+		d int
+	}
+	var growth []gv
+	for k, rv := range recent {
+		pv := prev[k]
+		growth = append(growth, gv{k, rv - pv})
+	}
+	sort.Slice(growth, func(i, j int) bool {
+		if growth[i].d == growth[j].d {
+			return growth[i].k < growth[j].k
+		}
+		return growth[i].d > growth[j].d
+	})
+	trending := make([]string, 0, min(5, len(growth)))
+	for i := 0; i < min(5, len(growth)); i++ {
+		trending = append(trending, growth[i].k)
+	}
+
+	hourCounts := make(map[int]int)
+	for _, c := range commands {
+		hourCounts[c.CreatedAt.Hour()]++
+	}
+	peakHour := 0
+	peakVal := 0
+	for h, v := range hourCounts {
+		if v > peakVal {
+			peakVal = v
+			peakHour = h
+		}
+	}
+
+	return UsagePredictions{PredictedPeak: fmt.Sprintf("%02d:00", peakHour), TrendingCommands: trending}
 }
 
 func (sc *ServerCommand) generateRecommendations(commands []models.Command) []string {
