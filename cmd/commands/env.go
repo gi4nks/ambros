@@ -532,7 +532,6 @@ func (ec *EnvCommand) applyEnvironment(envName, command string) error {
 		}
 		return errors.NewError(errors.ErrExecutionFailed, "command execution failed", err)
 	}
-	return nil
 
 	ec.logger.Info("Environment applied to command",
 		zap.String("envName", envName),

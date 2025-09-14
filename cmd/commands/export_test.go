@@ -219,17 +219,18 @@ func TestExportCommand(t *testing.T) {
 			cmd.filter = tt.filter
 
 			// Setup mocks based on test requirements
-			if tt.name == "Success - Export all commands as JSON" {
+			switch tt.name {
+			case "Success - Export all commands as JSON":
 				testMockRepo.On("GetAllCommands").Return(sampleCommands, nil)
-			} else if tt.name == "Success - Export by tag" {
+			case "Success - Export by tag":
 				testMockRepo.On("SearchByTag", "test").Return(
 					[]models.Command{sampleCommands[0]}, nil,
 				)
-			} else if tt.name == "Success - Export by status" {
+			case "Success - Export by status":
 				testMockRepo.On("SearchByStatus", true).Return(
 					[]models.Command{sampleCommands[0]}, nil,
 				)
-			} else if tt.name == "Error - Repository error" {
+			case "Error - Repository error":
 				testMockRepo.On("GetAllCommands").Return(nil, assert.AnError)
 			}
 
