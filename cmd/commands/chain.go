@@ -19,7 +19,7 @@ import (
 	"github.com/gi4nks/ambros/v3/internal/models"
 )
 
-// ChainCommand represents the chain command with Phase 3 enhancements
+// ChainCommand represents the chain command with advanced chain management features
 type ChainCommand struct {
 	*BaseCommand
 	name        string
@@ -70,7 +70,7 @@ func NewChainCommand(logger *zap.Logger, repo RepositoryInterface) *ChainCommand
 
 	cmd := &cobra.Command{
 		Use:   "chain",
-		Short: "🔗 Execute and manage command chains (Phase 3)",
+		Short: "🔗 Execute and manage command chains",
 		Long: `🔗 Advanced Command Chain Management System
 
 Chain commands allow you to create, store, and execute sequences of commands 
@@ -559,7 +559,7 @@ func (c *ChainCommand) createDemoChain(name string) *models.CommandChain {
 	return chain
 }
 
-// Additional Phase 3 methods
+// Additional chain-related helper methods
 func (c *ChainCommand) showChain(name string) error {
 	color.Cyan("🔍 Chain Details: %s", name)
 

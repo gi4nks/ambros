@@ -1,120 +1,184 @@
-# Ambros transparent shell integration
+# Ambros Shell Integration
 
-This document explains how to enable "transparent" command tracking with Ambros using the helper script `scripts/.ambros-integration.sh`. When sourced into your shell profile, the script wraps a set of common developer commands and routes them through `ambros run --store --auto` so they are automatically captured in your Ambros history.
+This document explains the transparent shell integration script shipped in `scripts/.ambros-integration.sh` and how to safely enable, disable, and troubleshoot it.
 
-## Overview
+## Quick enable
 
-The repository includes a helper script:
-- `scripts/.ambros-integration.sh` — a shell script that creates functions for intercepted commands and forwards them to `ambros`.
+Source the script from your shell profile (e.g., `~/.bashrc` or `~/.zshrc`):
 
-When enabled, the script wraps commands like `git`, `docker`, `go`, `mvn`, `gradle`, etc.
+```bash
+source ~/path/to/ambros/scripts/.ambros-integration.sh
+```
 
-By default the integration will try to call:
+You should see a confirmation message: `✅ Ambros transparent mode activated`.
+
+## What it does
+
+- Creates shell functions for a curated list of common developer tools (git, npm, docker, gradle/gradlew, mvn, go, etc.).
+- When you run one of those commands, the wrapper transparently calls `ambros run --store --auto -- <cmd>` (or falls back to `ambros run --store -- <cmd>` when `--auto` is not supported by your installed Ambros).
+- The integration attempts to preserve original behaviour and exit codes. For most CLI programs the behavior will be identical.
+
+## Opt-out and automatic bypass
+
+- Per-shell opt-out: set `AMBROS_INTEGRATION=off` before sourcing the script to disable it for that shell/session.
+# Ambros Shell Integration
+
+This document explains the transparent shell integration helper and the `ambros integrate` installer. It covers the integration script, how to enable it, installation via the `ambros` CLI, and CI/sync guidance.
+
+## Quick enable
+
+If you prefer manual installation, copy the helper script and source it from your shell profile:
+
+```bash
+cp scripts/.ambros-integration.sh ~/.ambros-integration.sh
+chmod +x ~/.ambros-integration.sh
+echo "source ~/.ambros-integration.sh" >> ~/.zshrc  # or ~/.bashrc
+source ~/.zshrc
+```
+
+Or use the built-in installer (recommended):
+
+```bash
+ambros integrate install        # interactive
+ambros integrate install --yes  # non-interactive (CI/scripts)
+ambros integrate install --shell ~/.zshrc  # target a specific rc file
+```
+
+You should see: `✅ Ambros transparent mode activated` when the script is sourced in a new shell.
+
+## What it does
+
+- Wraps a curated list of developer tools (git, npm, docker, gradle/gradlew, mvn, go, etc.) with shell functions that route executions through Ambros.
+- At runtime the wrapper prefers calling:
 
 ```
 ambros run --store --auto -- <command> <args...>
 ```
 
-However, older Ambros releases may not support the `--auto` flag. The integration script
-performs runtime detection: if `ambros run --help` doesn't advertise `--auto`, the wrapper
-falls back to calling:
+  If the installed Ambros doesn't support `--auto`, the script falls back to:
 
 ```
 ambros run --store -- <command> <args...>
 ```
 
-This ensures the integration works across Ambros versions while preferring the newer `--auto`
-behavior when supported. The `--` ensures arguments are passed to the wrapped command unchanged.
+This guarantees backward compatibility while preferring the newer transparent mode when available.
 
-## Prerequisites
+## Installer: `ambros integrate`
 
-- `ambros` must be installed and reachable in your `PATH` (for example via `go install github.com/gi4nks/ambros/v3@latest` or your package of choice).
-- A Bourne-like shell (bash, zsh). The script has minimal support for both.
+The CLI includes an `integrate` command to automate installation and removal:
 
-## Installing (per-user)
+- `ambros integrate install [--shell <path>] [--yes]`
+  - Writes `~/.ambros-integration.sh` (idempotent — it only overwrites when content changes).
+  - Adds `source ~/.ambros-integration.sh` to `~/.bashrc` and `~/.zshrc` by default (or to the path provided with `--shell`).
+  - Prompts for confirmation; pass `--yes` to skip prompts (useful for scripts/CI).
 
-1. Copy or symlink the script to a stable path (optional):
+- `ambros integrate uninstall [--shell <path>] [--yes]`
+  - Removes `~/.ambros-integration.sh` and removes the `source` line from the specified rc file(s).
+  - Prompts for confirmation unless `--yes` is provided.
+
+Examples:
+
 ```bash
-# example: copy into home config
-cp scripts/.ambros-integration.sh ~/.ambros-integration.sh
-chmod +x ~/.ambros-integration.sh
+# interactive install that updates both ~/.bashrc and ~/.zshrc
+ambros integrate install
+
+# unattended install for CI or scripted setups
+ambros integrate install --yes
+
+# install and only update zshrc
+ambros integrate install --shell ~/.zshrc
 ```
 
-2. Source it from your shell profile:
+## Idempotency & safety
 
-- For zsh (`~/.zshrc`):
+- The installer checks the installed script content and will not rewrite an identical file.
+- When adding `source` lines the installer checks for existing lines and appends only if missing.
+- Uninstall removes the first matching `source ~/.ambros-integration.sh` line to avoid touching unrelated content aggressively.
+
+## go generate / build-time sync
+
+To keep the embedded installer script in the CLI up-to-date, the project uses a `go:generate` helper in `cmd/commands`:
+
 ```bash
-# add to ~/.zshrc
-source ~/.ambros-integration.sh
+go generate ./cmd/commands
 ```
 
-- For bash (`~/.bashrc` or `~/.bash_profile`):
+This copies `scripts/.ambros-integration.sh` into `cmd/commands/scripts/` so the CLI can embed it with `//go:embed` and ship the installer with the binary. Add `go generate ./cmd/commands` to your CI before `go build` to ensure the embedded copy is synced during automated builds.
+
+## CI guidance
+
+- For automated installation in CI environments, use `ambros integrate install --yes` and avoid sourcing the script in non-interactive jobs unless you explicitly want command capturing in that environment.
+- The integration script already auto-bypasses non-interactive shells and common hook variables (e.g., `CI`, `GIT_PARAMS`) to avoid interfering with CI or git hooks.
+
+- ## PTY support (interactive programs)
+
+- Modern Ambros builds include PTY-backed interactive support when you run commands with `ambros run --auto`.
+  - The CLI will allocate a pseudo-terminal when your shell session is a TTY and forward window-size changes and signals to the child process. This enables interactive/full-screen programs (e.g., `vim`, `ssh`, `docker -it`, and other TUIs) to behave correctly when run through Ambros.
+  - If you rely on interactive programs through the integration, make sure you have an Ambros build that includes PTY support (recent releases include this feature).
+  - The integration script will continue to detect whether Ambros supports `--auto` at runtime; older Ambros versions will fall back to `ambros run --store --` which does not allocate a PTY.
+
+## Limitations
+
+- While PTY support covers the vast majority of interactive cases, there are edge cases around advanced terminal modes and job-control signals that may need additional tuning. If you encounter issues with a specific program, please open an issue with reproduction steps.
+
+## Interactive examples
+
+Here are two short examples showing how to run interactive programs through Ambros. These rely on the PTY-backed support in modern Ambros builds.
+
+- Open an editor (vim) through Ambros and preserve the interactive TTY:
+
 ```bash
-# add to ~/.bashrc
-source ~/.ambros-integration.sh
+# Run vim and have it behave normally inside your terminal
+ambros run --auto -- vim README.md
 ```
 
-Reload your shell or run `source ~/.zshrc` (or `source ~/.bashrc`).
+When you exit vim, Ambros will preserve vim's exit code and store the run if configured.
 
-## Quick test
+- Run a Docker container interactively (`-it`) through Ambros:
 
-After sourcing, try a simple command such as:
 ```bash
-git status
-```
-You should see normal output and the wrapper will call `ambros run --store --auto -- git status` under the hood. To bypass the wrapper for a single invocation you can use the `command` builtin or an absolute path, e.g.:
-```bash
-command ls -la
-# or
-/usr/bin/ls -la
+ambros run --auto -- docker run -it --rm ubuntu bash
 ```
 
-## Customization
+You should get an interactive shell inside the container, resize events and signals will be proxied correctly thanks to PTY allocation.
 
-- Change which commands are intercepted by editing the `AMBROS_INTERCEPTED_COMMANDS` array in `scripts/.ambros-integration.sh`.
-- The script saves original executables in variables like `ORIGINAL_GIT` so you can modify the wrapper to call \${ORIGINAL_GIT} directly if needed.
-- To temporarily disable tracking in your session:
+Notes:
+
+- If your installed Ambros is older and `--auto` isn't available, the integration script will fall back to `ambros run --store --` and PTY behavior will not be active — update Ambros or use a binary built with PTY support for interactive runs.
+- For CI or headless environments where no TTY is present, don't use `--auto`; the non-PTY path will be used instead.
+
+### Local PTY smoke test
+
+You can run a quick local smoke test (requires `python3` and an Ambros binary in your PATH):
+
 ```bash
-unset AMBROS_INTERCEPTED_COMMANDS
-# or open a new shell without sourcing the script
+chmod +x scripts/pty-smoke.sh
+./scripts/pty-smoke.sh
 ```
 
-## Security & privacy notes
-
-- The script executes wrapped commands through `ambros`, which will store metadata and the command/arguments per your Ambros configuration.
-- Do not enable this on multi-user or shared shells unless you trust the environment.
-- The wrapper may expose sensitive command arguments (passwords, tokens) if you run them in plain arguments. Prefer environment variables or safe input methods for secrets.
-
-## Caveats & known limitations
-
-- `sudo <command>` typically runs the program directly and will not go through the wrapper. If you try `sudo git`, the wrapper won't intercept it (and it may bypass User PATH). Use care when combining `sudo`.
-- Interactive programs that expect direct TTY control (some `ssh` usage, editors) may behave differently when routed through another program. Test carefully.
-- Completion support: the script attempts to preserve shell completion for intercepted commands but some completions may break depending on how your shell is configured.
+The script spawns a small command inside a pty and looks for the `PTY_OK` marker in output. It should print `PTY smoke test: OK` when the PTY path is working correctly.
+- The installer performs simple text edits to rc files; if users heavily customize their rc files, manual review may be needed.
 
 ## Troubleshooting
 
-- If commands stopped working after sourcing:
-  - Ensure `ambros` is available in `PATH`.
-  - Try `command <cmd>` (bypasses wrapper) to see if native executable still works.
-  - Check for errors when you source the script: `source ~/.ambros-integration.sh` and watch STDOUT/STDERR.
-- If completions are broken, re-run `compinit` (zsh) or re-enable completion for bash.
+- If things go wrong, temporarily disable integration for the session:
 
-## Uninstall / disable
-
-- Remove the `source` line from your shell profile and restart the shell session.
-- If you copied the script to `~/.ambros-integration.sh`, you can delete it:
 ```bash
-rm ~/.ambros-integration.sh
+export AMBROS_INTEGRATION=off
 ```
 
-## Example: minimal `~/.zshrc` snippet
+- To bypass the wrapper for a single command:
+
 ```bash
-# load ambros integration (ensure correct path)
-if [ -f "$HOME/.ambros-integration.sh" ]; then
-  source "$HOME/.ambros-integration.sh"
-fi
+command git status
+# or
+/usr/bin/git status
 ```
 
-If you'd like, I can:
-- Commit this file to `docs/` for you, or
-- Add an `ambros integrate` subcommand that installs and wires this script safely into user profiles.
+## Where to look next
+
+- `scripts/.ambros-integration.sh` — master copy
+- `cmd/commands/integrate.go` — CLI installer implementation
+- `go generate ./cmd/commands` — sync step for embedding the script
+
+If you'd like, I can add a CI check that fails the build when the embedded copy and `scripts/.ambros-integration.sh` diverge.

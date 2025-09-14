@@ -82,7 +82,7 @@ func (sc *ServerCommand) runE(cmd *cobra.Command, args []string) error {
 	// Create API server
 	apiServer := api.NewServer(sc.repository, sc.logger)
 
-	// Enhanced API with Phase 3 features
+	// Enhanced API with advanced dashboard features
 	enhancedAPI := sc.createEnhancedAPI(apiServer)
 
 	// Setup HTTP server
@@ -124,7 +124,7 @@ func (sc *ServerCommand) createEnhancedAPI(apiServer *api.Server) http.Handler {
 	apiMux := apiServer.SetupRoutes()
 	mux.Handle("/api/", http.StripPrefix("/api", apiMux))
 
-	// Enhanced API endpoints for Phase 3
+	// Enhanced API endpoints for advanced dashboard and integrations
 	mux.HandleFunc("/api/dashboard", sc.handleDashboard)
 	mux.HandleFunc("/api/analytics/advanced", sc.handleAdvancedAnalytics)
 	mux.HandleFunc("/api/environments", sc.handleEnvironments)
@@ -338,7 +338,7 @@ func (sc *ServerCommand) handleChains(w http.ResponseWriter, r *http.Request) {
 }
 
 func (sc *ServerCommand) handlePlugins(w http.ResponseWriter, r *http.Request) {
-	// Phase 3 Plugin system placeholder
+	// Plugin system placeholder
 	plugins := map[string]interface{}{
 		"available": []map[string]interface{}{
 			{

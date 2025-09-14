@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -9,7 +10,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/creack/pty"
 	"github.com/fatih/color"
+	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
@@ -263,12 +266,69 @@ func (rc *RunCommand) executeCommand(name string, args []string) (string, string
 func (rc *RunCommand) executeCommandAuto(name string, args []string) (int, error) {
 	cmd := exec.Command(name, args...)
 
-	// Attach stdio directly for transparent behavior
+	// If stdin is a TTY, allocate a pty so interactive programs work correctly.
+	if isatty.IsTerminal(os.Stdin.Fd()) {
+		ptmx, err := pty.Start(cmd)
+		if err != nil {
+			return 1, err
+		}
+		// Make sure to close the pty when done
+		defer func() { _ = ptmx.Close() }()
+
+		// Handle window size changes
+		sigwinch := make(chan os.Signal, 1)
+		signal.Notify(sigwinch, syscall.SIGWINCH)
+		go func() {
+			for range sigwinch {
+				_ = pty.InheritSize(os.Stdin, ptmx)
+			}
+		}()
+		// Ensure initial size is copied
+		_ = pty.InheritSize(os.Stdin, ptmx)
+
+		// Copy input and output
+		go func() { _, _ = io.Copy(ptmx, os.Stdin) }()
+		go func() { _, _ = io.Copy(os.Stdout, ptmx) }()
+
+		// Forward signals to child process
+		sigs := make(chan os.Signal, 1)
+		signal.Notify(sigs)
+		done := make(chan struct{})
+		go func() {
+			for s := range sigs {
+				if cmd.Process != nil {
+					_ = cmd.Process.Signal(s)
+				}
+			}
+			close(done)
+		}()
+
+		// Wait for command to exit
+		err = cmd.Wait()
+
+		// Cleanup
+		signal.Stop(sigwinch)
+		close(sigwinch)
+		signal.Stop(sigs)
+		close(sigs)
+		<-done
+
+		if err == nil {
+			return 0, nil
+		}
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
+				return status.ExitStatus(), nil
+			}
+		}
+		return 1, err
+	}
+
+	// Non-tty case: attach stdio directly
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	// Start the command
 	if err := cmd.Start(); err != nil {
 		return 1, err
 	}
@@ -280,7 +340,6 @@ func (rc *RunCommand) executeCommandAuto(name string, args []string) (int, error
 
 	go func() {
 		for s := range sigs {
-			// forward to process
 			if cmd.Process != nil {
 				_ = cmd.Process.Signal(s)
 			}
@@ -288,7 +347,6 @@ func (rc *RunCommand) executeCommandAuto(name string, args []string) (int, error
 		close(done)
 	}()
 
-	// Wait for command to exit
 	err := cmd.Wait()
 
 	// Stop forwarding
@@ -299,14 +357,11 @@ func (rc *RunCommand) executeCommandAuto(name string, args []string) (int, error
 	if err == nil {
 		return 0, nil
 	}
-
-	// If it's an ExitError, extract exit code
 	if exitErr, ok := err.(*exec.ExitError); ok {
 		if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
 			return status.ExitStatus(), nil
 		}
 	}
-	// Unknown error
 	return 1, err
 }
 

@@ -3,21 +3,32 @@
 # Ambros transparent integration
 # Source this file in your ~/.bashrc or ~/.zshrc
 
-# Store original command executables
-ORIGINAL_LS=$(which ls)
-ORIGINAL_GIT=$(which git)
-ORIGINAL_CURL=$(which curl)
-ORIGINAL_NPM=$(which npm)
-ORIGINAL_DOCKER=$(which docker)
+# Opt-out: if AMBROS_INTEGRATION=off, do nothing (useful for CI or to disable)
+if [[ "${AMBROS_INTEGRATION:-}" = "off" ]]; then
+    # If the script is being sourced, return; if executed, exit.
+    (return 0 2>/dev/null) || exit 0
+fi
+
+# Detect non-interactive shells / CI or git hooks and opt out automatically.
+# If stdin is not a terminal or common hook variables are set, skip integration.
+if [[ ! -t 0 ]] || [[ -n "${GIT_PARAMS:-}${GIT_DIR:-}${CI:-}" ]]; then
+    (return 0 2>/dev/null) || exit 0
+fi
+
+# Store original command executables (use command -v for portability)
+ORIGINAL_LS=$(command -v ls || true)
+ORIGINAL_GIT=$(command -v git || true)
+ORIGINAL_CURL=$(command -v curl || true)
+ORIGINAL_NPM=$(command -v npm || true)
+ORIGINAL_DOCKER=$(command -v docker || true)
 
 # List of commands to intercept (add more as needed)
 AMBROS_INTERCEPTED_COMMANDS=(
     "ls" "git" "curl" "wget" "npm" "yarn" "docker" 
     "ssh" "scp" "rsync" "tar" "zip" "unzip" "make" "cargo"
-    "go" "python" "node" "java" "mvn" "gradle"
+# Add common wrapper and build tool wrappers
+    "go" "python" "node" "java" "mvn" "gradle" "gradlew"
 )
-
-// ...existing code...
 # Detect whether installed 'ambros' supports the --auto flag.
 # We'll call 'ambros run --help' and look for the string '--auto'.
 AMBROS_SUPPORTS_AUTO=false
@@ -42,7 +53,37 @@ ambros_exec() {
             ambros run --store -- "$cmd" "$@"
         fi
     else
-        # Execute normally for non-tracked commands
+        # Execute normally for non-tracked commands.
+        # Prefer the saved absolute path (ORIGINAL_...) if available to avoid
+        # recursive trapping when the user has the integration enabled.
+        case "$cmd" in
+            ls)
+                if [[ -n "$ORIGINAL_LS" ]]; then
+                    "$ORIGINAL_LS" "$@"; return
+                fi
+                ;;
+            git)
+                if [[ -n "$ORIGINAL_GIT" ]]; then
+                    "$ORIGINAL_GIT" "$@"; return
+                fi
+                ;;
+            curl)
+                if [[ -n "$ORIGINAL_CURL" ]]; then
+                    "$ORIGINAL_CURL" "$@"; return
+                fi
+                ;;
+            npm)
+                if [[ -n "$ORIGINAL_NPM" ]]; then
+                    "$ORIGINAL_NPM" "$@"; return
+                fi
+                ;;
+            docker)
+                if [[ -n "$ORIGINAL_DOCKER" ]]; then
+                    "$ORIGINAL_DOCKER" "$@"; return
+                fi
+                ;;
+        esac
+        # Fallback to command which will execute the external binary.
         command "$cmd" "$@"
     fi
 }
