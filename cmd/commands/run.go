@@ -7,7 +7,6 @@ import (
 	"os/exec"
 	"os/signal"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/creack/pty"
@@ -70,7 +69,7 @@ Note: If you get "unknown flag" errors, add -- before your command.`,
 }
 
 func (rc *RunCommand) setupFlags(cmd *cobra.Command) {
-	cmd.Flags().BoolVarP(&rc.opts.store, "store", "s", true,
+	cmd.Flags().BoolVar(&rc.opts.store, "store", true,
 		"Store the command execution details")
 	cmd.Flags().StringSliceVarP(&rc.opts.tag, "tag", "t", nil,
 		"Add tags to the command")
@@ -288,10 +287,8 @@ func (rc *RunCommand) ExecuteCapture(args []string) (int, string, error) {
 		if err == nil {
 			return 0, string(out), nil
 		}
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
-				return status.ExitStatus(), string(out), nil
-			}
+		if status, ok := extractExitStatus(err); ok {
+			return status, string(out), nil
 		}
 		return 1, string(out), err
 	}
@@ -330,10 +327,8 @@ func (rc *RunCommand) ExecuteCapture(args []string) (int, string, error) {
 	if err == nil {
 		return 0, buf.String(), nil
 	}
-	if exitErr, ok := err.(*exec.ExitError); ok {
-		if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
-			return status.ExitStatus(), buf.String(), nil
-		}
+	if status, ok := extractExitStatus(err); ok {
+		return status, buf.String(), nil
 	}
 	return 1, buf.String(), err
 }
@@ -408,13 +403,8 @@ func (rc *RunCommand) executeCommandAuto(name string, args []string) (int, error
 		close(sigs)
 		<-done
 
-		if err == nil {
-			return 0, nil
-		}
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
-				return status.ExitStatus(), nil
-			}
+		if status, ok := extractExitStatus(err); ok {
+			return status, nil
 		}
 		return 1, err
 	}
@@ -449,13 +439,8 @@ func (rc *RunCommand) executeCommandAuto(name string, args []string) (int, error
 	close(sigs)
 	<-done
 
-	if err == nil {
-		return 0, nil
-	}
-	if exitErr, ok := err.(*exec.ExitError); ok {
-		if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
-			return status.ExitStatus(), nil
-		}
+	if status, ok := extractExitStatus(err); ok {
+		return status, nil
 	}
 	return 1, err
 }
