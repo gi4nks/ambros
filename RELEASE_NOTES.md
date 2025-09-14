@@ -365,3 +365,36 @@ We want to thank our community for their feedback, contributions, and support th
 For detailed installation instructions and documentation, visit our [GitHub repository](https://github.com/gi4nks/ambros).
 
 Happy commanding! 🚀
+
+---
+
+## Ambros v3.1.0 - Incremental improvements
+
+**Release Date**: September 14, 2025
+
+This patch release focuses on polishing the interactive CLI, improving how commands are executed from interactive flows, and fixing a number of UX and safety issues discovered after the v3.0.0 rollout.
+
+### Highlights
+- interactive: improved TTY detection and safer interactive flows
+- interactive: keep listing page after running a command and added local pagination
+- run: new APIs `Execute` and `ExecuteCapture` to run commands and return exit codes/output without calling `os.Exit` (enables safe in-process execution from interactive flows)
+- interactive: choice between streaming live output or capturing output for later viewing
+- cleanup/manage: safer dry-run + explicit confirmation before deleting stored commands
+- version: bumped embedded version to v3.1.0
+
+### Notes for users
+- If you use the interactive mode (`ambros interactive`), you will now be prompted whether to stream live output or capture and show output after running a command. Captured runs will display exit code and combined output without exiting the interactive session.
+- Administrators: destructive operations performed via interactive cleanup require explicit confirmation and will show a dry-run list first.
+
+### Download & Checksums
+I built a macOS binary for this release locally and generated a SHA-256 checksum. You can reproduce the build locally using the Makefile or the following commands:
+
+```bash
+# Build (macOS):
+GOOS=darwin GOARCH=$(uname -m) go build -o bin/ambros_v3.1.0 ./
+
+# Compute SHA-256 checksum:
+shasum -a 256 bin/ambros_v3.1.0
+```
+
+If you want, I can attach the artifact and checksum to the GitHub release (requires `gh` CLI or a PAT to upload via API).
