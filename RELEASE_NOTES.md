@@ -423,3 +423,17 @@ shasum -a 256 bin/ambros_v3.1.1
 ```
 
 If you want, I can attach the binary and checksum to the GitHub release (requires `gh` CLI or a PAT to upload).
+
+---
+
+## Ambros v3.1.2 - Documentation update
+
+**Release Date**: September 14, 2025
+
+This patch updates documentation and installer helper references to point at the latest tag. No runtime behavior changes are included in this patch.
+
+Highlights
+- docs: bump embedded version file to v3.1.2
+- scripts: update installer helper usage reference to v3.1.2
+
+If you want me to produce release artifacts (binaries + checksums) and attach them to the GitHub release, I can build and upload them next.

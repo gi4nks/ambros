@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Install Ambros reproducibly. By default installs @latest but forces direct proxy.
-# Usage: ./scripts/install_ambros.sh [v3.1.1|latest]
+# Usage: ./scripts/install_ambros.sh [v3.1.2|latest]
 
 set -euo pipefail
 VERSION=${1:-latest}
