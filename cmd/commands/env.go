@@ -1,13 +1,19 @@
 package commands
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"io"
+	"os"
+	"os/exec"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/creack/pty"
 	"github.com/fatih/color"
+	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
@@ -191,6 +197,11 @@ func (ec *EnvCommand) createEnvironment() error {
 	}
 
 	// Create environment metadata command
+	envType := "user"
+	if ec.global {
+		envType = "global"
+	}
+
 	envCommand := models.Command{
 		Entity: models.Entity{
 			ID: fmt.Sprintf("ENV-%s-%d", ec.envName, generateTimestamp()),
@@ -202,7 +213,7 @@ func (ec *EnvCommand) createEnvironment() error {
 		Status:   true,
 		Variables: map[string]string{
 			"env_name": ec.envName,
-			"env_type": "user",
+			"env_type": envType,
 		},
 	}
 
@@ -217,8 +228,34 @@ func (ec *EnvCommand) createEnvironment() error {
 	color.Cyan("\nNext steps:")
 	color.White("  ambros env set %s KEY value", ec.envName)
 	color.White("  ambros env show %s", ec.envName)
+	ec.logger.Info("Environment created", zap.String("envName", ec.envName), zap.String("envType", envType))
 
-	ec.logger.Info("Environment created", zap.String("envName", ec.envName))
+	// If interactive flag is set, prompt user to add variables now
+	if ec.interactive {
+		reader := bufio.NewReader(os.Stdin)
+		color.Cyan("\nInteractive mode: enter variables in the form KEY=VALUE. Empty line to finish.")
+		for {
+			fmt.Print("> ")
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				break
+			}
+			line = strings.TrimSpace(line)
+			if line == "" {
+				break
+			}
+			parts := strings.SplitN(line, "=", 2)
+			if len(parts) != 2 {
+				color.Yellow("Invalid format, expected KEY=VALUE")
+				continue
+			}
+			key := strings.TrimSpace(parts[0])
+			value := strings.TrimSpace(parts[1])
+			if err := ec.setVariable(ec.envName, key, value); err != nil {
+				color.Red("Failed to set variable: %v", err)
+			}
+		}
+	}
 	return nil
 }
 
@@ -439,22 +476,63 @@ func (ec *EnvCommand) applyEnvironment(envName, command string) error {
 		}
 	}
 
-	// TODO: Integrate with run command to actually execute with environment
-	// For now, show what would be executed
-	color.Green("\nCommand with environment:")
+	// Execute the provided command with merged environment
+	// Use the shell to allow complex commands and expansions
+	var cmd *exec.Cmd
+	shell := "sh"
+	shellFlag := "-c"
+	cmd = exec.Command(shell, shellFlag, command)
 
-	// Build export statements
-	var exportStatements []string
-	for key, value := range envVars {
-		exportStatements = append(exportStatements, fmt.Sprintf("export %s=%s", key, value))
+	// Merge current environment and override with envVars
+	env := os.Environ()
+	// Build map for easier override
+	envMap := map[string]string{}
+	for _, e := range env {
+		if kv := strings.SplitN(e, "=", 2); len(kv) == 2 {
+			envMap[kv[0]] = kv[1]
+		}
+	}
+	for k, v := range envVars {
+		envMap[k] = v
+	}
+	// Build final env slice
+	finalEnv := make([]string, 0, len(envMap))
+	for k, v := range envMap {
+		finalEnv = append(finalEnv, fmt.Sprintf("%s=%s", k, v))
+	}
+	cmd.Env = finalEnv
+
+	// If stdin is a TTY, start in a pty for interactive behavior
+	if isatty.IsTerminal(os.Stdin.Fd()) {
+		ptmx, err := pty.Start(cmd)
+		if err != nil {
+			ec.logger.Error("Failed to start command in pty", zap.Error(err))
+			return errors.NewError(errors.ErrExecutionFailed, "failed to start command", err)
+		}
+		// copy output to stdout/stderr
+		go func() { _, _ = io.Copy(os.Stdout, ptmx) }()
+		// Wait for completion
+		err = cmd.Wait()
+		if err != nil {
+			ec.logger.Error("Command failed", zap.Error(err))
+			return errors.NewError(errors.ErrExecutionFailed, "command failed", err)
+		}
+		return nil
 	}
 
-	if len(exportStatements) > 0 {
-		fmt.Printf("  %s\n", color.CyanString(strings.Join(exportStatements, "; ")))
+	// Non-tty: capture combined output
+	out, err := cmd.CombinedOutput()
+	if len(out) > 0 {
+		fmt.Print(string(out))
 	}
-	fmt.Printf("  %s\n", color.WhiteString(command))
-
-	color.Yellow("\n⚠️  Environment application integration with 'run' command coming soon!")
+	if err != nil {
+		ec.logger.Error("Command execution failed", zap.Error(err))
+		if exit, ok := extractExitStatus(err); ok {
+			return errors.NewError(errors.ErrExecutionFailed, fmt.Sprintf("command exited with %d", exit), err)
+		}
+		return errors.NewError(errors.ErrExecutionFailed, "command execution failed", err)
+	}
+	return nil
 
 	ec.logger.Info("Environment applied to command",
 		zap.String("envName", envName),

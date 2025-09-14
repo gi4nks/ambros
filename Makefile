@@ -250,3 +250,40 @@ help: ## Display this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\nTargets:\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
 .DEFAULT_GOAL := help
+
+# Development install: build and place the binary into a target path (default /usr/local/bin)
+.PHONY: dev-install dev-symlink
+
+
+dev-install: build ## Build and install the binary to a system path for development
+	@TARGET_BIN="$${TARGET_BIN:-$(HOME)/go/bin/$(BINARY_NAME)}"; \
+	printf "Installing local build to $$TARGET_BIN\n"; \
+	mkdir -p $(BUILD_DIR); \
+	if [ ! -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
+		printf "Local build not found in $(BUILD_DIR). Building to $(BUILD_DIR)/$(BINARY_NAME)...\n"; \
+		CGO_ENABLED=$(CGO_ENABLED) GOARCH=$(GOARCH) GOOS=$(GOOS) $(GOBUILD) $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_FILE); \
+	fi; \
+	# Ensure parent directory exists and compute it safely
+	TARGET_DIR=$$(dirname "$$TARGET_BIN"); mkdir -p "$$TARGET_DIR"; \
+	# If parent dir writable, move there; otherwise fallback to user's go bin
+	if [ -w "$$TARGET_DIR" ]; then \
+		mv -f $(BUILD_DIR)/$(BINARY_NAME) "$$TARGET_BIN"; \
+	else \
+		FALLBACK="$${FALLBACK:-$(HOME)/go/bin/$(BINARY_NAME)}"; \
+		FALLBACK_DIR=$$(dirname "$$FALLBACK"); mkdir -p "$$FALLBACK_DIR"; \
+		mv -f $(BUILD_DIR)/$(BINARY_NAME) "$$FALLBACK"; \
+		printf "Target not writable; installed to fallback $$FALLBACK instead\n"; \
+		TARGET_BIN=$$FALLBACK; \
+	fi; \
+	chmod +x $$TARGET_BIN; \
+	printf "Installed %s\n" $$TARGET_BIN
+
+dev-symlink: build ## Build and create a symlink to the local build (safer, no sudo)
+	@TARGET_LINK="$${TARGET_LINK:-$(HOME)/go/bin/$(BINARY_NAME)}"; \
+	printf "Creating symlink from $(BUILD_DIR)/$(BINARY_NAME) to $$TARGET_LINK\n"; \
+	mkdir -p $(BUILD_DIR); \
+	if [ ! -f "$(BUILD_DIR)/$(BINARY_NAME)" ]; then \
+		CGO_ENABLED=$(CGO_ENABLED) GOARCH=$(GOARCH) GOOS=$(GOOS) $(GOBUILD) $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_FILE); \
+	fi; \
+	ln -sf $$(pwd)/$(BUILD_DIR)/$(BINARY_NAME) $$TARGET_LINK; \
+	printf "Symlink created: $$TARGET_LINK -> %s/$(BUILD_DIR)/$(BINARY_NAME)\n" $$(pwd)

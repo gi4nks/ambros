@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
@@ -70,11 +71,12 @@ func (lc *LogsCommand) runE(cmd *cobra.Command, args []string) error {
 		}
 
 		// Display to user (keep fmt for user output)
+		statusText := formatStatus(command.Status)
 		fmt.Printf("[%s] %s %s - Status: %s\n",
 			command.CreatedAt.Format("2006-01-02 15:04:05"),
 			command.Name,
 			fmt.Sprintf("(ID: %s)", command.ID),
-			formatStatus(command.Status))
+			statusText)
 
 		displayedCount++
 	}
@@ -90,9 +92,9 @@ func (lc *LogsCommand) runE(cmd *cobra.Command, args []string) error {
 
 func formatStatus(status bool) string {
 	if status {
-		return "SUCCESS"
+		return color.GreenString("SUCCESS")
 	}
-	return "FAILED"
+	return color.RedString("FAILED")
 }
 
 func (lc *LogsCommand) Command() *cobra.Command {
