@@ -2,7 +2,6 @@ package commands
 
 import (
 	"context"
-	"embed"
 	"encoding/json"
 	"fmt"
 	iofs "io/fs"
@@ -21,10 +20,10 @@ import (
 	"github.com/gi4nks/ambros/v3/internal/api"
 	"github.com/gi4nks/ambros/v3/internal/errors"
 	"github.com/gi4nks/ambros/v3/internal/models"
+	webstatic "github.com/gi4nks/ambros/v3/web/static"
 )
 
-//go:embed web/static/*
-var staticFiles embed.FS
+// embedded static files are provided by the web/static package
 
 // ServerCommand represents the web server command
 type ServerCommand struct {
@@ -143,7 +142,7 @@ func (sc *ServerCommand) createEnhancedAPI(apiServer *api.Server) http.Handler {
 	// Static files for web dashboard
 	mux.HandleFunc("/", sc.handleWebApp)
 	// Serve embedded static files at /static/ using Go embed
-	sub, err := iofs.Sub(staticFiles, "web/static")
+	sub, err := iofs.Sub(webstatic.StaticFiles, ".")
 	if err == nil {
 		mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(sub))))
 	} else {
