@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/creack/pty"
@@ -390,9 +391,17 @@ func (rc *RunCommand) executeCommandAuto(name string, args []string) (int, error
 		// Ensure initial size is copied
 		_ = pty.InheritSize(os.Stdin, ptmx)
 
-		// Copy input and output
-		go func() { _, _ = io.Copy(ptmx, os.Stdin) }()
-		go func() { _, _ = io.Copy(os.Stdout, ptmx) }()
+		// Copy input and output and wait for them to finish to avoid races
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			_, _ = io.Copy(ptmx, os.Stdin)
+		}()
+		go func() {
+			defer wg.Done()
+			_, _ = io.Copy(os.Stdout, ptmx)
+		}()
 
 		// Forward signals to child process
 		sigs := make(chan os.Signal, 1)
@@ -406,9 +415,12 @@ func (rc *RunCommand) executeCommandAuto(name string, args []string) (int, error
 			}
 			close(done)
 		}()
-
 		// Wait for command to exit
 		err = cmd.Wait()
+
+		// Close the PTY to ensure io.Copy goroutines return, then wait for them
+		_ = ptmx.Close()
+		wg.Wait()
 
 		// Cleanup
 		signal.Stop(sigwinch)
