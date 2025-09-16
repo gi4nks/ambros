@@ -47,15 +47,52 @@ func init() {
 	// Initialize logger
 	logger := initLogger()
 
+	// Add subcommands that don't require repository
+	rootCmd.AddCommand(NewVersionCommand(logger).Command())
+	rootCmd.AddCommand(NewConfigurationCommand(logger).Command())
+	rootCmd.AddCommand(NewIntegrateCommand(logger).Command())
+}
+
+// InitializeRepository initializes the repository and adds repository-dependent commands
+func InitializeRepository() error {
+	logger := initLogger()
+
 	// Initialize repository
 	config := utils.NewConfiguration(logger)
 	repo, err := repos.NewRepository(config.RepositoryFullName(), logger)
 	if err != nil {
-		logger.Fatal("Failed to initialize repository", zap.Error(err))
+		return err
 	}
 
-	// Add subcommands
-	addCommands(logger, repo)
+	// Add repository-dependent commands
+	addRepositoryCommands(logger, repo)
+	return nil
+}
+
+func addRepositoryCommands(logger *zap.Logger, repo RepositoryInterface) {
+	// Add all command implementations that require repository
+	rootCmd.AddCommand(NewRunCommand(logger, repo).Command())
+	rootCmd.AddCommand(NewLastCommand(logger, repo).Command())
+	rootCmd.AddCommand(NewSearchCommand(logger, repo).Command())
+	rootCmd.AddCommand(NewOutputCommand(logger, repo).Command())
+	rootCmd.AddCommand(NewTemplateCommand(logger, repo).Command())
+	rootCmd.AddCommand(NewAnalyticsCommand(logger, repo).Command())
+	rootCmd.AddCommand(NewEnvCommand(logger, repo).Command())
+	rootCmd.AddCommand(NewInteractiveCommand(logger, repo).Command())
+	rootCmd.AddCommand(NewExportCommand(logger, repo).Command())
+	rootCmd.AddCommand(NewImportCommand(logger, repo).Command())
+	rootCmd.AddCommand(NewLogsCommand(logger, repo).Command())
+	rootCmd.AddCommand(NewChainCommand(logger, repo).Command())
+	rootCmd.AddCommand(NewStoreCommand(logger, repo).Command())
+	// Unified rerun command replaces recall/revive
+	rootCmd.AddCommand(NewRerunCommand(logger, repo).Command())
+	rootCmd.AddCommand(NewSchedulerCommand(logger, repo).Command())
+	// Database utilities
+	rootCmd.AddCommand(NewDBCommand(logger, repo).Command())
+
+	// Additional server and plugin commands
+	rootCmd.AddCommand(NewServerCommand(logger, repo).Command())
+	rootCmd.AddCommand(NewPluginCommand(logger, repo).Command())
 }
 
 func initLogger() *zap.Logger {
@@ -77,37 +114,6 @@ func initLogger() *zap.Logger {
 	}
 
 	return logger
-}
-
-func addCommands(logger *zap.Logger, repo RepositoryInterface) {
-	// Add all command implementations
-	rootCmd.AddCommand(NewRunCommand(logger, repo).Command())
-	rootCmd.AddCommand(NewLastCommand(logger, repo).Command())
-	rootCmd.AddCommand(NewSearchCommand(logger, repo).Command())
-	rootCmd.AddCommand(NewOutputCommand(logger, repo).Command())
-	rootCmd.AddCommand(NewTemplateCommand(logger, repo).Command())
-	rootCmd.AddCommand(NewAnalyticsCommand(logger, repo).Command())
-	rootCmd.AddCommand(NewEnvCommand(logger, repo).Command())
-	rootCmd.AddCommand(NewInteractiveCommand(logger, repo).Command())
-	rootCmd.AddCommand(NewIntegrateCommand(logger).Command())
-	rootCmd.AddCommand(NewExportCommand(logger, repo).Command())
-	rootCmd.AddCommand(NewImportCommand(logger, repo).Command())
-	rootCmd.AddCommand(NewLogsCommand(logger, repo).Command())
-	rootCmd.AddCommand(NewChainCommand(logger, repo).Command())
-	rootCmd.AddCommand(NewStoreCommand(logger, repo).Command())
-	// Unified rerun command replaces recall/revive
-	rootCmd.AddCommand(NewRerunCommand(logger, repo).Command())
-	rootCmd.AddCommand(NewSchedulerCommand(logger, repo).Command())
-	// Database utilities
-	rootCmd.AddCommand(NewDBCommand(logger, repo).Command())
-
-	// Additional server and plugin commands
-	rootCmd.AddCommand(NewServerCommand(logger, repo).Command())
-	rootCmd.AddCommand(NewPluginCommand(logger, repo).Command())
-
-	// Commands that don't need repository
-	rootCmd.AddCommand(NewVersionCommand(logger).Command())
-	rootCmd.AddCommand(NewConfigurationCommand(logger).Command())
 }
 
 func initConfig() {

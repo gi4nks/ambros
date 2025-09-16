@@ -35,3 +35,6 @@ bin/
 *.db
 *.db.bkp
 tmp/
+
+# Go build cache
+.gocache/

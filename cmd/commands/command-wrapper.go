@@ -152,13 +152,15 @@ func (cw *CommandWrapper) ExecuteCommand(command *models.Command) {
 	var bufferOutput bytes.Buffer
 	var bufferError bytes.Buffer
 
-	if _, err := ResolveCommandPath(command.Name); err != nil {
+	// Resolve and validate executable path before executing
+	resolved, err := ResolveCommandPath(command.Name)
+	if err != nil {
 		cw.logger.Error("Invalid command name", zap.String("name", command.Name), zap.Error(err))
 		command.Error = err.Error()
 		command.Status = false
 		return
 	}
-	cmd := exec.Command(command.Name, command.Arguments...)
+	cmd := exec.Command(resolved, command.Arguments...)
 
 	cw.logger.Debug("Executing command",
 		zap.String("name", command.Name),
@@ -237,13 +239,18 @@ func (cw *CommandWrapper) ExecuteCommands(commands []*models.Command) error {
 
 	for _, command := range commands {
 		command.CreatedAt = time.Now()
-		if _, err := ResolveCommandPath(command.Name); err != nil {
+		// Validate command name and resolve path; continue to attempt storing even on error
+		resolved, err := ResolveCommandPath(command.Name)
+		if err != nil {
 			cw.logger.Error("Invalid command name", zap.String("name", command.Name), zap.Error(err))
 			command.Error = err.Error()
 			command.Status = false
-			// store attempt will continue below
 		}
-		cmd := exec.Command(command.Name, command.Arguments...)
+		execName := command.Name
+		if resolved != "" {
+			execName = resolved
+		}
+		cmd := exec.Command(execName, command.Arguments...)
 		var intermediate bytes.Buffer
 		cmd.Stdout = &intermediate
 		cmd.Stderr = &intermediate
@@ -253,7 +260,7 @@ func (cw *CommandWrapper) ExecuteCommands(commands []*models.Command) error {
 			cmd.Stdin = bytes.NewReader(output)
 		}
 
-		err := cmd.Run()
+		err = cmd.Run()
 		output = intermediate.Bytes()
 
 		cw.logger.Debug("Command output", zap.String("output", string(output)))

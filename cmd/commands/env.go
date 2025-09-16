@@ -485,23 +485,22 @@ func (ec *EnvCommand) applyEnvironment(envName, command string) error {
 	// Execute the provided command with merged environment
 	var cmd *exec.Cmd
 
-	// If noShell is requested, avoid using `sh -c` and parse command into name+args
-	if ec.noShell {
-		parts, err := shellFields(command)
-		if err != nil {
-			ec.logger.Error("Invalid command format", zap.Error(err))
-			return errors.NewError(errors.ErrInvalidCommand, "invalid command format", err)
+	// Prefer parsing the command into name+args and using exec.Command where possible.
+	// This avoids shell injection risks. If parsing fails or the command looks like
+	// it requires shell features (pipes, redirects, expansion), fall back to `sh -c`.
+	useShell := true
+	parts, err := shellFields(command)
+	if err == nil && len(parts) > 0 {
+		// Validate executable path for the first token
+		if _, perr := ResolveCommandPath(parts[0]); perr == nil {
+			cmd = exec.Command(parts[0], parts[1:]...)
+			useShell = false
+		} else {
+			ec.logger.Debug("Falling back to shell; parsed command executable not resolvable", zap.String("cmd", parts[0]), zap.Error(perr))
 		}
-		if len(parts) == 0 {
-			return errors.NewError(errors.ErrInvalidCommand, "empty command provided", nil)
-		}
-		// Validate executable path
-		if _, err := ResolveCommandPath(parts[0]); err != nil {
-			ec.logger.Error("Invalid command", zap.String("cmd", parts[0]), zap.Error(err))
-			return errors.NewError(errors.ErrExecutionFailed, fmt.Sprintf("invalid command: %s", parts[0]), err)
-		}
-		cmd = exec.Command(parts[0], parts[1:]...)
-	} else {
+	}
+
+	if useShell {
 		// Use the shell to allow complex commands and expansions (current behavior)
 		shell := "sh"
 		shellFlag := "-c"
