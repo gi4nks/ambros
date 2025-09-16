@@ -252,6 +252,25 @@ ambros store "echo hello" --name greeting --tag demo
 # Enter interactive mode
 ambros interactive
 
+### Security & Naming Notes
+
+- `--no-shell` for `env apply`: When using `ambros env apply <env> <command>`, Ambros historically executed the provided command through the shell (`sh -c "<command>"`) which enables shell expansions and pipelines. For safer execution (avoid shell interpretation and reduce command-injection risk) you can pass the `--no-shell` flag to run the command directly without a shell. Example:
+
+```bash
+# Run without a shell (safer, no shell expansions)
+ambros env apply production "curl $API_URL/health" --no-shell
+```
+
+- Plugin name rules: Plugin names must be simple and safe. Allowed characters: letters, numbers, dot (`.`), dash (`-`), and underscore (`_`). Names that contain path separators (`/`), `..` or spaces will be rejected to avoid path traversal or unexpected filesystem behavior. Example valid names:
+
+```
+my-plugin
+plugin_1
+plugin.v1
+```
+
+If a plugin name is invalid, the CLI will return an `invalid_command` error and will not create or install files.
+
 # Features available in interactive mode:
 # - Command execution with real-time feedback
 # - Template management

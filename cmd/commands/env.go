@@ -28,6 +28,7 @@ type EnvCommand struct {
 	envName     string
 	global      bool
 	interactive bool
+	noShell     bool
 }
 
 // NewEnvCommand creates a new environment command
@@ -70,6 +71,7 @@ Examples:
 func (ec *EnvCommand) setupFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolVarP(&ec.global, "global", "g", false, "Apply to global environment")
 	cmd.Flags().BoolVarP(&ec.interactive, "interactive", "i", false, "Interactive environment setup")
+	cmd.Flags().BoolVar(&ec.noShell, "no-shell", false, "Run applied command without a shell (safer)")
 }
 
 func (ec *EnvCommand) runE(cmd *cobra.Command, args []string) error {
@@ -472,16 +474,39 @@ func (ec *EnvCommand) applyEnvironment(envName, command string) error {
 	if len(envVars) > 0 {
 		color.Yellow("Environment variables:")
 		for key, value := range envVars {
-			fmt.Printf("  %s = %s\n", color.YellowString(key), color.CyanString(value))
+			display := value
+			if isSensitiveKey(key) {
+				display = "REDACTED"
+			}
+			fmt.Printf("  %s = %s\n", color.YellowString(key), color.CyanString(display))
 		}
 	}
 
 	// Execute the provided command with merged environment
-	// Use the shell to allow complex commands and expansions
 	var cmd *exec.Cmd
-	shell := "sh"
-	shellFlag := "-c"
-	cmd = exec.Command(shell, shellFlag, command)
+
+	// If noShell is requested, avoid using `sh -c` and parse command into name+args
+	if ec.noShell {
+		parts, err := shellFields(command)
+		if err != nil {
+			ec.logger.Error("Invalid command format", zap.Error(err))
+			return errors.NewError(errors.ErrInvalidCommand, "invalid command format", err)
+		}
+		if len(parts) == 0 {
+			return errors.NewError(errors.ErrInvalidCommand, "empty command provided", nil)
+		}
+		// Validate executable path
+		if _, err := ResolveCommandPath(parts[0]); err != nil {
+			ec.logger.Error("Invalid command", zap.String("cmd", parts[0]), zap.Error(err))
+			return errors.NewError(errors.ErrExecutionFailed, fmt.Sprintf("invalid command: %s", parts[0]), err)
+		}
+		cmd = exec.Command(parts[0], parts[1:]...)
+	} else {
+		// Use the shell to allow complex commands and expansions (current behavior)
+		shell := "sh"
+		shellFlag := "-c"
+		cmd = exec.Command(shell, shellFlag, command)
+	}
 
 	// Merge current environment and override with envVars
 	env := os.Environ()
@@ -563,6 +588,18 @@ func extractEnvName(cmdName string) string {
 		return parts[1]
 	}
 	return ""
+}
+
+// isSensitiveKey reports whether a key likely contains sensitive data and should be redacted.
+func isSensitiveKey(k string) bool {
+	lk := strings.ToLower(k)
+	sensitive := []string{"secret", "token", "password", "pwd", "key", "credential", "auth", "api"}
+	for _, s := range sensitive {
+		if strings.Contains(lk, s) {
+			return true
+		}
+	}
+	return false
 }
 
 func generateTimestamp() int64 {

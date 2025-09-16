@@ -381,10 +381,18 @@ func (c *ChainCommand) executeCommand(cmdId string, current, total int) CommandE
 }
 
 func (c *ChainCommand) executeSystemCommand(command string) (string, error) {
-	// Parse the command
-	parts := strings.Fields(command)
+	// Parse the command respecting quotes/escapes
+	parts, err := shellFields(command)
+	if err != nil {
+		return "", err
+	}
 	if len(parts) == 0 {
 		return "", fmt.Errorf("empty command")
+	}
+
+	// Validate executable path to avoid shell surprises or path injection
+	if _, err := ResolveCommandPath(parts[0]); err != nil {
+		return "", err
 	}
 
 	// Execute the command

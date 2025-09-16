@@ -95,8 +95,8 @@ func addCommands(logger *zap.Logger, repo RepositoryInterface) {
 	rootCmd.AddCommand(NewLogsCommand(logger, repo).Command())
 	rootCmd.AddCommand(NewChainCommand(logger, repo).Command())
 	rootCmd.AddCommand(NewStoreCommand(logger, repo).Command())
-	rootCmd.AddCommand(NewRecallCommand(logger, repo).Command())
-	rootCmd.AddCommand(NewReviveCommand(logger, repo).Command())
+	// Unified rerun command replaces recall/revive
+	rootCmd.AddCommand(NewRerunCommand(logger, repo).Command())
 	rootCmd.AddCommand(NewSchedulerCommand(logger, repo).Command())
 	// Database utilities
 	rootCmd.AddCommand(NewDBCommand(logger, repo).Command())

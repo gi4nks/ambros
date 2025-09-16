@@ -15,33 +15,32 @@ import (
 	"github.com/gi4nks/ambros/v3/internal/models"
 )
 
-// RecallCommand represents the recall command
-type RecallCommand struct {
+// RerunCommand unifies recall and revive behaviors
+type RerunCommand struct {
 	*BaseCommand
 	history  bool
 	store    bool
 	dryRun   bool
-	exitFunc func(int) // For testable exit behavior
+	tag      string // tag to append when storing
+	exitFunc func(int)
 }
 
-// NewRecallCommand creates a new recall command
-func NewRecallCommand(logger *zap.Logger, repo RepositoryInterface) *RecallCommand {
-	rc := &RecallCommand{
-		exitFunc: os.Exit, // Default to os.Exit
-	}
+// NewRerunCommand creates a new rerun command that subsumes recall and revive
+func NewRerunCommand(logger *zap.Logger, repo RepositoryInterface) *RerunCommand {
+	rc := &RerunCommand{exitFunc: os.Exit}
 
 	cmd := &cobra.Command{
-		Use:   "recall <command-id>",
-		Short: "Recall and execute a stored command",
-		Long: `Recall and execute a previously stored command by its ID.
-Can retrieve commands from both recent and historical storage.
-Optionally store the new execution results.
+		Use:   "rerun <command-id>",
+		Short: "Re-execute a previously stored command (recall/revive unified)",
+		Long: `Re-execute a command from your history by its ID.
+Can optionally pull from history and store the new execution. This command
+unifies the previous 'recall' and 'revive' behavior.
 
 Examples:
-  ambros recall CMD-123          # Recall and execute command CMD-123
-  ambros recall -y CMD-456       # Recall from history
-  ambros recall -s CMD-789       # Store the new execution results
-  ambros recall --dry-run CMD-123 # Show what would be executed`,
+  ambros rerun CMD-123           # Re-execute command CMD-123
+  ambros rerun -y CMD-456        # Re-execute from history
+  ambros rerun -s CMD-456        # Re-execute and store new results
+  ambros rerun --dry-run CMD-789 # Show what would be executed`,
 		Args: cobra.ExactArgs(1),
 		RunE: rc.runE,
 	}
@@ -52,22 +51,22 @@ Examples:
 	return rc
 }
 
-func (rc *RecallCommand) setupFlags(cmd *cobra.Command) {
+func (rc *RerunCommand) setupFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolVarP(&rc.history, "history", "y", false, "Recall command from history")
-	cmd.Flags().BoolVarP(&rc.store, "store", "s", false, "Store the execution results")
+	cmd.Flags().BoolVarP(&rc.store, "store", "s", false, "Store the new execution results")
 	cmd.Flags().BoolVar(&rc.dryRun, "dry-run", false, "Show what would be executed without running")
 }
 
-func (rc *RecallCommand) runE(cmd *cobra.Command, args []string) error {
+func (rc *RerunCommand) runE(cmd *cobra.Command, args []string) error {
 	commandId := args[0]
 
-	rc.logger.Debug("Recall command invoked",
+	rc.logger.Debug("Rerun command invoked",
 		zap.String("commandId", commandId),
 		zap.Bool("history", rc.history),
 		zap.Bool("store", rc.store),
 		zap.Bool("dryRun", rc.dryRun))
 
-	// Find the command
+	// Find the stored command
 	stored, err := rc.repository.Get(commandId)
 	if err != nil {
 		rc.logger.Error("Command not found",
@@ -82,13 +81,9 @@ func (rc *RecallCommand) runE(cmd *cobra.Command, args []string) error {
 		zap.Strings("arguments", stored.Arguments))
 
 	if rc.dryRun {
-		// User output (keep fmt for dry run display)
-		fmt.Printf("Would recall and execute: %s %s\n",
-			stored.Name, strings.Join(stored.Arguments, " "))
-		fmt.Printf("Original execution: %s\n",
-			stored.CreatedAt.Format("2006-01-02 15:04:05"))
-		fmt.Printf("Original status: %s\n",
-			rc.formatStatus(stored.Status))
+		fmt.Printf("Would re-execute: %s %s\n", stored.Name, strings.Join(stored.Arguments, " "))
+		fmt.Printf("Original execution: %s\n", stored.CreatedAt.Format("2006-01-02 15:04:05"))
+		fmt.Printf("Original status: %s\n", rc.formatStatus(stored.Status))
 		if len(stored.Tags) > 0 {
 			fmt.Printf("Tags: %s\n", strings.Join(stored.Tags, ", "))
 		}
@@ -106,7 +101,6 @@ func (rc *RecallCommand) runE(cmd *cobra.Command, args []string) error {
 		return errors.NewError(errors.ErrExecutionFailed, "failed to execute command", err)
 	}
 
-	// Display output to user
 	if output != "" {
 		fmt.Print(output)
 	}
@@ -116,6 +110,13 @@ func (rc *RecallCommand) runE(cmd *cobra.Command, args []string) error {
 
 	// Store results if requested
 	if rc.store {
+		// default tag relies on prior tag or command; use 'rerun' if none
+		tag := "rerun"
+		if len(stored.Tags) > 0 {
+			// preserve a sense of the original intent if present
+			tag = stored.Tags[0]
+		}
+
 		newCommand := &models.Command{
 			Entity: models.Entity{
 				ID:        rc.generateCommandID(),
@@ -126,34 +127,33 @@ func (rc *RecallCommand) runE(cmd *cobra.Command, args []string) error {
 			Status:    success,
 			Output:    output,
 			Error:     errorMsg,
-			Tags:      append(stored.Tags, "recalled"),
+			Tags:      append(stored.Tags, tag),
 			Category:  stored.Category,
 		}
 		newCommand.TerminatedAt = time.Now()
 
 		if err := rc.repository.Put(context.Background(), *newCommand); err != nil {
-			rc.logger.Warn("Failed to store recalled command execution",
+			rc.logger.Warn("Failed to store rerun execution",
 				zap.Error(err),
 				zap.String("originalCommandId", commandId),
 				zap.String("newCommandId", newCommand.ID))
 		} else {
-			rc.logger.Debug("Recalled command execution stored",
+			rc.logger.Debug("Rerun execution stored",
 				zap.String("originalCommandId", commandId),
 				zap.String("newCommandId", newCommand.ID),
 				zap.Bool("success", success))
 		}
 	}
 
-	rc.logger.Info("Command recall completed",
+	rc.logger.Info("Command rerun completed",
 		zap.String("originalCommandId", commandId),
 		zap.String("command", stored.Name),
 		zap.Strings("args", stored.Arguments),
 		zap.Bool("success", success),
 		zap.Bool("stored", rc.store))
 
-	// Exit with the same code as the executed command if it failed
 	if !success {
-		rc.logger.Debug("Recalled command failed, exiting with code 1",
+		rc.logger.Debug("Rerun failed, exiting with code 1",
 			zap.String("commandId", commandId))
 		rc.exitFunc(1)
 	}
@@ -161,15 +161,15 @@ func (rc *RecallCommand) runE(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func (rc *RecallCommand) executeCommand(name string, args []string) (string, string, bool, error) {
+func (rc *RerunCommand) executeCommand(name string, args []string) (string, string, bool, error) {
+	if _, err := ResolveCommandPath(name); err != nil {
+		return "", err.Error(), false, err
+	}
 	cmd := exec.Command(name, args...)
-
-	// Capture both stdout and stderr
 	output, err := cmd.CombinedOutput()
 
 	success := err == nil
 	var errorMsg string
-
 	if err != nil {
 		errorMsg = err.Error()
 	}
@@ -177,17 +177,15 @@ func (rc *RecallCommand) executeCommand(name string, args []string) (string, str
 	return string(output), errorMsg, success, nil
 }
 
-func (rc *RecallCommand) generateCommandID() string {
+func (rc *RerunCommand) generateCommandID() string {
 	return fmt.Sprintf("CMD-%d", time.Now().UnixNano())
 }
 
-func (rc *RecallCommand) formatStatus(status bool) string {
+func (rc *RerunCommand) formatStatus(status bool) string {
 	if status {
 		return "Success"
 	}
 	return "Failed"
 }
 
-func (rc *RecallCommand) Command() *cobra.Command {
-	return rc.cmd
-}
+func (rc *RerunCommand) Command() *cobra.Command { return rc.cmd }
