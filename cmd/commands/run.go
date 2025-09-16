@@ -280,6 +280,11 @@ func (rc *RunCommand) ExecuteCapture(args []string) (int, string, error) {
 	commandName := args[0]
 	commandArgs := args[1:]
 
+	// Resolve command path to avoid shell lookup surprises
+	if _, err := ResolveCommandPath(commandName); err != nil {
+		return 1, "", err
+	}
+
 	// If not a TTY, use CombinedOutput for simplicity
 	if !isatty.IsTerminal(os.Stdin.Fd()) {
 		cmd := exec.Command(commandName, commandArgs...)
@@ -334,6 +339,12 @@ func (rc *RunCommand) ExecuteCapture(args []string) (int, string, error) {
 }
 
 func (rc *RunCommand) executeCommand(name string, args []string) (string, string, bool, error) {
+	if _, err := ResolveCommandPath(name); err != nil {
+		// Do not treat a missing executable as a hard error here — keep compatibility
+		// with existing tests which expect executeCommand to return (success=false,
+		// errorMsg!="", err==nil) for nonexistent commands.
+		return "", err.Error(), false, nil
+	}
 	cmd := exec.Command(name, args...)
 
 	// Capture both stdout and stderr
@@ -353,6 +364,9 @@ func (rc *RunCommand) executeCommand(name string, args []string) (string, string
 // process stdin/stdout/stderr to the child, forwards signals and returns the child's
 // exit code. If the command fails to start, an error is returned and exit code will be 1.
 func (rc *RunCommand) executeCommandAuto(name string, args []string) (int, error) {
+	if _, err := ResolveCommandPath(name); err != nil {
+		return 1, err
+	}
 	cmd := exec.Command(name, args...)
 
 	// If stdin is a TTY, allocate a pty so interactive programs work correctly.

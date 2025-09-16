@@ -152,6 +152,12 @@ func (cw *CommandWrapper) ExecuteCommand(command *models.Command) {
 	var bufferOutput bytes.Buffer
 	var bufferError bytes.Buffer
 
+	if _, err := ResolveCommandPath(command.Name); err != nil {
+		cw.logger.Error("Invalid command name", zap.String("name", command.Name), zap.Error(err))
+		command.Error = err.Error()
+		command.Status = false
+		return
+	}
 	cmd := exec.Command(command.Name, command.Arguments...)
 
 	cw.logger.Debug("Executing command",
@@ -231,6 +237,12 @@ func (cw *CommandWrapper) ExecuteCommands(commands []*models.Command) error {
 
 	for _, command := range commands {
 		command.CreatedAt = time.Now()
+		if _, err := ResolveCommandPath(command.Name); err != nil {
+			cw.logger.Error("Invalid command name", zap.String("name", command.Name), zap.Error(err))
+			command.Error = err.Error()
+			command.Status = false
+			// store attempt will continue below
+		}
 		cmd := exec.Command(command.Name, command.Arguments...)
 		var intermediate bytes.Buffer
 		cmd.Stdout = &intermediate
@@ -283,13 +295,18 @@ func (cw *CommandWrapper) CommandsFromArguments(args []string) ([][]string, erro
 	if len(args) <= 0 {
 		return nil, errors.New("arguments must be provided")
 	}
-
 	command := strings.Join(args, " ")
-	pipeCommands := strings.Split(command, "|")
+	pipeCommands, err := splitByUnescapedPipe(command)
+	if err != nil {
+		return nil, err
+	}
 
 	result := make([][]string, 0, len(pipeCommands))
 	for _, cmd := range pipeCommands {
-		parts := strings.Fields(strings.TrimSpace(cmd))
+		parts, err := shellFields(strings.TrimSpace(cmd))
+		if err != nil {
+			return nil, err
+		}
 		if len(parts) > 0 {
 			result = append(result, parts)
 		}

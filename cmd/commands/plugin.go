@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -191,11 +193,22 @@ func (pc *PluginCommand) listPlugins() error {
 }
 
 func (pc *PluginCommand) installPlugin(name string) error {
+	if !isValidPluginName(name) {
+		return errors.NewError(errors.ErrInvalidCommand, fmt.Sprintf("invalid plugin name: %s (allowed: letters, numbers, dot, dash, underscore)", name), nil)
+	}
 	color.Cyan("📦 Installing plugin: %s", name)
 
-	// For now, create a sample plugin structure
-	pluginDir := filepath.Join(pc.getPluginsDirectory(), name)
-	if err := os.MkdirAll(pluginDir, 0755); err != nil {
+	// Create a safe plugin directory inside the plugins base
+	pluginDir, err := pc.pluginDirPath(name)
+	if err != nil {
+		return err
+	}
+
+	if err := ensureDirIsSafe(pluginDir); err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(pluginDir, 0750); err != nil {
 		return err
 	}
 
@@ -225,7 +238,8 @@ func (pc *PluginCommand) installPlugin(name string) error {
 echo "Plugin %s executed with args: $@"
 `, name, name)
 
-	if err := os.WriteFile(execPath, []byte(sampleScript), 0755); err != nil {
+	// Write executable with restrictive permissions; rely on umask but set owner-exec
+	if err := os.WriteFile(execPath, []byte(sampleScript), 0750); err != nil {
 		return err
 	}
 
@@ -237,9 +251,18 @@ echo "Plugin %s executed with args: $@"
 func (pc *PluginCommand) uninstallPlugin(name string) error {
 	color.Yellow("🗑️  Uninstalling plugin: %s", name)
 
-	pluginDir := filepath.Join(pc.getPluginsDirectory(), name)
+	pluginDir, err := pc.pluginDirPath(name)
+	if err != nil {
+		return err
+	}
+
 	if _, err := os.Stat(pluginDir); os.IsNotExist(err) {
 		return fmt.Errorf("plugin not found: %s", name)
+	}
+
+	// Prevent accidental removal outside plugins directory
+	if err := ensureDirIsSafe(pluginDir); err != nil {
+		return err
 	}
 
 	if err := os.RemoveAll(pluginDir); err != nil {
@@ -253,6 +276,11 @@ func (pc *PluginCommand) uninstallPlugin(name string) error {
 func (pc *PluginCommand) enablePlugin(name string) error {
 	plugin, err := pc.loadPlugin(name)
 	if err != nil {
+		return err
+	}
+
+	// Validate executable before enabling
+	if err := pc.validateExecutablePath(name, plugin.Executable); err != nil {
 		return err
 	}
 
@@ -327,10 +355,21 @@ func (pc *PluginCommand) manageConfig(name string, args []string) error {
 }
 
 func (pc *PluginCommand) createPlugin(name string) error {
+	if !isValidPluginName(name) {
+		return errors.NewError(errors.ErrInvalidCommand, fmt.Sprintf("invalid plugin name: %s (allowed: letters, numbers, dot, dash, underscore)", name), nil)
+	}
 	color.Cyan("🛠️  Creating plugin template: %s", name)
 
-	pluginDir := filepath.Join(pc.getPluginsDirectory(), name)
-	if err := os.MkdirAll(pluginDir, 0755); err != nil {
+	pluginDir, err := pc.pluginDirPath(name)
+	if err != nil {
+		return err
+	}
+
+	if err := ensureDirIsSafe(pluginDir); err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(pluginDir, 0750); err != nil {
 		return err
 	}
 
@@ -375,7 +414,7 @@ case "$1" in
 esac
 `, name, plugin.Description, plugin.Version, name, name, plugin.Version, plugin.Author)
 
-	if err := os.WriteFile(execPath, []byte(templateScript), 0755); err != nil {
+	if err := os.WriteFile(execPath, []byte(templateScript), 0750); err != nil {
 		return err
 	}
 
@@ -407,7 +446,7 @@ Edit the plugin.json file to customize:
 The main executable is %s.sh. You can modify it to add your custom functionality.
 `, name, plugin.Description, name, name)
 
-	if err := os.WriteFile(readmePath, []byte(readme), 0644); err != nil {
+	if err := os.WriteFile(readmePath, []byte(readme), 0640); err != nil {
 		return err
 	}
 
@@ -425,6 +464,13 @@ func (pc *PluginCommand) manageRegistry(args []string) error {
 	return nil
 }
 
+// isValidPluginName ensures plugin names are simple and don't contain path separators
+func isValidPluginName(name string) bool {
+	// allow letters, numbers, dot, dash and underscore
+	var validName = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
+	return validName.MatchString(name)
+}
+
 // Helper methods
 func (pc *PluginCommand) getPluginsDirectory() string {
 	home, _ := os.UserHomeDir()
@@ -432,7 +478,16 @@ func (pc *PluginCommand) getPluginsDirectory() string {
 }
 
 func (pc *PluginCommand) loadPlugin(name string) (*Plugin, error) {
-	pluginPath := filepath.Join(pc.getPluginsDirectory(), name, "plugin.json")
+	pluginDir, err := pc.pluginDirPath(name)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := ensureDirIsSafe(pluginDir); err != nil {
+		return nil, err
+	}
+
+	pluginPath := filepath.Join(pluginDir, "plugin.json")
 	data, err := os.ReadFile(pluginPath)
 	if err != nil {
 		return nil, err
@@ -447,8 +502,16 @@ func (pc *PluginCommand) loadPlugin(name string) (*Plugin, error) {
 }
 
 func (pc *PluginCommand) savePlugin(name string, plugin Plugin) error {
-	pluginDir := filepath.Join(pc.getPluginsDirectory(), name)
-	if err := os.MkdirAll(pluginDir, 0755); err != nil {
+	pluginDir, err := pc.pluginDirPath(name)
+	if err != nil {
+		return err
+	}
+
+	if err := ensureDirIsSafe(pluginDir); err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(pluginDir, 0750); err != nil {
 		return err
 	}
 
@@ -458,7 +521,125 @@ func (pc *PluginCommand) savePlugin(name string, plugin Plugin) error {
 		return err
 	}
 
-	return os.WriteFile(pluginPath, data, 0644)
+	// Write file with restrictive perms
+	if err := os.WriteFile(pluginPath, data, 0640); err != nil {
+		return err
+	}
+
+	// Validate executable field points to a safe path relative to plugin dir
+	if plugin.Executable != "" {
+		if err := pc.validateExecutablePath(name, plugin.Executable); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// validateExecutablePath ensures the executable declared by a plugin is a safe, relative path within the plugin dir,
+// does not contain traversal, is not a symlink, and (when present) is executable.
+func (pc *PluginCommand) validateExecutablePath(pluginName, execPath string) error {
+	if execPath == "" {
+		return nil
+	}
+
+	// Disallow absolute paths
+	if filepath.IsAbs(execPath) {
+		return fmt.Errorf("executable path must be relative to plugin directory")
+	}
+
+	// Disallow traversal components
+	cleaned := filepath.Clean(execPath)
+	if cleaned == ".." || strings.HasPrefix(cleaned, "../") || strings.Contains(cleaned, "..") {
+		return fmt.Errorf("executable path contains traversal")
+	}
+
+	// Resolve against plugin dir
+	pluginDir, err := pc.pluginDirPath(pluginName)
+	if err != nil {
+		return err
+	}
+
+	full := filepath.Join(pluginDir, cleaned)
+
+	// Ensure the resolved path is inside plugin dir
+	rel, err := filepath.Rel(pluginDir, full)
+	if err != nil {
+		return err
+	}
+	if rel == ".." || rel == "." || strings.HasPrefix(rel, "..") {
+		return fmt.Errorf("executable resolves outside plugin directory")
+	}
+
+	// Check file exists
+	fi, err := os.Lstat(full)
+	if err != nil {
+		return fmt.Errorf("executable not found: %w", err)
+	}
+
+	// No symlinks
+	if fi.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("executable must not be a symlink")
+	}
+
+	// Check exec bit for owner
+	if fi.Mode().Perm()&0100 == 0 {
+		return fmt.Errorf("executable is not executable")
+	}
+
+	return nil
+}
+
+// pluginDirPath returns the canonical plugin directory path for a plugin name
+func (pc *PluginCommand) pluginDirPath(name string) (string, error) {
+	base := pc.getPluginsDirectory()
+	// Ensure base is absolute
+	absBase, err := filepath.Abs(base)
+	if err != nil {
+		return "", err
+	}
+
+	// Join and clean
+	joined := filepath.Join(absBase, name)
+	cleaned := filepath.Clean(joined)
+
+	// Prevent path traversal outside base
+	rel, err := filepath.Rel(absBase, cleaned)
+	if err != nil {
+		return "", err
+	}
+	if rel == ".." || rel == "." || rel == "" || strings.HasPrefix(rel, "..") {
+		return "", fmt.Errorf("plugin path resolves outside plugins directory")
+	}
+
+	return cleaned, nil
+}
+
+// ensureDirIsSafe performs basic checks: no symlinks in path and path is under plugins dir
+func ensureDirIsSafe(path string) error {
+	// Check that none of the path components are symlinks to avoid bypassing
+	cur := path
+	for {
+		fi, err := os.Lstat(cur)
+		if err != nil {
+			// If the path doesn't exist yet, check parent
+			parent := filepath.Dir(cur)
+			if parent == cur {
+				break
+			}
+			cur = parent
+			continue
+		}
+		if fi.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("path contains symlink: %s", cur)
+		}
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			break
+		}
+		cur = parent
+	}
+	return nil
 }
 
 func (pc *PluginCommand) Command() *cobra.Command {

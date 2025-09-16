@@ -189,8 +189,7 @@ ambros plugin config slack-notifications --set webhook.url=https://hooks.slack.c
 - `ambros last` - Show recent command history
 - `ambros search` - Advanced command search with filters
 - `ambros output` - Display command output by ID
-- `ambros recall` - Re-execute stored commands
-- `ambros revive` - Resurrect and re-run failed commands
+- `ambros rerun` - Re-execute stored commands (replaces `recall` and `revive`)
 
 ### Templates & Storage
 - `ambros template` - Manage command templates
@@ -315,6 +314,18 @@ ambros import --input backup.json
 - New RESTful API endpoints
 - Authentication framework (for future releases)
 - Enhanced response formats
+
+### Removed / Renamed Commands
+- The previous commands `ambros recall` and `ambros revive` have been consolidated into a single command: `ambros rerun`.
+
+Migration notes:
+- If you previously used `recall` or `revive`, update any scripts or automation to use `ambros rerun <command-id>` with the same flags.
+  - `-y` / `--history` (recall historical commands)
+  - `-s` / `--store` (store the new execution result)
+  - `--dry-run` (preview without executing)
+
+Deprecation strategy:
+- `recall` and `revive` were removed in this release. If you need a gentler migration, consider adding a compatibility shim that maps the old commands to `rerun` in your automation until you switch to the new CLI.
 
 ## 🔮 What's Next
 

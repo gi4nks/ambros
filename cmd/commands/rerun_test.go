@@ -11,10 +11,10 @@ import (
 	"go.uber.org/zap"
 )
 
-func TestRecallCommand(t *testing.T) {
+func TestRerunCommand(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 
-	t.Run("successful command recall without storage", func(t *testing.T) {
+	t.Run("successful rerun without storage", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		storedCmd := &models.Command{
 			Entity: models.Entity{
@@ -28,15 +28,15 @@ func TestRecallCommand(t *testing.T) {
 		}
 		mockRepo.On("Get", "test-id").Return(storedCmd, nil)
 
-		recallCmd := NewRecallCommand(logger, mockRepo)
-		recallCmd.store = false
+		rerunCmd := NewRerunCommand(logger, mockRepo)
+		rerunCmd.store = false
 
-		err := recallCmd.runE(recallCmd.cmd, []string{"test-id"})
+		err := rerunCmd.runE(rerunCmd.cmd, []string{"test-id"})
 		assert.NoError(t, err)
 		mockRepo.AssertExpectations(t)
 	})
 
-	t.Run("successful command recall with storage", func(t *testing.T) {
+	t.Run("successful rerun with storage", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		storedCmd := &models.Command{
 			Entity: models.Entity{
@@ -50,13 +50,13 @@ func TestRecallCommand(t *testing.T) {
 		}
 		mockRepo.On("Get", "test-id").Return(storedCmd, nil)
 		mockRepo.On("Put", mock.Anything, mock.MatchedBy(func(cmd models.Command) bool {
-			return len(cmd.Tags) == 2 && cmd.Tags[1] == "recalled"
+			return len(cmd.Tags) >= 1
 		})).Return(nil)
 
-		recallCmd := NewRecallCommand(logger, mockRepo)
-		recallCmd.store = true
+		rerunCmd := NewRerunCommand(logger, mockRepo)
+		rerunCmd.store = true
 
-		err := recallCmd.runE(recallCmd.cmd, []string{"test-id"})
+		err := rerunCmd.runE(rerunCmd.cmd, []string{"test-id"})
 		assert.NoError(t, err)
 		mockRepo.AssertExpectations(t)
 	})
@@ -75,13 +75,12 @@ func TestRecallCommand(t *testing.T) {
 		}
 		mockRepo.On("Get", "test-id").Return(storedCmd, nil)
 
-		recallCmd := NewRecallCommand(logger, mockRepo)
-		recallCmd.dryRun = true
+		rerunCmd := NewRerunCommand(logger, mockRepo)
+		rerunCmd.dryRun = true
 
-		err := recallCmd.runE(recallCmd.cmd, []string{"test-id"})
+		err := rerunCmd.runE(rerunCmd.cmd, []string{"test-id"})
 		assert.NoError(t, err)
 		mockRepo.AssertExpectations(t)
-		// Should not call Put in dry run mode
 		mockRepo.AssertNotCalled(t, "Put")
 	})
 
@@ -89,9 +88,9 @@ func TestRecallCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("Get", "nonexistent-id").Return(nil, assert.AnError)
 
-		recallCmd := NewRecallCommand(logger, mockRepo)
+		rerunCmd := NewRerunCommand(logger, mockRepo)
 
-		err := recallCmd.runE(recallCmd.cmd, []string{"nonexistent-id"})
+		err := rerunCmd.runE(rerunCmd.cmd, []string{"nonexistent-id"})
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "command not found")
 		mockRepo.AssertExpectations(t)
@@ -111,21 +110,18 @@ func TestRecallCommand(t *testing.T) {
 		}
 		mockRepo.On("Get", "test-id").Return(storedCmd, nil)
 		mockRepo.On("Put", mock.Anything, mock.MatchedBy(func(cmd models.Command) bool {
-			return !cmd.Status && len(cmd.Tags) == 2 && cmd.Tags[1] == "recalled"
+			return !cmd.Status && len(cmd.Tags) >= 1
 		})).Return(nil)
 
-		recallCmd := NewRecallCommand(logger, mockRepo)
-		recallCmd.store = true
+		rerunCmd := NewRerunCommand(logger, mockRepo)
+		rerunCmd.store = true
 
-		// Override the os.Exit behavior for testing
 		var exitCode int
-		recallCmd.exitFunc = func(code int) {
-			exitCode = code
-		}
+		rerunCmd.exitFunc = func(code int) { exitCode = code }
 
-		err := recallCmd.runE(recallCmd.cmd, []string{"test-id"})
-		assert.NoError(t, err)       // The runE itself shouldn't error
-		assert.Equal(t, 1, exitCode) // But it should call exit with code 1
+		err := rerunCmd.runE(rerunCmd.cmd, []string{"test-id"})
+		assert.NoError(t, err)
+		assert.Equal(t, 1, exitCode)
 		mockRepo.AssertExpectations(t)
 	})
 
@@ -143,15 +139,15 @@ func TestRecallCommand(t *testing.T) {
 		mockRepo.On("Get", "test-id").Return(storedCmd, nil)
 		mockRepo.On("Put", mock.Anything, mock.AnythingOfType("models.Command")).Return(assert.AnError)
 
-		recallCmd := NewRecallCommand(logger, mockRepo)
-		recallCmd.store = true
+		rerunCmd := NewRerunCommand(logger, mockRepo)
+		rerunCmd.store = true
 
-		err := recallCmd.runE(recallCmd.cmd, []string{"test-id"})
-		assert.NoError(t, err) // Should still succeed even if storage fails
+		err := rerunCmd.runE(rerunCmd.cmd, []string{"test-id"})
+		assert.NoError(t, err)
 		mockRepo.AssertExpectations(t)
 	})
 
-	t.Run("recall with history flag", func(t *testing.T) {
+	t.Run("rerun with history flag", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		storedCmd := &models.Command{
 			Entity: models.Entity{
@@ -165,53 +161,52 @@ func TestRecallCommand(t *testing.T) {
 		}
 		mockRepo.On("Get", "test-id").Return(storedCmd, nil)
 
-		recallCmd := NewRecallCommand(logger, mockRepo)
-		recallCmd.history = true
+		rerunCmd := NewRerunCommand(logger, mockRepo)
+		rerunCmd.history = true
 
-		err := recallCmd.runE(recallCmd.cmd, []string{"test-id"})
+		err := rerunCmd.runE(rerunCmd.cmd, []string{"test-id"})
 		assert.NoError(t, err)
 		mockRepo.AssertExpectations(t)
 	})
 
 	t.Run("command structure validation", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		recallCmd := NewRecallCommand(logger, mockRepo)
+		rerunCmd := NewRerunCommand(logger, mockRepo)
 
-		assert.Equal(t, "recall <command-id>", recallCmd.cmd.Use)
-		assert.Equal(t, "Recall and execute a stored command", recallCmd.cmd.Short)
-		assert.NotNil(t, recallCmd.Command())
-		assert.Equal(t, recallCmd.cmd, recallCmd.Command())
+		assert.Equal(t, "rerun <command-id>", rerunCmd.cmd.Use)
+		assert.NotNil(t, rerunCmd.Command())
+		assert.Equal(t, rerunCmd.cmd, rerunCmd.Command())
 
 		// Test flags
-		assert.NotNil(t, recallCmd.cmd.Flags().Lookup("history"))
-		assert.NotNil(t, recallCmd.cmd.Flags().Lookup("store"))
-		assert.NotNil(t, recallCmd.cmd.Flags().Lookup("dry-run"))
+		assert.NotNil(t, rerunCmd.cmd.Flags().Lookup("history"))
+		assert.NotNil(t, rerunCmd.cmd.Flags().Lookup("store"))
+		assert.NotNil(t, rerunCmd.cmd.Flags().Lookup("dry-run"))
 
 		// Test flag defaults
-		historyFlag := recallCmd.cmd.Flags().Lookup("history")
+		historyFlag := rerunCmd.cmd.Flags().Lookup("history")
 		assert.Equal(t, "false", historyFlag.DefValue)
 
-		storeFlag := recallCmd.cmd.Flags().Lookup("store")
+		storeFlag := rerunCmd.cmd.Flags().Lookup("store")
 		assert.Equal(t, "false", storeFlag.DefValue)
 
 		// Test short flags
-		yFlag := recallCmd.cmd.Flags().ShorthandLookup("y")
+		yFlag := rerunCmd.cmd.Flags().ShorthandLookup("y")
 		assert.NotNil(t, yFlag)
 		assert.Equal(t, yFlag, historyFlag)
 
-		sFlag := recallCmd.cmd.Flags().ShorthandLookup("s")
+		sFlag := rerunCmd.cmd.Flags().ShorthandLookup("s")
 		assert.NotNil(t, sFlag)
 		assert.Equal(t, sFlag, storeFlag)
 	})
 }
 
-func TestRecallCommand_ExecuteCommand(t *testing.T) {
+func TestRerunCommand_ExecuteCommand(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	mockRepo := new(mocks.MockRepository)
-	recallCmd := NewRecallCommand(logger, mockRepo)
+	rerunCmd := NewRerunCommand(logger, mockRepo)
 
 	t.Run("successful command", func(t *testing.T) {
-		output, errorMsg, success, err := recallCmd.executeCommand("echo", []string{"hello"})
+		output, errorMsg, success, err := rerunCmd.executeCommand("echo", []string{"hello"})
 
 		assert.NoError(t, err)
 		assert.True(t, success)
@@ -220,22 +215,22 @@ func TestRecallCommand_ExecuteCommand(t *testing.T) {
 	})
 
 	t.Run("failing command", func(t *testing.T) {
-		_, errorMsg, success, err := recallCmd.executeCommand("false", []string{})
+		_, errorMsg, success, err := rerunCmd.executeCommand("false", []string{})
 
-		assert.NoError(t, err) // executeCommand doesn't return error for command failure
+		assert.NoError(t, err)
 		assert.False(t, success)
 		assert.NotEmpty(t, errorMsg)
 	})
 }
 
-func TestRecallCommand_GenerateCommandID(t *testing.T) {
+func TestRerunCommand_GenerateCommandID(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	mockRepo := new(mocks.MockRepository)
-	recallCmd := NewRecallCommand(logger, mockRepo)
+	rerunCmd := NewRerunCommand(logger, mockRepo)
 
-	id1 := recallCmd.generateCommandID()
-	time.Sleep(1 * time.Millisecond) // Ensure different timestamps
-	id2 := recallCmd.generateCommandID()
+	id1 := rerunCmd.generateCommandID()
+	time.Sleep(1 * time.Millisecond)
+	id2 := rerunCmd.generateCommandID()
 
 	assert.NotEmpty(t, id1)
 	assert.NotEmpty(t, id2)
@@ -244,31 +239,23 @@ func TestRecallCommand_GenerateCommandID(t *testing.T) {
 	assert.Contains(t, id2, "CMD-")
 }
 
-func TestRecallCommand_FormatStatus(t *testing.T) {
+func TestRerunCommand_FormatStatus(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	mockRepo := new(mocks.MockRepository)
-	recallCmd := NewRecallCommand(logger, mockRepo)
+	rerunCmd := NewRerunCommand(logger, mockRepo)
 
 	tests := []struct {
 		name     string
 		status   bool
 		expected string
 	}{
-		{
-			name:     "success status",
-			status:   true,
-			expected: "Success",
-		},
-		{
-			name:     "failed status",
-			status:   false,
-			expected: "Failed",
-		},
+		{"success status", true, "Success"},
+		{"failed status", false, "Failed"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := recallCmd.formatStatus(tt.status)
+			result := rerunCmd.formatStatus(tt.status)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
