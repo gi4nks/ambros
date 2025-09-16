@@ -454,3 +454,21 @@ Small changelog
 Note: this release only updates documentation and helper scripts; no runtime or API changes were made.
 
 If you want me to produce release artifacts (binaries + checksums) and attach them to the GitHub release, I can build and upload them next.
+
+---
+
+## Ambros v3.1.4 - Security and stability patch
+
+**Release Date**: September 16, 2025
+
+This patch focuses on security hardening for plugin installation and runtime resolution, various test-suite improvements, and minor bug fixes.
+
+Highlights
+- plugin: canonicalize plugin paths, disallow symlink-based traversal and validate executables before install/run
+- runtime: centralized command path resolver to avoid shell injection and unsafe exec via `sh -c`
+- tests: refactor to avoid init-time DB opens and make per-package tests deterministic
+- ci: added CI workflow with linters and security tools (gosec/staticcheck) scaffold
+
+Notes for maintainers
+- Tests should be run with isolated `HOME` and `GOCACHE` to avoid interfering with local `~/.ambros` DB
+- Consider adding checksum/signature verification to plugin registry installs in a follow-up
