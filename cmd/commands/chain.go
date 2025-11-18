@@ -469,9 +469,10 @@ func (c *ChainCommand) displayExecutionSummary(result *ChainExecutionResult) {
 		color.Cyan("\n📋 Command Details:")
 		for i, cmdResult := range result.Results {
 			status := "✅"
-			if cmdResult.Status == "failed" {
+			switch cmdResult.Status {
+			case "failed":
 				status = "❌"
-			} else if cmdResult.Status == "skipped" {
+			case "skipped":
 				status = "⏭️"
 			}
 
