@@ -295,6 +295,48 @@ func TestServerCommand_Command(t *testing.T) {
 	assert.Contains(t, cobraCmd.Short, "dashboard")
 }
 
+func TestGenerateRecommendations_Empty(t *testing.T) {
+	logger := zaptest.NewLogger(t)
+	mockRepo := &MockServerRepository{}
+	cmd := NewServerCommand(logger, mockRepo)
+
+	recs := cmd.generateRecommendations([]models.Command{})
+	assert.GreaterOrEqual(t, len(recs), 1)
+}
+
+func TestGenerateRecommendations_Frequent(t *testing.T) {
+	logger := zaptest.NewLogger(t)
+	mockRepo := &MockServerRepository{}
+	cmd := NewServerCommand(logger, mockRepo)
+
+	cmds := []models.Command{}
+	for i := 0; i < 5; i++ {
+		cmds = append(cmds, models.Command{Command: "git pull"})
+	}
+	recs := cmd.generateRecommendations(cmds)
+	assert.NotEmpty(t, recs)
+	assert.Contains(t, recs[0], "template")
+}
+
+func TestGenerateSearchSuggestions_Match(t *testing.T) {
+	logger := zaptest.NewLogger(t)
+	mockRepo := &MockServerRepository{}
+	cmd := NewServerCommand(logger, mockRepo)
+
+	cmds := []models.Command{{Entity: models.Entity{ID: "1"}, Name: "git pull", Command: "git pull"}, {Entity: models.Entity{ID: "2"}, Name: "npm install", Command: "npm install"}}
+	res := cmd.generateSearchSuggestions("git", cmds)
+	assert.True(t, len(res) >= 1)
+}
+
+func TestGenerateSearchSuggestions_Empty(t *testing.T) {
+	logger := zaptest.NewLogger(t)
+	mockRepo := &MockServerRepository{}
+	cmd := NewServerCommand(logger, mockRepo)
+
+	res := cmd.generateSearchSuggestions("", []models.Command{})
+	assert.Contains(t, res[0], "Add a search term")
+}
+
 // Benchmark tests
 func BenchmarkServerCommand_GetMostUsedCommands(b *testing.B) {
 	logger := zaptest.NewLogger(b)
