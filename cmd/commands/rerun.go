@@ -55,6 +55,7 @@ func (rc *RerunCommand) setupFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolVarP(&rc.history, "history", "y", false, "Recall command from history")
 	cmd.Flags().BoolVarP(&rc.store, "store", "s", false, "Store the new execution results")
 	cmd.Flags().BoolVar(&rc.dryRun, "dry-run", false, "Show what would be executed without running")
+	cmd.Flags().StringVar(&rc.tag, "tag", "", "Tag to append when storing the rerun result")
 }
 
 func (rc *RerunCommand) runE(cmd *cobra.Command, args []string) error {
@@ -110,9 +111,11 @@ func (rc *RerunCommand) runE(cmd *cobra.Command, args []string) error {
 
 	// Store results if requested
 	if rc.store {
-		// default tag relies on prior tag or command; use 'rerun' if none
+		// Determine tag to apply to stored rerun result
 		tag := "rerun"
-		if len(stored.Tags) > 0 {
+		if rc.tag != "" {
+			tag = rc.tag
+		} else if len(stored.Tags) > 0 {
 			// preserve a sense of the original intent if present
 			tag = stored.Tags[0]
 		}
