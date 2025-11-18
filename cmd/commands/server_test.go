@@ -409,6 +409,27 @@ func FuzzGenerateSearchSuggestions(f *testing.F) {
 	})
 }
 
+func FuzzGenerateRecommendations(f *testing.F) {
+	seed := []string{"git pull", "deploy", "npm install", "backup"}
+	for _, s := range seed {
+		f.Add(s)
+	}
+
+	f.Fuzz(func(t *testing.T, q string) {
+		logger := zaptest.NewLogger(t)
+		mockRepo := &MockServerRepository{}
+		cmd := NewServerCommand(logger, mockRepo)
+
+		// random commands
+		commands := []models.Command{{Command: q, Status: true}}
+		// ensure it doesn't panic and returns suggestions
+		recs := cmd.generateRecommendations(commands)
+		if recs == nil {
+			t.Fatalf("expected non-nil recommendations")
+		}
+	})
+}
+
 // Benchmark tests
 func BenchmarkServerCommand_GetMostUsedCommands(b *testing.B) {
 	logger := zaptest.NewLogger(b)
