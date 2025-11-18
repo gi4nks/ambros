@@ -348,7 +348,7 @@ func (pc *PluginCommand) showPluginInfo(name string) error {
 	return nil
 }
 
-func (pc *PluginCommand) manageConfig(name string, args []string) error {
+func (pc *PluginCommand) manageConfig(_ string, _ []string) error {
 	color.Yellow("🔧 Plugin configuration management coming soon!")
 	color.White("Will support: --set key=value, --get key, --list")
 	return nil
@@ -458,7 +458,7 @@ The main executable is %s.sh. You can modify it to add your custom functionality
 	return nil
 }
 
-func (pc *PluginCommand) manageRegistry(args []string) error {
+func (pc *PluginCommand) manageRegistry(_ []string) error {
 	color.Yellow("🏪 Plugin registry management coming soon!")
 	color.White("Will support adding custom plugin repositories")
 	return nil
