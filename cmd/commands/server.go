@@ -855,7 +855,7 @@ func (sc *ServerCommand) generateUsagePredictions(commands []models.Command) Usa
 	return UsagePredictions{PredictedPeak: fmt.Sprintf("%02d:00", peakHour), TrendingCommands: trending}
 }
 
-func (sc *ServerCommand) generateRecommendations(commands []models.Command) []string {
+func (sc *ServerCommand) generateRecommendations(_ []models.Command) []string {
 	return []string{
 		"Consider creating a template for frequently used Git commands",
 		"Schedule regular backup commands during off-peak hours",
@@ -886,7 +886,7 @@ func (sc *ServerCommand) performSmartSearch(commands []models.Command, query str
 	return results
 }
 
-func (sc *ServerCommand) generateSearchSuggestions(query string, commands []models.Command) []string {
+func (sc *ServerCommand) generateSearchSuggestions(query string, _ []models.Command) []string {
 	return []string{
 		"Did you mean: " + query + "?",
 		"Try searching for: git, docker, npm",
