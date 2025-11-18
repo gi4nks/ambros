@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -316,6 +317,48 @@ func TestGenerateRecommendations_Frequent(t *testing.T) {
 	recs := cmd.generateRecommendations(cmds)
 	assert.NotEmpty(t, recs)
 	assert.Contains(t, recs[0], "template")
+}
+
+func TestGenerateRecommendations_Sequence(t *testing.T) {
+	logger := zaptest.NewLogger(t)
+	mockRepo := &MockServerRepository{}
+	cmd := NewServerCommand(logger, mockRepo)
+
+	cmds := []models.Command{}
+	// repeat a pair 2 times
+	cmds = append(cmds, models.Command{Command: "git pull"})
+	cmds = append(cmds, models.Command{Command: "deploy"})
+	cmds = append(cmds, models.Command{Command: "git pull"})
+	cmds = append(cmds, models.Command{Command: "deploy"})
+
+	recs := cmd.generateRecommendations(cmds)
+	assert.NotEmpty(t, recs)
+	found := false
+	for _, r := range recs {
+		if strings.Contains(r, "chain") || strings.Contains(r, "sequence") || strings.Contains(r, "->") {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "expected chain recommendation for repeated sequence")
+}
+
+func TestGenerateRecommendations_Failures(t *testing.T) {
+	logger := zaptest.NewLogger(t)
+	mockRepo := &MockServerRepository{}
+	cmd := NewServerCommand(logger, mockRepo)
+
+	cmds := []models.Command{{Command: "git pull", Status: false}, {Command: "git pull", Status: false}}
+	recs := cmd.generateRecommendations(cmds)
+	assert.True(t, len(recs) > 0)
+	found := false
+	for _, r := range recs {
+		if strings.Contains(r, "Investigate frequent failures") {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found)
 }
 
 func TestGenerateSearchSuggestions_Match(t *testing.T) {
