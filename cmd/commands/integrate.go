@@ -60,7 +60,7 @@ func (c *IntegrateCommand) Command() *cobra.Command {
 	return cmd
 }
 
-func (c *IntegrateCommand) install(cmd *cobra.Command, args []string, shell string, yes bool) error {
+func (c *IntegrateCommand) install(_ *cobra.Command, _ []string, shell string, yes bool) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
@@ -154,7 +154,7 @@ func containsLine(content, line string) bool {
 	return false
 }
 
-func (c *IntegrateCommand) uninstall(cmd *cobra.Command, args []string, shell string, yes bool) error {
+func (c *IntegrateCommand) uninstall(_ *cobra.Command, _ []string, shell string, yes bool) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
