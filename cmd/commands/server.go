@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/sahilm/fuzzy"
 	iofs "io/fs"
 	"net/http"
 	"os"
@@ -880,6 +881,45 @@ func (sc *ServerCommand) generateRecommendations(commands []models.Command) []st
 		if top[0].v >= 3 { // frequent command threshold
 			suggestions = append(suggestions, fmt.Sprintf("Consider creating a template for frequently used command: %s (used %d times)", top[0].k, top[0].v))
 		}
+
+		// detect common consecutive command pairs (chain candidates)
+		pairCounts := make(map[string]int)
+		for i := 1; i < len(commands); i++ {
+			prev := strings.Fields(commands[i-1].Command)
+			curr := strings.Fields(commands[i].Command)
+			if len(prev) == 0 || len(curr) == 0 {
+				continue
+			}
+			pair := prev[0] + " -> " + curr[0]
+			pairCounts[pair]++
+		}
+
+		type kvp struct {
+			k string
+			v int
+		}
+		pairs := make([]kvp, 0, len(pairCounts))
+		for k, v := range pairCounts {
+			pairs = append(pairs, kvp{k, v})
+		}
+		sort.Slice(pairs, func(i, j int) bool { return pairs[i].v > pairs[j].v })
+		if len(pairs) > 0 && pairs[0].v >= 2 {
+			suggestions = append([]string{fmt.Sprintf("Consider creating a chain for frequently occurring sequence: %s (seen %d times)", pairs[0].k, pairs[0].v)}, suggestions...)
+		}
+
+		// detect frequently failing commands
+		failCounts := make(map[string]int)
+		for _, c := range commands {
+			if !c.Status {
+				base := strings.Fields(c.Command)[0]
+				failCounts[base]++
+			}
+		}
+		for k, v := range failCounts {
+			if v >= 2 {
+				suggestions = append(suggestions, fmt.Sprintf("Investigate frequent failures for command '%s' (failed %d times)", k, v))
+			}
+		}
 		if len(top) > 1 && top[1].v >= 3 {
 			suggestions = append(suggestions, fmt.Sprintf("Consider creating a template for frequently used command: %s (used %d times)", top[1].k, top[1].v))
 		}
@@ -969,6 +1009,35 @@ func (sc *ServerCommand) generateSearchSuggestions(query string, commands []mode
 	}
 
 	matches := make(map[string]int)
+	candidates := []string{}
+	candidateMap := make(map[string]string)
+	for _, c := range commands {
+		nameLower := strings.ToLower(c.Name)
+		cmdLower := strings.ToLower(c.Command)
+		// map candidate to a human label
+		if nameLower != "" {
+			candidates = append(candidates, nameLower)
+			candidateMap[nameLower] = c.Name
+		}
+		if cmdLower != "" {
+			candidates = append(candidates, cmdLower)
+			candidateMap[cmdLower] = c.Name
+		}
+	}
+
+	// run fuzzy matching on candidates
+	if len(candidates) > 0 {
+		fr := fuzzy.RankFindNormalized(q, candidates)
+		if len(fr) > 0 {
+			// Add top fuzzy results by translating back to original command names
+			for i := 0; i < min(3, len(fr)); i++ {
+				cand := candidates[fr[i].Index]
+				matches[candidateMap[cand]]++
+			}
+		}
+	}
+
+	// exact and jaccard matches after fuzzy
 	for _, c := range commands {
 		nameLower := strings.ToLower(c.Name)
 		cmdLower := strings.ToLower(c.Command)
