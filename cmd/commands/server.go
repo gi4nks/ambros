@@ -897,6 +897,47 @@ func (sc *ServerCommand) generateRecommendations(commands []models.Command) []st
 	return suggestions
 }
 
+// trigramTokens returns the set of trigrams for a string
+func trigramTokens(s string) map[string]struct{} {
+	s = strings.ToLower(s)
+	s = strings.ReplaceAll(s, " ", "_")
+	tokens := make(map[string]struct{})
+	r := []rune(s)
+	if len(r) < 3 {
+		if len(r) > 0 {
+			tokens[string(r)] = struct{}{}
+		}
+		return tokens
+	}
+	for i := 0; i < len(r)-2; i++ {
+		t := string(r[i : i+3])
+		tokens[t] = struct{}{}
+	}
+	return tokens
+}
+
+// jaccardSimilarity computes the Jaccard index between two strings using trigram tokens
+func jaccardSimilarity(a, b string) float64 {
+	ta := trigramTokens(a)
+	tb := trigramTokens(b)
+	if len(ta) == 0 && len(tb) == 0 {
+		return 1.0
+	}
+	inter := 0
+	for k := range ta {
+		if _, ok := tb[k]; ok {
+			inter++
+		}
+	}
+	union := len(ta) + len(tb) - inter
+	if union == 0 {
+		return 0.0
+	}
+	return float64(inter) / float64(union)
+}
+
+// Fuzzing helper: ensure suggestions are robust to random input
+
 func (sc *ServerCommand) extractEnvName(cmdName string) string {
 	parts := strings.Split(cmdName, ":")
 	if len(parts) >= 2 && parts[0] == "env" {
@@ -929,7 +970,15 @@ func (sc *ServerCommand) generateSearchSuggestions(query string, commands []mode
 
 	matches := make(map[string]int)
 	for _, c := range commands {
-		if strings.Contains(strings.ToLower(c.Command), q) || strings.Contains(strings.ToLower(c.Name), q) {
+		nameLower := strings.ToLower(c.Name)
+		cmdLower := strings.ToLower(c.Command)
+		// exact contains
+		if strings.Contains(cmdLower, q) || strings.Contains(nameLower, q) {
+			matches[c.Name]++
+			continue
+		}
+		// fuzzy match via Jaccard similarity
+		if jaccardSimilarity(q, cmdLower) >= 0.25 || jaccardSimilarity(q, nameLower) >= 0.25 {
 			matches[c.Name]++
 		}
 	}

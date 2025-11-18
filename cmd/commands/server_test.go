@@ -337,6 +337,27 @@ func TestGenerateSearchSuggestions_Empty(t *testing.T) {
 	assert.Contains(t, res[0], "Add a search term")
 }
 
+// Fuzzing to ensure we don't panic and suggestions remain stable for random inputs
+func FuzzGenerateSearchSuggestions(f *testing.F) {
+	seed := []string{"git", "docker build", "npm", "deploy"}
+	for _, s := range seed {
+		f.Add(s)
+	}
+
+	f.Fuzz(func(t *testing.T, q string) {
+		logger := zaptest.NewLogger(t)
+		mockRepo := &MockServerRepository{}
+		cmd := NewServerCommand(logger, mockRepo)
+
+		commands := []models.Command{{Entity: models.Entity{ID: "1"}, Name: "git pull", Command: "git pull"}, {Entity: models.Entity{ID: "2"}, Name: "npm install", Command: "npm install"}}
+		// ensure the function does not panic and returns something
+		suggestions := cmd.generateSearchSuggestions(q, commands)
+		if suggestions == nil {
+			t.Fatalf("expected suggestions array, got nil")
+		}
+	})
+}
+
 // Benchmark tests
 func BenchmarkServerCommand_GetMostUsedCommands(b *testing.B) {
 	logger := zaptest.NewLogger(b)
