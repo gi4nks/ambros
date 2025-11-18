@@ -37,6 +37,7 @@ jobs:
           set -eux
           go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
           go install github.com/securego/gosec/v2/cmd/gosec@latest || true
+          go install honnef.co/go/tools/cmd/staticcheck@latest || true
           go install golang.org/x/vuln/cmd/govulncheck@latest || true
 
       - name: Go vet
@@ -50,6 +51,9 @@ jobs:
 
       - name: Run golangci-lint
         run: golangci-lint run --timeout 5m
+
+      - name: Run staticcheck
+        run: staticcheck ./...
 
       - name: Run gosec security scanner
         run: gosec ./...
