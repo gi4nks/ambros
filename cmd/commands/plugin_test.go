@@ -67,7 +67,7 @@ func (tpc *TestablePluginCommand) savePlugin(name string, plugin Plugin) error {
 }
 
 // Override the runE method to intercept all plugin operations
-func (tpc *TestablePluginCommand) runE(cmd *cobra.Command, args []string) error {
+func (tpc *TestablePluginCommand) runE(_ *cobra.Command, args []string) error {
 	if len(args) == 0 {
 		return errors.NewError(errors.ErrInvalidCommand, "plugin action required", nil)
 	}
@@ -266,11 +266,11 @@ The main executable is %s.sh. You can modify it to add your custom functionality
 	return os.WriteFile(readmePath, []byte(readme), 0644)
 }
 
-func (tpc *TestablePluginCommand) manageConfig(name string, args []string) error {
+func (tpc *TestablePluginCommand) manageConfig(_ string, _ []string) error {
 	return nil
 }
 
-func (tpc *TestablePluginCommand) manageRegistry(args []string) error {
+func (tpc *TestablePluginCommand) manageRegistry(_ []string) error {
 	return nil
 }
 
