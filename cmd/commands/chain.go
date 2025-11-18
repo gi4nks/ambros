@@ -712,7 +712,9 @@ func (c *ChainCommand) createChain(name string, cmdIds []string) error {
 		zap.String("chainId", chain.ID),
 		zap.String("chainName", chain.Name),
 		zap.String("chainDescription", chain.Description),
-		zap.Int("commandCount", len(cmdIds)))
+		zap.Int("commandCount", len(chain.Commands)),
+		zap.Bool("conditional", chain.Conditional),
+		zap.Time("createdAt", chain.CreatedAt))
 
 	return nil
 }
