@@ -668,7 +668,7 @@ func (c *ChainCommand) showAnalytics() error {
 	return nil
 }
 
-func (c *ChainCommand) manageTemplates(args []string) error {
+func (c *ChainCommand) manageTemplates(_ []string) error {
 	color.Yellow("🎯 Chain templates feature coming soon!")
 	color.White("This will allow saving and sharing chain configurations")
 	return nil
