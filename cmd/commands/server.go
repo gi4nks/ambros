@@ -855,12 +855,46 @@ func (sc *ServerCommand) generateUsagePredictions(commands []models.Command) Usa
 	return UsagePredictions{PredictedPeak: fmt.Sprintf("%02d:00", peakHour), TrendingCommands: trending}
 }
 
-func (sc *ServerCommand) generateRecommendations(_ []models.Command) []string {
-	return []string{
-		"Consider creating a template for frequently used Git commands",
-		"Schedule regular backup commands during off-peak hours",
-		"Use environment variables for API endpoints",
+func (sc *ServerCommand) generateRecommendations(commands []models.Command) []string {
+	// heuristic-based recommendations from historical commands
+	// Count top command usage
+	counts := make(map[string]int)
+	for _, c := range commands {
+		cmdName := strings.Fields(c.Command)[0]
+		counts[cmdName]++
 	}
+
+	// find top 3 commands
+	type kv struct {
+		k string
+		v int
+	}
+	top := make([]kv, 0, len(counts))
+	for k, v := range counts {
+		top = append(top, kv{k, v})
+	}
+	sort.Slice(top, func(i, j int) bool { return top[i].v > top[j].v })
+
+	suggestions := []string{}
+	if len(top) > 0 {
+		if top[0].v >= 3 { // frequent command threshold
+			suggestions = append(suggestions, fmt.Sprintf("Consider creating a template for frequently used command: %s (used %d times)", top[0].k, top[0].v))
+		}
+		if len(top) > 1 && top[1].v >= 3 {
+			suggestions = append(suggestions, fmt.Sprintf("Consider creating a template for frequently used command: %s (used %d times)", top[1].k, top[1].v))
+		}
+	}
+
+	// generic recommendations
+	suggestions = append(suggestions, "Schedule regular backup commands during off-peak hours")
+	suggestions = append(suggestions, "Use environment variables for API endpoints")
+
+	if len(suggestions) == 0 {
+		// fallback hints
+		suggestions = append(suggestions, "Review frequent commands and convert repeating flows to chains or templates")
+	}
+
+	return suggestions
 }
 
 func (sc *ServerCommand) extractEnvName(cmdName string) string {
@@ -886,12 +920,39 @@ func (sc *ServerCommand) performSmartSearch(commands []models.Command, query str
 	return results
 }
 
-func (sc *ServerCommand) generateSearchSuggestions(query string, _ []models.Command) []string {
-	return []string{
-		"Did you mean: " + query + "?",
-		"Try searching for: git, docker, npm",
-		"Use quotes for exact matches",
+func (sc *ServerCommand) generateSearchSuggestions(query string, commands []models.Command) []string {
+	// build simple suggestions based on historical commands
+	q := strings.ToLower(strings.TrimSpace(query))
+	if q == "" {
+		return []string{"Add a search term to get suggestions, e.g., 'git' or 'docker'"}
 	}
+
+	matches := make(map[string]int)
+	for _, c := range commands {
+		if strings.Contains(strings.ToLower(c.Command), q) || strings.Contains(strings.ToLower(c.Name), q) {
+			matches[c.Name]++
+		}
+	}
+
+	// get best match
+	type kv struct {
+		k string
+		v int
+	}
+	list := make([]kv, 0, len(matches))
+	for k, v := range matches {
+		list = append(list, kv{k, v})
+	}
+	sort.Slice(list, func(i, j int) bool { return list[i].v > list[j].v })
+
+	suggestions := []string{}
+	if len(list) > 0 {
+		suggestions = append(suggestions, "Did you mean: "+list[0].k+"?")
+	}
+
+	suggestions = append(suggestions, "Try searching for: git, docker, npm")
+	suggestions = append(suggestions, "Use quotes for exact matches")
+	return suggestions
 }
 
 func max(a, b int) int {
