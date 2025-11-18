@@ -710,7 +710,7 @@ func (c *ChainCommand) createChain(name string, cmdIds []string) error {
 
 	c.logger.Info("Chain created successfully",
 		zap.String("chainId", chain.ID),
-		zap.String("chainName", name),
+		zap.String("chainName", chain.Name),
 		zap.Int("commandCount", len(cmdIds)))
 
 	return nil
