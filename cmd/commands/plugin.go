@@ -1,14 +1,18 @@
 package commands
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -16,6 +20,7 @@ import (
 
 	"github.com/gi4nks/ambros/v3/internal/errors"
 	"github.com/gi4nks/ambros/v3/internal/models"
+	"github.com/gi4nks/ambros/v3/internal/utils"
 )
 
 // PluginCommand represents the plugin management command
@@ -60,8 +65,9 @@ Features:
 
 Subcommands:
   list                      List installed plugins
+  run <name> <cmd> [args]   Run a plugin command (stored in history)
   install <source-path>     Install a plugin from a local path or from a registry
-  create <name>    Create a new plugin from a template
+  create <name>             Create a new plugin from a template
   uninstall <name>          Remove a plugin
   enable <name>             Enable a disabled plugin
   disable <name>            Disable a plugin
@@ -71,6 +77,8 @@ Subcommands:
 
 Examples:
   ambros plugin list
+  ambros plugin run ambros-release version
+  ambros plugin run ambros-release release minor
   ambros plugin install /path/to/my/plugin # Install from a local directory
   ambros plugin install my-plugin # Install from a registry
   ambros plugin create my-custom-plugin
@@ -134,6 +142,11 @@ func (pc *PluginCommand) runE(cmd *cobra.Command, args []string) error {
 			return errors.NewError(errors.ErrInvalidCommand, "plugin name required", nil)
 		}
 		return pc.createPlugin(args[1])
+	case "run":
+		if len(args) < 3 {
+			return errors.NewError(errors.ErrInvalidCommand, "plugin name and command required: plugin run <plugin-name> <command> [args...]", nil)
+		}
+		return pc.runPlugin(args[1], args[2], args[3:])
 	case "registry":
 		return pc.manageRegistry(args[1:])
 	default:
@@ -283,6 +296,159 @@ func (pc *PluginCommand) showPluginInfo(name string) error {
 	}
 
 	return nil
+}
+
+// runPlugin executes a plugin command and stores the execution in the database
+func (pc *PluginCommand) runPlugin(pluginName, commandName string, args []string) error {
+	// Load the plugin
+	plugin, err := pc.loadPlugin(pluginName)
+	if err != nil {
+		return errors.NewError(errors.ErrCommandNotFound, fmt.Sprintf("plugin '%s' not found", pluginName), err)
+	}
+
+	// Check if plugin is enabled
+	if !plugin.Enabled {
+		return errors.NewError(errors.ErrInvalidCommand, fmt.Sprintf("plugin '%s' is disabled. Enable it with: ambros plugin enable %s", pluginName, pluginName), nil)
+	}
+
+	// Validate executable path
+	if err := pc.validateExecutablePath(pluginName, plugin.Executable); err != nil {
+		return err
+	}
+
+	// Build the full path to the executable
+	pluginDir, err := pc.pluginDirPath(pluginName)
+	if err != nil {
+		return err
+	}
+	execPath := filepath.Join(pluginDir, plugin.Executable)
+
+	// Build command arguments: [commandName, ...args]
+	cmdArgs := append([]string{commandName}, args...)
+
+	// Create the command string for logging/display
+	fullCommand := fmt.Sprintf("%s %s", pluginName, strings.Join(cmdArgs, " "))
+
+	pc.logger.Info("Running plugin command",
+		zap.String("plugin", pluginName),
+		zap.String("command", commandName),
+		zap.Strings("args", args),
+		zap.String("executable", execPath))
+
+	color.Cyan("🔌 Running plugin: %s %s", pluginName, commandName)
+
+	// Prepare environment variables for the plugin
+	env := os.Environ()
+	env = append(env,
+		fmt.Sprintf("AMBROS_PLUGIN_NAME=%s", pluginName),
+		fmt.Sprintf("AMBROS_PLUGIN_DIR=%s", pluginDir),
+		fmt.Sprintf("AMBROS_PLUGIN_COMMAND=%s", commandName),
+		fmt.Sprintf("AMBROS_WORKING_DIR=%s", getCurrentWorkingDir()),
+	)
+
+	// Add plugin config as JSON environment variable
+	if len(plugin.Config) > 0 {
+		configJSON, err := json.Marshal(plugin.Config)
+		if err == nil {
+			env = append(env, fmt.Sprintf("AMBROS_PLUGIN_CONFIG=%s", string(configJSON)))
+		}
+	}
+
+	// Create the command
+	ctx := context.Background()
+	cmd := exec.CommandContext(ctx, execPath, cmdArgs...)
+	cmd.Env = env
+	cmd.Dir = getCurrentWorkingDir() // Run in current directory
+
+	// Capture output while also streaming to terminal
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = io.MultiWriter(os.Stdout, &stdout)
+	cmd.Stderr = io.MultiWriter(os.Stderr, &stderr)
+
+	// Record start time
+	startTime := time.Now()
+
+	// Execute the command
+	execErr := cmd.Run()
+
+	// Record end time
+	endTime := time.Now()
+
+	// Determine exit code and status
+	exitCode := 0
+	status := true
+	if execErr != nil {
+		status = false
+		if exitError, ok := execErr.(*exec.ExitError); ok {
+			exitCode = exitError.ExitCode()
+		} else {
+			exitCode = 1
+		}
+	}
+
+	// Combine output
+	combinedOutput := stdout.String()
+	if stderr.Len() > 0 {
+		if combinedOutput != "" {
+			combinedOutput += "\n"
+		}
+		combinedOutput += stderr.String()
+	}
+
+	// Store the command execution in the database
+	if pc.repository != nil {
+		utilities := utils.NewUtilities(pc.logger)
+		command := models.Command{
+			Entity: models.Entity{
+				ID:           utilities.Random(),
+				CreatedAt:    startTime,
+				TerminatedAt: endTime,
+			},
+			Name:      pluginName,
+			Command:   fullCommand,
+			Arguments: cmdArgs,
+			Status:    status,
+			Output:    combinedOutput,
+			Tags:      []string{"plugin", pluginName},
+			Category:  "plugin",
+		}
+
+		if execErr != nil {
+			command.Error = execErr.Error()
+		}
+
+		if storeErr := pc.repository.Put(ctx, command); storeErr != nil {
+			pc.logger.Warn("Failed to store plugin command execution",
+				zap.Error(storeErr),
+				zap.String("commandId", command.ID))
+		} else {
+			pc.logger.Debug("Stored plugin command execution",
+				zap.String("commandId", command.ID),
+				zap.String("plugin", pluginName),
+				zap.String("command", commandName),
+				zap.Bool("status", status))
+			color.HiBlack("📝 Stored with ID: %s", command.ID)
+		}
+	}
+
+	// Report result
+	if status {
+		color.Green("✅ Plugin command completed successfully (exit code: %d)", exitCode)
+	} else {
+		color.Red("❌ Plugin command failed (exit code: %d)", exitCode)
+		return errors.NewError(errors.ErrExecutionFailed, fmt.Sprintf("plugin command failed with exit code %d", exitCode), execErr)
+	}
+
+	return nil
+}
+
+// getCurrentWorkingDir returns the current working directory
+func getCurrentWorkingDir() string {
+	dir, err := os.Getwd()
+	if err != nil {
+		return "."
+	}
+	return dir
 }
 
 func (pc *PluginCommand) manageConfig(pluginName string, args []string) error {
