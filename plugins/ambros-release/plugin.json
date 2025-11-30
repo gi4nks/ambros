@@ -1,0 +1,67 @@
+{
+  "name": "ambros-release",
+  "version": "1.0.0",
+  "description": "Automates the Ambros release workflow: version bumping, tagging, and pushing to origin",
+  "author": "Ambros Team",
+  "enabled": true,
+  "type": "shell",
+  "executable": "./ambros-release.sh",
+  "commands": [
+    {
+      "name": "version",
+      "description": "Show the current version of Ambros",
+      "usage": "ambros ambros-release version",
+      "args": []
+    },
+    {
+      "name": "status",
+      "description": "Show release status (current version, branch, uncommitted changes)",
+      "usage": "ambros ambros-release status",
+      "args": []
+    },
+    {
+      "name": "bump",
+      "description": "Bump the version (major, minor, or patch)",
+      "usage": "ambros ambros-release bump <major|minor|patch>",
+      "args": ["type"]
+    },
+    {
+      "name": "tag",
+      "description": "Create and push a tag for the current version",
+      "usage": "ambros ambros-release tag [--message \"Tag message\"]",
+      "args": ["message"]
+    },
+    {
+      "name": "push",
+      "description": "Push the current branch and tags to origin",
+      "usage": "ambros ambros-release push",
+      "args": []
+    },
+    {
+      "name": "create-branch",
+      "description": "Create a release branch for the current version",
+      "usage": "ambros ambros-release create-branch",
+      "args": []
+    },
+    {
+      "name": "changelog",
+      "description": "Generate changelog from previous tag",
+      "usage": "ambros ambros-release changelog [from-tag]",
+      "args": ["from-tag"]
+    },
+    {
+      "name": "release",
+      "description": "Full release workflow (bump, commit, tag, branch, push)",
+      "usage": "ambros ambros-release release <major|minor|patch> [--message \"Release message\"]",
+      "args": ["type", "message"]
+    }
+  ],
+  "hooks": [],
+  "config": {
+    "version_file": "cmd/commands/version.txt",
+    "remote": "origin",
+    "branch_prefix": "release/",
+    "auto_push": "true"
+  },
+  "dependencies": ["git", "sed"]
+}
