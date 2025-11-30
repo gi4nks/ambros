@@ -80,7 +80,7 @@ func TestExportCommand_ValidateFlags(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			logger, _ := zap.NewDevelopment()
 			mockRepo := new(mocks.MockRepository)
-			cmd := NewExportCommand(logger, mockRepo)
+			cmd := NewExportCommand(logger, mockRepo, nil)
 
 			cmd.format = tt.format
 			cmd.filter = tt.filter
@@ -210,7 +210,7 @@ func TestExportCommand(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create new mock for each test to avoid conflicts
 			testMockRepo := new(mocks.MockRepository)
-			cmd := NewExportCommand(logger, testMockRepo)
+			cmd := NewExportCommand(logger, testMockRepo, nil)
 
 			// Set command fields
 			cmd.outputFile = tt.outputFile
@@ -317,7 +317,7 @@ func TestExportCommand_FilterByDate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := NewExportCommand(logger, mockRepo)
+			cmd := NewExportCommand(logger, mockRepo, nil)
 			cmd.fromDate = tt.from
 			cmd.toDate = tt.to
 
@@ -330,7 +330,7 @@ func TestExportCommand_FilterByDate(t *testing.T) {
 func TestExportCommand_PrepareExportData(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	mockRepo := new(mocks.MockRepository)
-	cmd := NewExportCommand(logger, mockRepo)
+	cmd := NewExportCommand(logger, mockRepo, nil)
 
 	cmd.format = "json"
 	cmd.tag = "test"

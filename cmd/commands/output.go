@@ -7,6 +7,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/gi4nks/ambros/v3/internal/errors"
+	"github.com/gi4nks/ambros/v3/internal/plugins" // New import
 )
 
 type OutputCommand struct {
@@ -14,7 +15,7 @@ type OutputCommand struct {
 	commandId string
 }
 
-func NewOutputCommand(logger *zap.Logger, repo RepositoryInterface) *OutputCommand {
+func NewOutputCommand(logger *zap.Logger, repo RepositoryInterface, api plugins.CoreAPI) *OutputCommand {
 	oc := &OutputCommand{}
 
 	cmd := &cobra.Command{
@@ -24,7 +25,7 @@ func NewOutputCommand(logger *zap.Logger, repo RepositoryInterface) *OutputComma
 		RunE:  oc.runE,
 	}
 
-	oc.BaseCommand = NewBaseCommand(cmd, logger, repo)
+	oc.BaseCommand = NewBaseCommand(cmd, logger, repo, api)
 	oc.cmd = cmd
 	oc.setupFlags(cmd)
 	return oc

@@ -11,7 +11,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/gi4nks/ambros/v3/internal/errors"
 	"github.com/gi4nks/ambros/v3/internal/models"
-	"github.com/mattn/go-isatty"
+	"github.com/gi4nks/ambros/v3/internal/plugins" // New import
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
@@ -60,7 +60,7 @@ func splitShellArgs(s string) ([]string, error) {
 		}
 	}
 	if esc || inSingle || inDouble {
-		return nil, fmt.Errorf("unterminated quote or escape in command")
+		return nil, errors.NewError(errors.ErrInvalidCommand, "unterminated quote or escape in command", nil)
 	}
 	if cur.Len() > 0 {
 		args = append(args, cur.String())
@@ -71,12 +71,15 @@ func splitShellArgs(s string) ([]string, error) {
 // InteractiveCommand represents the interactive command
 type InteractiveCommand struct {
 	*BaseCommand
-	mode string
+	mode     string
+	executor *Executor // New field for shared execution logic
 }
 
 // NewInteractiveCommand creates a new interactive command
-func NewInteractiveCommand(logger *zap.Logger, repo RepositoryInterface) *InteractiveCommand {
-	ic := &InteractiveCommand{}
+func NewInteractiveCommand(logger *zap.Logger, repo RepositoryInterface, api plugins.CoreAPI) *InteractiveCommand {
+	ic := &InteractiveCommand{
+		executor: NewExecutor(logger), // Initialize the executor
+	}
 
 	cmd := &cobra.Command{
 		Use:   "interactive",
@@ -99,14 +102,14 @@ Examples:
 		RunE: ic.runE,
 	}
 
-	ic.BaseCommand = NewBaseCommand(cmd, logger, repo)
+	ic.BaseCommand = NewBaseCommand(cmd, logger, repo, api)
 	ic.cmd = cmd
 	return ic
 }
 
 func (ic *InteractiveCommand) runE(cmd *cobra.Command, args []string) error {
 	// Require a TTY for interactive mode
-	if !isatty.IsTerminal(os.Stdin.Fd()) {
+	if !ic.executor.IsTerminal() {
 		return errors.NewError(errors.ErrInvalidCommand, "interactive mode requires a TTY", nil)
 	}
 
@@ -261,7 +264,7 @@ func (ic *InteractiveCommand) interactiveSearch() error {
 		searchArgs = append(searchArgs, "--since", fmt.Sprintf("%dh", hours))
 	}
 
-	sc := NewSearchCommand(ic.logger, ic.repository)
+	sc := NewSearchCommand(ic.logger, ic.repository, ic.api)
 	// Execute SearchCommand.runE with constructed args
 	if err := sc.runE(sc.cmd, searchArgs); err != nil {
 		ic.logger.Error("interactive search failed", zap.Error(err))
@@ -379,12 +382,6 @@ func (ic *InteractiveCommand) interactiveSelect() error {
 			return nil
 		}
 
-		// Prepare RunCommand and set options for interactive execution
-		rc := NewRunCommand(ic.logger, ic.repository)
-		// interactive runs should not store by default
-		rc.opts.store = false
-		rc.opts.auto = true
-
 		// Ask user whether to stream live output or capture and show after
 		fmt.Print("Run mode - stream live (s) or capture and show (c) [s]: ")
 		modeChoice, err := ic.readUserInput()
@@ -400,7 +397,7 @@ func (ic *InteractiveCommand) interactiveSelect() error {
 			// Show the command being executed
 			color.Cyan("\n🔁 Executing: %s", selectedCmd.Command)
 
-			exitCode, out, err := rc.ExecuteCapture(parts)
+			exitCode, out, err := ic.executor.ExecuteCapture(parts[0], parts[1:])
 			if err != nil {
 				ic.logger.Error("failed to execute selected command (capture)", zap.Error(err))
 				color.Red("Execution failed: %v", err)
@@ -421,7 +418,7 @@ func (ic *InteractiveCommand) interactiveSelect() error {
 			// Show the command being executed
 			color.Cyan("\n🔁 Executing: %s", selectedCmd.Command)
 
-			exitCode, err := rc.Execute(parts)
+			exitCode, err := ic.executor.ExecuteCommandAuto(parts[0], parts[1:])
 			if err != nil {
 				ic.logger.Error("failed to execute selected command (stream)", zap.Error(err))
 				color.Red("Execution failed: %v", err)

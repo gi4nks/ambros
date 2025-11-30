@@ -18,7 +18,7 @@ func TestRunCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("Put", mock.Anything, mock.AnythingOfType("models.Command")).Return(nil)
 
-		runCmd := NewRunCommand(logger, mockRepo)
+		runCmd := NewRunCommand(logger, mockRepo, nil)
 		runCmd.opts.store = true
 
 		// Use a command that won't cause the test to exit
@@ -30,7 +30,7 @@ func TestRunCommand(t *testing.T) {
 	t.Run("command execution without storage", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 
-		runCmd := NewRunCommand(logger, mockRepo)
+		runCmd := NewRunCommand(logger, mockRepo, nil)
 		runCmd.opts.store = false
 
 		err := runCmd.runE(runCmd.cmd, []string{"true"})
@@ -42,7 +42,7 @@ func TestRunCommand(t *testing.T) {
 	t.Run("dry run mode", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 
-		runCmd := NewRunCommand(logger, mockRepo)
+		runCmd := NewRunCommand(logger, mockRepo, nil)
 		runCmd.opts.dryRun = true
 		runCmd.opts.tag = []string{"test"}
 		runCmd.opts.category = "testing"
@@ -62,7 +62,7 @@ func TestRunCommand(t *testing.T) {
 				cmd.Category == "utility"
 		})).Return(nil)
 
-		runCmd := NewRunCommand(logger, mockRepo)
+		runCmd := NewRunCommand(logger, mockRepo, nil)
 		runCmd.opts.store = true
 		runCmd.opts.tag = []string{"test", "demo"}
 		runCmd.opts.category = "utility"
@@ -82,7 +82,7 @@ func TestRunCommand(t *testing.T) {
 		mockRepo.On("GetTemplate", "echo-template").Return(template, nil)
 		mockRepo.On("Put", mock.Anything, mock.AnythingOfType("models.Command")).Return(nil)
 
-		runCmd := NewRunCommand(logger, mockRepo)
+		runCmd := NewRunCommand(logger, mockRepo, nil)
 		runCmd.opts.template = "echo-template"
 		runCmd.opts.store = true
 
@@ -95,7 +95,7 @@ func TestRunCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("GetTemplate", "nonexistent").Return(nil, assert.AnError)
 
-		runCmd := NewRunCommand(logger, mockRepo)
+		runCmd := NewRunCommand(logger, mockRepo, nil)
 		runCmd.opts.template = "nonexistent"
 
 		err := runCmd.runE(runCmd.cmd, []string{"echo", "hello"})
@@ -106,7 +106,7 @@ func TestRunCommand(t *testing.T) {
 	t.Run("no command specified", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 
-		runCmd := NewRunCommand(logger, mockRepo)
+		runCmd := NewRunCommand(logger, mockRepo, nil)
 
 		err := runCmd.runE(runCmd.cmd, []string{})
 		assert.Error(t, err)
@@ -116,7 +116,7 @@ func TestRunCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("Put", mock.Anything, mock.AnythingOfType("models.Command")).Return(assert.AnError)
 
-		runCmd := NewRunCommand(logger, mockRepo)
+		runCmd := NewRunCommand(logger, mockRepo, nil)
 		runCmd.opts.store = true
 
 		// Should still succeed even if storage fails
@@ -131,7 +131,7 @@ func TestRunCommand(t *testing.T) {
 			return !cmd.Status // Command should be marked as failed
 		})).Return(nil)
 
-		runCmd := NewRunCommand(logger, mockRepo)
+		runCmd := NewRunCommand(logger, mockRepo, nil)
 		runCmd.opts.store = true
 
 		// Override the os.Exit behavior for testing
@@ -152,7 +152,7 @@ func TestRunCommand(t *testing.T) {
 
 	t.Run("command structure validation", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		runCmd := NewRunCommand(logger, mockRepo)
+		runCmd := NewRunCommand(logger, mockRepo, nil)
 
 		assert.Equal(t, "run [flags] [--] <command> [args...]", runCmd.cmd.Use)
 		assert.Equal(t, "Run a command and optionally store its execution details", runCmd.cmd.Short)
@@ -175,10 +175,10 @@ func TestRunCommand(t *testing.T) {
 func TestRunCommand_ExecuteCommand(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	mockRepo := new(mocks.MockRepository)
-	runCmd := NewRunCommand(logger, mockRepo)
+	runCmd := NewRunCommand(logger, mockRepo, nil)
 
 	t.Run("successful command", func(t *testing.T) {
-		output, errorMsg, success, err := runCmd.executeCommand("echo", []string{"hello"})
+		output, errorMsg, success, err := runCmd.executor.ExecuteCommand("echo", []string{"hello"})
 
 		assert.NoError(t, err)
 		assert.True(t, success)
@@ -187,7 +187,7 @@ func TestRunCommand_ExecuteCommand(t *testing.T) {
 	})
 
 	t.Run("successful command with true", func(t *testing.T) {
-		_, errorMsg, success, err := runCmd.executeCommand("true", []string{})
+		_, errorMsg, success, err := runCmd.executor.ExecuteCommand("true", []string{})
 
 		assert.NoError(t, err)
 		assert.True(t, success)
@@ -195,7 +195,7 @@ func TestRunCommand_ExecuteCommand(t *testing.T) {
 	})
 
 	t.Run("failing command", func(t *testing.T) {
-		_, errorMsg, success, err := runCmd.executeCommand("false", []string{})
+		_, errorMsg, success, err := runCmd.executor.ExecuteCommand("false", []string{})
 
 		assert.NoError(t, err) // executeCommand doesn't return error for command failure
 		assert.False(t, success)
@@ -204,7 +204,7 @@ func TestRunCommand_ExecuteCommand(t *testing.T) {
 
 	t.Run("command with error output", func(t *testing.T) {
 		// Use a command that writes to stderr
-		output, errorMsg, success, err := runCmd.executeCommand("sh", []string{"-c", "echo 'error' >&2; exit 1"})
+		output, errorMsg, success, err := runCmd.executor.ExecuteCommand("sh", []string{"-c", "echo 'error' >&2; exit 1"})
 
 		assert.NoError(t, err)
 		assert.False(t, success)
@@ -213,7 +213,7 @@ func TestRunCommand_ExecuteCommand(t *testing.T) {
 	})
 
 	t.Run("nonexistent command", func(t *testing.T) {
-		_, errorMsg, success, err := runCmd.executeCommand("nonexistentcommand123", []string{})
+		_, errorMsg, success, err := runCmd.executor.ExecuteCommand("nonexistentcommand123", []string{})
 
 		assert.NoError(t, err) // executeCommand doesn't return error for command not found
 		assert.False(t, success)
@@ -224,7 +224,7 @@ func TestRunCommand_ExecuteCommand(t *testing.T) {
 func TestRunCommand_GenerateCommandID(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	mockRepo := new(mocks.MockRepository)
-	runCmd := NewRunCommand(logger, mockRepo)
+	runCmd := NewRunCommand(logger, mockRepo, nil)
 
 	id1 := runCmd.generateCommandID()
 	time.Sleep(1 * time.Millisecond) // Ensure different timestamps

@@ -8,6 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
+
+	"github.com/gi4nks/ambros/v3/internal/plugins" // New import
 )
 
 //go:embed version.txt
@@ -36,7 +38,7 @@ type VersionCommand struct {
 }
 
 // NewVersionCommand creates a new version command
-func NewVersionCommand(logger *zap.Logger) *VersionCommand {
+func NewVersionCommand(logger *zap.Logger, api plugins.CoreAPI) *VersionCommand {
 	vc := &VersionCommand{}
 
 	cmd := &cobra.Command{
@@ -46,8 +48,8 @@ func NewVersionCommand(logger *zap.Logger) *VersionCommand {
 		RunE:  vc.runE,
 	}
 
-	// Version command doesn't need repository, so pass nil
-	vc.BaseCommand = NewBaseCommand(cmd, logger, nil)
+	// Version command doesn't need repository, so pass nil for repo
+	vc.BaseCommand = NewBaseCommand(cmd, logger, nil, api)
 	vc.cmd = cmd
 	vc.setupFlags(cmd)
 	return vc

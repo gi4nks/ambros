@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 func TestImportCommand(t *testing.T) {
@@ -52,7 +52,7 @@ func TestImportCommand(t *testing.T) {
 		// Setup mocks
 		mockRepo.On("Put", mock.Anything, mock.AnythingOfType("models.Command")).Return(nil).Twice()
 
-		importCmd := NewImportCommand(logger, mockRepo)
+		importCmd := NewImportCommand(logger, mockRepo, nil)
 		importCmd.inputFile = testFile
 		importCmd.format = "json"
 
@@ -85,7 +85,7 @@ func TestImportCommand(t *testing.T) {
 		// Setup mocks
 		mockRepo.On("Put", mock.Anything, mock.AnythingOfType("models.Command")).Return(nil)
 
-		importCmd := NewImportCommand(logger, mockRepo)
+		importCmd := NewImportCommand(logger, mockRepo, nil)
 		importCmd.inputFile = testFile
 		importCmd.format = "yaml"
 
@@ -117,7 +117,7 @@ func TestImportCommand(t *testing.T) {
 		// Setup mocks for existence check
 		mockRepo.On("Get", "cmd1").Return(nil, assert.AnError)
 
-		importCmd := NewImportCommand(logger, mockRepo)
+		importCmd := NewImportCommand(logger, mockRepo, nil)
 		importCmd.inputFile = testFile
 		importCmd.format = "json"
 		importCmd.dryRun = true
@@ -163,7 +163,7 @@ func TestImportCommand(t *testing.T) {
 			return cmd.ID == "new" // Only new command should be imported
 		})).Return(nil)
 
-		importCmd := NewImportCommand(logger, mockRepo)
+		importCmd := NewImportCommand(logger, mockRepo, nil)
 		importCmd.inputFile = testFile
 		importCmd.format = "json"
 		importCmd.skipExisting = true
@@ -176,7 +176,7 @@ func TestImportCommand(t *testing.T) {
 	t.Run("file not found error", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 
-		importCmd := NewImportCommand(logger, mockRepo)
+		importCmd := NewImportCommand(logger, mockRepo, nil)
 		importCmd.inputFile = "/nonexistent/file.json"
 		importCmd.format = "json"
 
@@ -192,7 +192,7 @@ func TestImportCommand(t *testing.T) {
 		err := os.WriteFile(testFile, []byte("test"), 0644)
 		assert.NoError(t, err)
 
-		importCmd := NewImportCommand(logger, mockRepo)
+		importCmd := NewImportCommand(logger, mockRepo, nil)
 		importCmd.inputFile = testFile
 		importCmd.format = "invalid"
 
@@ -208,7 +208,7 @@ func TestImportCommand(t *testing.T) {
 		err := os.WriteFile(testFile, []byte("invalid json"), 0644)
 		assert.NoError(t, err)
 
-		importCmd := NewImportCommand(logger, mockRepo)
+		importCmd := NewImportCommand(logger, mockRepo, nil)
 		importCmd.inputFile = testFile
 		importCmd.format = "json"
 
@@ -219,7 +219,7 @@ func TestImportCommand(t *testing.T) {
 
 	t.Run("command structure validation", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		importCmd := NewImportCommand(logger, mockRepo)
+		importCmd := NewImportCommand(logger, mockRepo, nil)
 
 		assert.Equal(t, "import", importCmd.cmd.Use)
 		assert.Equal(t, "Import commands from file", importCmd.cmd.Short)
@@ -242,7 +242,7 @@ func TestImportCommand(t *testing.T) {
 func TestImportCommand_CommandExists(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	mockRepo := new(mocks.MockRepository)
-	importCmd := NewImportCommand(logger, mockRepo)
+	importCmd := NewImportCommand(logger, mockRepo, nil)
 
 	t.Run("command exists", func(t *testing.T) {
 		cmd := &models.Command{Entity: models.Entity{ID: "existing"}}
@@ -265,7 +265,7 @@ func TestImportCommand_CommandExists(t *testing.T) {
 func TestImportCommand_FormatStatus(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	mockRepo := new(mocks.MockRepository)
-	importCmd := NewImportCommand(logger, mockRepo)
+	importCmd := NewImportCommand(logger, mockRepo, nil)
 
 	tests := []struct {
 		name     string

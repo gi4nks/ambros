@@ -1,0 +1,18 @@
+{
+	"name": "ambros-docker-utils",
+	"version": "0.1.0",
+	"description": "A plugin for managing Docker resources.",
+	"author": "Ambros",
+	"enabled": false,
+	"executable": "./ambros-docker-utils.sh",
+	"commands": [
+		{
+			"name": "cleanup",
+			"description": "Removes stopped containers, dangling images, and unused volumes and networks."
+		},
+		{
+			"name": "stats",
+			"description": "Shows a more user-friendly and real-time view of container resource usage."
+		}
+	]
+}

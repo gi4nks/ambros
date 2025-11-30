@@ -1,6 +1,9 @@
 package models
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 // Template represents a command template
 type Template struct {
@@ -22,12 +25,25 @@ func (t *Template) BuildCommand(args []string) []string {
 		command = strings.ReplaceAll(command, placeholder, value)
 	}
 
+	usedArgs := make([]bool, len(args))
+
 	// Replace positional arguments
 	for i, arg := range args {
-		placeholder := "{" + string(rune('0'+i)) + "}"
-		command = strings.ReplaceAll(command, placeholder, arg)
+		placeholder := fmt.Sprintf("{%d}", i)
+		if strings.Contains(command, placeholder) {
+			command = strings.ReplaceAll(command, placeholder, arg)
+			usedArgs[i] = true
+		}
 	}
 
-	// Split the command into parts
-	return strings.Fields(command)
+	parts := strings.Fields(command)
+
+	// Append any remaining args that were not used as placeholders
+	for i, arg := range args {
+		if !usedArgs[i] {
+			parts = append(parts, arg)
+		}
+	}
+
+	return parts
 }

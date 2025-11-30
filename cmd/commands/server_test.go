@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -478,4 +479,212 @@ func BenchmarkServerCommand_CalculateAverageExecutionTime(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		cmd.calculateAverageExecutionTime(commands)
 	}
+}
+
+// Deep Analytics Tests
+
+func TestGenerateAliasSuggestions_Empty(t *testing.T) {
+	logger := zaptest.NewLogger(t)
+	mockRepo := &MockServerRepository{}
+	cmd := NewServerCommand(logger, mockRepo)
+
+	suggestions := cmd.generateAliasSuggestions([]models.Command{})
+	assert.NotNil(t, suggestions)
+	assert.Empty(t, suggestions)
+}
+
+func TestGenerateAliasSuggestions_LongCommands(t *testing.T) {
+	logger := zaptest.NewLogger(t)
+	mockRepo := &MockServerRepository{}
+	cmd := NewServerCommand(logger, mockRepo)
+
+	// Create commands with a long command used frequently
+	commands := []models.Command{}
+	longCmd := "docker-compose -f docker-compose.prod.yml up -d --build"
+	for i := 0; i < 5; i++ {
+		commands = append(commands, models.Command{
+			Entity:  models.Entity{ID: fmt.Sprintf("cmd-%d", i)},
+			Command: longCmd,
+		})
+	}
+
+	suggestions := cmd.generateAliasSuggestions(commands)
+	assert.NotNil(t, suggestions)
+	assert.GreaterOrEqual(t, len(suggestions), 1)
+
+	// Check that the suggestion includes the long command
+	found := false
+	for _, s := range suggestions {
+		if s.FullCommand == longCmd {
+			found = true
+			assert.Greater(t, s.UsageCount, 0)
+			assert.NotEmpty(t, s.Alias)
+			assert.NotEmpty(t, s.Reason)
+			break
+		}
+	}
+	assert.True(t, found, "Expected to find suggestion for long command")
+}
+
+func TestGenerateAliasName(t *testing.T) {
+	logger := zaptest.NewLogger(t)
+	mockRepo := &MockServerRepository{}
+	cmd := NewServerCommand(logger, mockRepo)
+
+	tests := []struct {
+		command  string
+		expected string
+	}{
+		{"docker-compose up -d", "du"},
+		{"git commit -m message", "gcm"},
+		{"kubectl get pods", "kgp"},
+		{"npm run build", "nrb"},
+		{"", "alias"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.command, func(t *testing.T) {
+			alias := cmd.generateAliasName(tt.command)
+			assert.NotEmpty(t, alias)
+			// Alias should be lowercase
+			assert.Equal(t, strings.ToLower(alias), alias)
+		})
+	}
+}
+
+func TestAnalyzeSequencePatterns_Empty(t *testing.T) {
+	logger := zaptest.NewLogger(t)
+	mockRepo := &MockServerRepository{}
+	cmd := NewServerCommand(logger, mockRepo)
+
+	patterns := cmd.analyzeSequencePatterns([]models.Command{})
+	assert.NotNil(t, patterns)
+	assert.Empty(t, patterns)
+}
+
+func TestAnalyzeSequencePatterns_DetectsSequence(t *testing.T) {
+	logger := zaptest.NewLogger(t)
+	mockRepo := &MockServerRepository{}
+	cmd := NewServerCommand(logger, mockRepo)
+
+	// Create a repeating sequence: git pull -> npm install -> npm test
+	now := time.Now()
+	commands := []models.Command{}
+	for i := 0; i < 4; i++ {
+		baseTime := now.Add(time.Duration(i*10) * time.Minute)
+		commands = append(commands,
+			models.Command{
+				Entity:  models.Entity{ID: fmt.Sprintf("pull-%d", i), CreatedAt: baseTime},
+				Command: "git pull",
+			},
+			models.Command{
+				Entity:  models.Entity{ID: fmt.Sprintf("install-%d", i), CreatedAt: baseTime.Add(1 * time.Minute)},
+				Command: "npm install",
+			},
+		)
+	}
+
+	patterns := cmd.analyzeSequencePatterns(commands)
+	assert.NotNil(t, patterns)
+
+	// Should detect the git -> npm sequence
+	found := false
+	for _, p := range patterns {
+		if len(p.Sequence) >= 2 && p.Sequence[0] == "git" && p.Sequence[1] == "npm" {
+			found = true
+			assert.GreaterOrEqual(t, p.Occurrences, 3)
+			break
+		}
+	}
+	assert.True(t, found, "Expected to detect git -> npm sequence pattern")
+}
+
+func TestIdentifyWorkflowInsights_Empty(t *testing.T) {
+	logger := zaptest.NewLogger(t)
+	mockRepo := &MockServerRepository{}
+	cmd := NewServerCommand(logger, mockRepo)
+
+	insights := cmd.identifyWorkflowInsights([]models.Command{})
+	assert.NotNil(t, insights)
+	assert.Empty(t, insights)
+}
+
+func TestIdentifyWorkflowInsights_DetectsGitWorkflow(t *testing.T) {
+	logger := zaptest.NewLogger(t)
+	mockRepo := &MockServerRepository{}
+	cmd := NewServerCommand(logger, mockRepo)
+
+	commands := []models.Command{}
+	// Add frequent git commands
+	for i := 0; i < 10; i++ {
+		commands = append(commands, models.Command{
+			Entity:  models.Entity{ID: fmt.Sprintf("git-%d", i)},
+			Command: "git pull",
+		})
+	}
+	// Add frequent make commands
+	for i := 0; i < 8; i++ {
+		commands = append(commands, models.Command{
+			Entity:  models.Entity{ID: fmt.Sprintf("make-%d", i)},
+			Command: "make test",
+		})
+	}
+
+	insights := cmd.identifyWorkflowInsights(commands)
+	assert.NotNil(t, insights)
+
+	// Should detect Git Development Flow or Go Development workflow
+	found := false
+	for _, insight := range insights {
+		if strings.Contains(insight.Name, "Git") || strings.Contains(insight.Name, "Go") {
+			found = true
+			assert.NotEmpty(t, insight.Description)
+			assert.NotEmpty(t, insight.Suggestion)
+			assert.Greater(t, insight.Frequency, 0)
+			break
+		}
+	}
+	assert.True(t, found, "Expected to detect a development workflow")
+}
+
+func TestCalculateComplexityScore(t *testing.T) {
+	logger := zaptest.NewLogger(t)
+	mockRepo := &MockServerRepository{}
+	cmd := NewServerCommand(logger, mockRepo)
+
+	tests := []struct {
+		command       string
+		minComplexity int
+	}{
+		{"ls", 0},
+		{"git commit -m 'message'", 2},
+		{"docker run -it --rm -v /data:/data nginx", 5},
+		{"cat file.txt | grep pattern | sort | uniq", 9},
+		{"if [ -f file ]; then echo 'exists'; fi && rm -f file || echo 'failed'", 10},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.command, func(t *testing.T) {
+			score := cmd.calculateComplexityScore(tt.command)
+			assert.GreaterOrEqual(t, score, tt.minComplexity)
+		})
+	}
+}
+
+func TestGenerateDeepAnalytics(t *testing.T) {
+	logger := zaptest.NewLogger(t)
+	mockRepo := &MockServerRepository{}
+	cmd := NewServerCommand(logger, mockRepo)
+
+	commands := []models.Command{
+		{Entity: models.Entity{ID: "1", CreatedAt: time.Now()}, Command: "git pull"},
+		{Entity: models.Entity{ID: "2", CreatedAt: time.Now().Add(time.Minute)}, Command: "npm install"},
+	}
+
+	analytics := cmd.generateDeepAnalytics(commands)
+
+	assert.NotNil(t, analytics.AliasSuggestions)
+	assert.NotNil(t, analytics.SequencePatterns)
+	assert.NotNil(t, analytics.WorkflowInsights)
+	assert.NotNil(t, analytics.CommandComplexity)
 }

@@ -13,6 +13,7 @@ import (
 
 	"github.com/gi4nks/ambros/v3/internal/errors"
 	"github.com/gi4nks/ambros/v3/internal/models"
+	"github.com/gi4nks/ambros/v3/internal/plugins" // New import
 )
 
 // SchedulerCommand represents the scheduler command
@@ -24,7 +25,7 @@ type SchedulerCommand struct {
 }
 
 // NewSchedulerCommand creates a new scheduler command
-func NewSchedulerCommand(logger *zap.Logger, repo RepositoryInterface) *SchedulerCommand {
+func NewSchedulerCommand(logger *zap.Logger, repo RepositoryInterface, api plugins.CoreAPI) *SchedulerCommand {
 	sc := &SchedulerCommand{}
 
 	cmd := &cobra.Command{
@@ -52,7 +53,7 @@ Examples:
 		RunE: sc.runE,
 	}
 
-	sc.BaseCommand = NewBaseCommand(cmd, logger, repo)
+	sc.BaseCommand = NewBaseCommand(cmd, logger, repo, api)
 	sc.cmd = cmd
 	sc.setupFlags(cmd)
 	return sc
@@ -355,7 +356,7 @@ func (sc *SchedulerCommand) validateCronExpr(cronExpr string) error {
 	parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
 	_, err := parser.Parse(cronExpr)
 	if err != nil {
-		return fmt.Errorf("invalid cron expression: %w", err)
+		return errors.NewError(errors.ErrScheduleInvalid, "invalid cron expression", err)
 	}
 	return nil
 }

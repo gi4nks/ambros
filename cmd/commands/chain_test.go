@@ -30,7 +30,7 @@ func TestChainCommand(t *testing.T) {
 			mockRepo.On("Get", cmd.ID).Return(&cmd, nil)
 		}
 
-		chainCmd := NewChainCommand(logger, mockRepo)
+		chainCmd := NewChainCommand(logger, mockRepo, nil)
 
 		err := chainCmd.runE(chainCmd.cmd, []string{"exec", "testchain"})
 		assert.NoError(t, err)
@@ -53,7 +53,7 @@ func TestChainCommand(t *testing.T) {
 			mockRepo.On("Get", cmd.ID).Return(&cmd, nil)
 		}
 
-		chainCmd := NewChainCommand(logger, mockRepo)
+		chainCmd := NewChainCommand(logger, mockRepo, nil)
 		chainCmd.conditional = true
 
 		err := chainCmd.runE(chainCmd.cmd, []string{"exec", "testchain"})
@@ -63,7 +63,7 @@ func TestChainCommand(t *testing.T) {
 
 	t.Run("execute chain - missing name", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		chainCmd := NewChainCommand(logger, mockRepo)
+		chainCmd := NewChainCommand(logger, mockRepo, nil)
 
 		err := chainCmd.runE(chainCmd.cmd, []string{"exec"})
 		assert.Error(t, err)
@@ -86,7 +86,7 @@ func TestChainCommand(t *testing.T) {
 		mockRepo.On("Get", "cmd1").Return(cmd1, nil)
 		mockRepo.On("Get", "cmd2").Return(cmd2, nil)
 
-		chainCmd := NewChainCommand(logger, mockRepo)
+		chainCmd := NewChainCommand(logger, mockRepo, nil)
 		chainCmd.description = "Test chain description"
 
 		err := chainCmd.runE(chainCmd.cmd, []string{"create", "mychain", "cmd1,cmd2"})
@@ -98,7 +98,7 @@ func TestChainCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("Get", "nonexistent").Return(nil, assert.AnError)
 
-		chainCmd := NewChainCommand(logger, mockRepo)
+		chainCmd := NewChainCommand(logger, mockRepo, nil)
 
 		err := chainCmd.runE(chainCmd.cmd, []string{"create", "mychain", "nonexistent"})
 		assert.Error(t, err)
@@ -108,7 +108,7 @@ func TestChainCommand(t *testing.T) {
 
 	t.Run("create chain - missing arguments", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		chainCmd := NewChainCommand(logger, mockRepo)
+		chainCmd := NewChainCommand(logger, mockRepo, nil)
 
 		err := chainCmd.runE(chainCmd.cmd, []string{"create", "mychain"})
 		assert.Error(t, err)
@@ -117,7 +117,7 @@ func TestChainCommand(t *testing.T) {
 
 	t.Run("list chains", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		chainCmd := NewChainCommand(logger, mockRepo)
+		chainCmd := NewChainCommand(logger, mockRepo, nil)
 
 		err := chainCmd.runE(chainCmd.cmd, []string{"list"})
 		assert.NoError(t, err)
@@ -125,7 +125,7 @@ func TestChainCommand(t *testing.T) {
 
 	t.Run("delete chain", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		chainCmd := NewChainCommand(logger, mockRepo)
+		chainCmd := NewChainCommand(logger, mockRepo, nil)
 
 		err := chainCmd.runE(chainCmd.cmd, []string{"delete", "testchain"})
 		assert.NoError(t, err)
@@ -133,7 +133,7 @@ func TestChainCommand(t *testing.T) {
 
 	t.Run("delete chain - missing name", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		chainCmd := NewChainCommand(logger, mockRepo)
+		chainCmd := NewChainCommand(logger, mockRepo, nil)
 
 		err := chainCmd.runE(chainCmd.cmd, []string{"delete"})
 		assert.Error(t, err)
@@ -142,7 +142,7 @@ func TestChainCommand(t *testing.T) {
 
 	t.Run("unknown subcommand", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		chainCmd := NewChainCommand(logger, mockRepo)
+		chainCmd := NewChainCommand(logger, mockRepo, nil)
 
 		err := chainCmd.runE(chainCmd.cmd, []string{"unknown"})
 		assert.Error(t, err)
@@ -151,7 +151,7 @@ func TestChainCommand(t *testing.T) {
 
 	t.Run("command structure validation", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		chainCmd := NewChainCommand(logger, mockRepo)
+		chainCmd := NewChainCommand(logger, mockRepo, nil)
 
 		assert.Equal(t, "chain", chainCmd.cmd.Use)
 		assert.Equal(t, "🔗 Execute and manage command chains", chainCmd.cmd.Short)
@@ -187,7 +187,7 @@ func TestChainCommand_CreateChain(t *testing.T) {
 			mockRepo.On("Get", cmdId).Return(cmd, nil)
 		}
 
-		chainCmd := NewChainCommand(logger, mockRepo)
+		chainCmd := NewChainCommand(logger, mockRepo, nil)
 		chainCmd.description = "Multi-command chain"
 
 		err := chainCmd.createChain("multichain", commands)
@@ -210,7 +210,7 @@ func TestChainCommand_CreateChain(t *testing.T) {
 		mockRepo.On("Get", "cmd1").Return(cmd1, nil)
 		mockRepo.On("Get", "cmd2").Return(cmd2, nil)
 
-		chainCmd := NewChainCommand(logger, mockRepo)
+		chainCmd := NewChainCommand(logger, mockRepo, nil)
 
 		// Test with spaces around command IDs
 		err := chainCmd.createChain("spacechain", []string{" cmd1 ", " cmd2 "})
@@ -222,7 +222,7 @@ func TestChainCommand_CreateChain(t *testing.T) {
 func TestChainCommand_GenerateChainID(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	mockRepo := new(mocks.MockRepository)
-	chainCmd := NewChainCommand(logger, mockRepo)
+	chainCmd := NewChainCommand(logger, mockRepo, nil)
 
 	id1 := chainCmd.generateChainID()
 	time.Sleep(1 * time.Millisecond) // Ensure different timestamps
@@ -257,7 +257,7 @@ func TestChainCommand_ExecuteChain(t *testing.T) {
 		// Mock Put call for storing execution result when store flag is set
 		mockRepo.On("Put", mock.Anything, mock.AnythingOfType("models.Command")).Return(nil)
 
-		chainCmd := NewChainCommand(logger, mockRepo)
+		chainCmd := NewChainCommand(logger, mockRepo, nil)
 		chainCmd.store = true
 
 		err := chainCmd.executeChain("testchain")
@@ -281,7 +281,7 @@ func TestChainCommand_ExecuteChain(t *testing.T) {
 			mockRepo.On("Get", cmd.ID).Return(&cmd, nil)
 		}
 
-		chainCmd := NewChainCommand(logger, mockRepo)
+		chainCmd := NewChainCommand(logger, mockRepo, nil)
 		chainCmd.conditional = false
 
 		err := chainCmd.executeChain("testchain")

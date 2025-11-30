@@ -23,7 +23,7 @@ func TestOutputCommand(t *testing.T) {
 		}
 		mockRepo.On("Get", "test-id").Return(cmd, nil)
 
-		outputCmd := NewOutputCommand(logger, mockRepo)
+		outputCmd := NewOutputCommand(logger, mockRepo, nil)
 		outputCmd.commandId = "test-id"
 
 		err := outputCmd.runE(outputCmd.cmd, []string{})
@@ -35,7 +35,7 @@ func TestOutputCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("Get", "nonexistent-id").Return(nil, assert.AnError)
 
-		outputCmd := NewOutputCommand(logger, mockRepo)
+		outputCmd := NewOutputCommand(logger, mockRepo, nil)
 		outputCmd.commandId = "nonexistent-id"
 
 		err := outputCmd.runE(outputCmd.cmd, []string{})
@@ -46,7 +46,7 @@ func TestOutputCommand(t *testing.T) {
 	t.Run("empty command ID", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 
-		outputCmd := NewOutputCommand(logger, mockRepo)
+		outputCmd := NewOutputCommand(logger, mockRepo, nil)
 		outputCmd.commandId = ""
 
 		err := outputCmd.runE(outputCmd.cmd, []string{})
@@ -65,7 +65,7 @@ func TestOutputCommand(t *testing.T) {
 		}
 		mockRepo.On("Get", "error-cmd").Return(cmd, nil)
 
-		outputCmd := NewOutputCommand(logger, mockRepo)
+		outputCmd := NewOutputCommand(logger, mockRepo, nil)
 		outputCmd.commandId = "error-cmd"
 
 		err := outputCmd.runE(outputCmd.cmd, []string{})
@@ -85,7 +85,7 @@ func TestOutputCommand(t *testing.T) {
 		}
 		mockRepo.On("Get", "mixed-cmd").Return(cmd, nil)
 
-		outputCmd := NewOutputCommand(logger, mockRepo)
+		outputCmd := NewOutputCommand(logger, mockRepo, nil)
 		outputCmd.commandId = "mixed-cmd"
 
 		err := outputCmd.runE(outputCmd.cmd, []string{})
@@ -95,7 +95,7 @@ func TestOutputCommand(t *testing.T) {
 
 	t.Run("command structure validation", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		outputCmd := NewOutputCommand(logger, mockRepo)
+		outputCmd := NewOutputCommand(logger, mockRepo, nil)
 
 		assert.Equal(t, "output", outputCmd.cmd.Use)
 		assert.Equal(t, "Show the output of a stored command", outputCmd.cmd.Short)

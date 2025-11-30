@@ -4,26 +4,25 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"sort"
 	"strings"
 	"time"
 
-	"github.com/creack/pty"
 	"github.com/fatih/color"
-	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
 	"github.com/gi4nks/ambros/v3/internal/errors"
 	"github.com/gi4nks/ambros/v3/internal/models"
+	"github.com/gi4nks/ambros/v3/internal/plugins" // New import
 )
 
 // EnvCommand represents the environment management command
 type EnvCommand struct {
 	*BaseCommand
+	executor    *Executor // Add this field
 	action      string
 	envName     string
 	global      bool
@@ -32,8 +31,10 @@ type EnvCommand struct {
 }
 
 // NewEnvCommand creates a new environment command
-func NewEnvCommand(logger *zap.Logger, repo RepositoryInterface) *EnvCommand {
-	ec := &EnvCommand{}
+func NewEnvCommand(logger *zap.Logger, repo RepositoryInterface, api plugins.CoreAPI) *EnvCommand {
+	ec := &EnvCommand{
+		executor: NewExecutor(logger), // Initialize the executor
+	}
 
 	cmd := &cobra.Command{
 		Use:   "env",
@@ -62,7 +63,7 @@ Examples:
 		RunE: ec.runE,
 	}
 
-	ec.BaseCommand = NewBaseCommand(cmd, logger, repo)
+	ec.BaseCommand = NewBaseCommand(cmd, logger, repo, api)
 	ec.cmd = cmd
 	ec.setupFlags(cmd)
 	return ec
@@ -484,27 +485,41 @@ func (ec *EnvCommand) applyEnvironment(envName, command string) error {
 
 	// Execute the provided command with merged environment
 	var cmd *exec.Cmd
+	parts, parseErr := shellFields(command)
 
-	// Prefer parsing the command into name+args and using exec.Command where possible.
-	// This avoids shell injection risks. If parsing fails or the command looks like
-	// it requires shell features (pipes, redirects, expansion), fall back to `sh -c`.
-	useShell := true
-	parts, err := shellFields(command)
-	if err == nil && len(parts) > 0 {
-		// Validate executable path for the first token
-		if _, perr := ResolveCommandPath(parts[0]); perr == nil {
-			cmd = exec.Command(parts[0], parts[1:]...)
-			useShell = false
-		} else {
-			ec.logger.Debug("Falling back to shell; parsed command executable not resolvable", zap.String("cmd", parts[0]), zap.Error(perr))
+	if ec.noShell {
+		if parseErr != nil {
+			return errors.NewError(errors.ErrInvalidCommand,
+				"--no-shell requires a plain command (no pipes/redirection)", parseErr)
 		}
-	}
+		if len(parts) == 0 {
+			return errors.NewError(errors.ErrInvalidCommand,
+				"--no-shell requires a command to execute", nil)
+		}
+		if _, perr := ec.executor.ResolveCommandPath(parts[0]); perr != nil {
+			return errors.NewError(errors.ErrInvalidCommand,
+				fmt.Sprintf("cannot run %q without a shell: %v", parts[0], perr), perr)
+		}
+		cmd = exec.Command(parts[0], parts[1:]...)
+	} else {
+		useShell := true
+		if parseErr == nil && len(parts) > 0 {
+			// Validate executable path for the first token
+			if _, perr := ec.executor.ResolveCommandPath(parts[0]); perr == nil {
+				cmd = exec.Command(parts[0], parts[1:]...)
+				useShell = false
+			} else {
+				ec.logger.Debug("Falling back to shell; parsed command executable not resolvable",
+					zap.String("cmd", parts[0]), zap.Error(perr))
+			}
+		}
 
-	if useShell {
-		// Use the shell to allow complex commands and expansions (current behavior)
-		shell := "sh"
-		shellFlag := "-c"
-		cmd = exec.Command(shell, shellFlag, command)
+		if useShell {
+			// Use the shell to allow complex commands and expansions (current behavior)
+			shell := "sh"
+			shellFlag := "-c"
+			cmd = exec.Command(shell, shellFlag, command)
+		}
 	}
 
 	// Merge current environment and override with envVars
@@ -527,34 +542,15 @@ func (ec *EnvCommand) applyEnvironment(envName, command string) error {
 	cmd.Env = finalEnv
 
 	// If stdin is a TTY, start in a pty for interactive behavior
-	if isatty.IsTerminal(os.Stdin.Fd()) {
-		ptmx, err := pty.Start(cmd)
-		if err != nil {
-			ec.logger.Error("Failed to start command in pty", zap.Error(err))
-			return errors.NewError(errors.ErrExecutionFailed, "failed to start command", err)
-		}
-		// copy output to stdout/stderr
-		go func() { _, _ = io.Copy(os.Stdout, ptmx) }()
-		// Wait for completion
-		err = cmd.Wait()
-		if err != nil {
-			ec.logger.Error("Command failed", zap.Error(err))
-			return errors.NewError(errors.ErrExecutionFailed, "command failed", err)
-		}
-		return nil
+	// Delegate to Executor for robust execution
+	exitCode, err := ec.executor.ExecuteCommandAuto(cmd.Path, cmd.Args)
+	if err != nil {
+		ec.logger.Error("Command failed via executor", zap.Error(err))
+		return errors.NewError(errors.ErrExecutionFailed, "command failed via executor", err)
 	}
 
-	// Non-tty: capture combined output
-	out, err := cmd.CombinedOutput()
-	if len(out) > 0 {
-		fmt.Print(string(out))
-	}
-	if err != nil {
-		ec.logger.Error("Command execution failed", zap.Error(err))
-		if exit, ok := extractExitStatus(err); ok {
-			return errors.NewError(errors.ErrExecutionFailed, fmt.Sprintf("command exited with %d", exit), err)
-		}
-		return errors.NewError(errors.ErrExecutionFailed, "command execution failed", err)
+	if exitCode != 0 {
+		return errors.NewError(errors.ErrExecutionFailed, fmt.Sprintf("command exited with %d", exitCode), nil)
 	}
 
 	ec.logger.Info("Environment applied to command",

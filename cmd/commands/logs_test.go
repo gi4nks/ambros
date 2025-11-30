@@ -35,7 +35,7 @@ func TestLogsCommand(t *testing.T) {
 		}
 		mockRepo.On("GetAllCommands").Return(commands, nil)
 
-		logsCmd := NewLogsCommand(logger, mockRepo)
+		logsCmd := NewLogsCommand(logger, mockRepo, nil)
 
 		err := logsCmd.runE(logsCmd.cmd, []string{})
 		assert.NoError(t, err)
@@ -64,7 +64,7 @@ func TestLogsCommand(t *testing.T) {
 		}
 		mockRepo.On("GetAllCommands").Return(commands, nil)
 
-		logsCmd := NewLogsCommand(logger, mockRepo)
+		logsCmd := NewLogsCommand(logger, mockRepo, nil)
 		logsCmd.failedOnly = true
 
 		err := logsCmd.runE(logsCmd.cmd, []string{})
@@ -97,7 +97,7 @@ func TestLogsCommand(t *testing.T) {
 		}
 		mockRepo.On("GetAllCommands").Return(commands, nil)
 
-		logsCmd := NewLogsCommand(logger, mockRepo)
+		logsCmd := NewLogsCommand(logger, mockRepo, nil)
 		logsCmd.since = now.Add(-12 * time.Hour).Format("2006-01-02")
 
 		err := logsCmd.runE(logsCmd.cmd, []string{})
@@ -109,7 +109,7 @@ func TestLogsCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("GetAllCommands").Return([]models.Command{}, nil)
 
-		logsCmd := NewLogsCommand(logger, mockRepo)
+		logsCmd := NewLogsCommand(logger, mockRepo, nil)
 		logsCmd.since = "invalid-date"
 
 		err := logsCmd.runE(logsCmd.cmd, []string{})
@@ -122,7 +122,7 @@ func TestLogsCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("GetAllCommands").Return(nil, assert.AnError)
 
-		logsCmd := NewLogsCommand(logger, mockRepo)
+		logsCmd := NewLogsCommand(logger, mockRepo, nil)
 
 		err := logsCmd.runE(logsCmd.cmd, []string{})
 		assert.Error(t, err)
@@ -131,7 +131,7 @@ func TestLogsCommand(t *testing.T) {
 
 	t.Run("command structure validation", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		logsCmd := NewLogsCommand(logger, mockRepo)
+		logsCmd := NewLogsCommand(logger, mockRepo, nil)
 
 		assert.Equal(t, "logs", logsCmd.cmd.Use)
 		assert.Equal(t, "Show command execution logs", logsCmd.cmd.Short)
@@ -160,7 +160,7 @@ func TestLogsCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("GetAllCommands").Return([]models.Command{}, nil)
 
-		logsCmd := NewLogsCommand(logger, mockRepo)
+		logsCmd := NewLogsCommand(logger, mockRepo, nil)
 
 		err := logsCmd.runE(logsCmd.cmd, []string{})
 		assert.NoError(t, err)

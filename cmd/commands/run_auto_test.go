@@ -13,7 +13,7 @@ func TestRunCommand_AutoMode_NonInteractive(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	mockRepo := new(mocks.MockRepository)
 
-	runCmd := NewRunCommand(logger, mockRepo)
+	runCmd := NewRunCommand(logger, mockRepo, nil)
 	runCmd.opts.auto = true
 	runCmd.opts.store = false
 
@@ -36,7 +36,7 @@ func TestRunCommand_AutoMode_Success(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	mockRepo := new(mocks.MockRepository)
 
-	runCmd := NewRunCommand(logger, mockRepo)
+	runCmd := NewRunCommand(logger, mockRepo, nil)
 	runCmd.opts.auto = true
 	runCmd.opts.store = false
 

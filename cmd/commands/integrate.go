@@ -12,17 +12,29 @@ import (
 
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
+
+	"github.com/gi4nks/ambros/v3/internal/errors"
+	"github.com/gi4nks/ambros/v3/internal/plugins" // New import
 )
 
 //go:embed scripts/.ambros-integration.sh
 var embeddedFiles embed.FS
 
 type IntegrateCommand struct {
-	logger *zap.Logger
+	*BaseCommand
 }
 
-func NewIntegrateCommand(logger *zap.Logger) *IntegrateCommand {
-	return &IntegrateCommand{logger: logger}
+func NewIntegrateCommand(logger *zap.Logger, api plugins.CoreAPI) *IntegrateCommand {
+	ic := &IntegrateCommand{}
+	cmd := &cobra.Command{
+		Use:   "integrate",
+		Short: "Manage Ambros shell integration",
+		Long:  "Install or uninstall the Ambros transparent shell integration script into your shell profiles.",
+	}
+	// Integrate command doesn't need repository, so pass nil for repo
+	ic.BaseCommand = NewBaseCommand(cmd, logger, nil, api)
+	ic.cmd = cmd
+	return ic
 }
 
 func (c *IntegrateCommand) Command() *cobra.Command {
@@ -75,7 +87,7 @@ func (c *IntegrateCommand) install(_ *cobra.Command, _ []string, shell string, y
 	// Idempotent write: only write if different
 	existing, _ := os.ReadFile(target)
 	if string(existing) == string(content) {
-		c.logger.Info("integration script already up-to-date", zap.String("target", target))
+		c.Logger().Info("integration script already up-to-date", zap.String("target", target))
 	} else {
 		if err := os.WriteFile(target, content, 0755); err != nil {
 			return err
@@ -90,7 +102,9 @@ func (c *IntegrateCommand) install(_ *cobra.Command, _ []string, shell string, y
 			fmt.Println("skipping shell update")
 			return nil
 		}
-		addSourceIfMissing(rc, sourceLine)
+		if err := addSourceIfMissing(rc, sourceLine); err != nil {
+			return errors.NewError(errors.ErrInternalServer, fmt.Sprintf("failed to update %s", rc), err)
+		}
 		fmt.Printf("Updated %s\n", rc)
 		return nil
 	}
@@ -102,18 +116,24 @@ func (c *IntegrateCommand) install(_ *cobra.Command, _ []string, shell string, y
 		fmt.Println("skipping shell updates")
 		return nil
 	}
-	addSourceIfMissing(bashrc, sourceLine)
-	addSourceIfMissing(zshrc, sourceLine)
+	if err := addSourceIfMissing(bashrc, sourceLine); err != nil {
+		c.Logger().Warn("failed to update bashrc, continuing", zap.Error(err))
+	}
+	if err := addSourceIfMissing(zshrc, sourceLine); err != nil {
+		c.logger.Warn("failed to update zshrc, continuing", zap.Error(err))
+	}
 	fmt.Printf("Updated %s and %s\n", bashrc, zshrc)
 	return nil
 }
 
-func addSourceIfMissing(rcPath, line string) {
+func addSourceIfMissing(rcPath, line string) error {
 	data, err := os.ReadFile(rcPath)
 	if err != nil {
-		// file might not exist; create with the line
-		_ = os.WriteFile(rcPath, []byte(line+"\n"), 0644)
-		return
+		if os.IsNotExist(err) {
+			// file might not exist; create with the line
+			return os.WriteFile(rcPath, []byte(line+"\n"), 0644)
+		}
+		return err
 	}
 	content := string(data)
 	if !containsLine(content, line) {
@@ -122,8 +142,9 @@ func addSourceIfMissing(rcPath, line string) {
 			content += "\n"
 		}
 		content += line + "\n"
-		_ = os.WriteFile(rcPath, []byte(content), 0644)
+		return os.WriteFile(rcPath, []byte(content), 0644)
 	}
+	return nil
 }
 
 func expandPath(p string) string {
@@ -161,7 +182,9 @@ func (c *IntegrateCommand) uninstall(_ *cobra.Command, _ []string, shell string,
 	}
 
 	target := filepath.Join(home, ".ambros-integration.sh")
-	_ = os.Remove(target)
+	if err := os.Remove(target); err != nil && !os.IsNotExist(err) {
+		c.Logger().Warn("failed to remove integration script, continuing", zap.Error(err))
+	}
 
 	sourceLine := "source ~/.ambros-integration.sh"
 
@@ -172,7 +195,9 @@ func (c *IntegrateCommand) uninstall(_ *cobra.Command, _ []string, shell string,
 			fmt.Println("skipping shell update")
 			return nil
 		}
-		removeSourceLine(rc, sourceLine)
+		if err := removeSourceLine(rc, sourceLine); err != nil {
+			return errors.NewError(errors.ErrInternalServer, fmt.Sprintf("failed to update %s", rc), err)
+		}
 		fmt.Printf("Updated %s\n", rc)
 		fmt.Println("Uninstalled Ambros integration script")
 		return nil
@@ -185,33 +210,40 @@ func (c *IntegrateCommand) uninstall(_ *cobra.Command, _ []string, shell string,
 		fmt.Println("skipping shell updates")
 		return nil
 	}
-	removeSourceLine(bashrc, sourceLine)
-	removeSourceLine(zshrc, sourceLine)
+	if err := removeSourceLine(bashrc, sourceLine); err != nil {
+		c.Logger().Warn("failed to update bashrc, continuing", zap.Error(err))
+	}
+	if err := removeSourceLine(zshrc, sourceLine); err != nil {
+		c.logger.Warn("failed to update zshrc, continuing", zap.Error(err))
+	}
 	fmt.Printf("Updated %s and %s\n", bashrc, zshrc)
 	fmt.Println("Uninstalled Ambros integration script")
 	return nil
 }
 
-func removeSourceLine(rcPath, line string) {
+func removeSourceLine(rcPath, line string) error {
 	data, err := os.ReadFile(rcPath)
 	if err != nil {
-		return
+		if os.IsNotExist(err) {
+			return nil // Nothing to do
+		}
+		return err
 	}
-	content := string(data)
-	idx := strings.Index(content, line)
-	if idx < 0 {
-		return
+
+	var out []string
+	scanner := bufio.NewScanner(strings.NewReader(string(data)))
+	var changed bool
+	for scanner.Scan() {
+		if strings.TrimSpace(scanner.Text()) == strings.TrimSpace(line) {
+			changed = true
+			continue
+		}
+		out = append(out, scanner.Text())
 	}
-	// remove the line (naive)
-	before := content[:idx]
-	afterIdx := idx + len(line)
-	// drop following newline if present
-	if afterIdx < len(content) && content[afterIdx] == '\n' {
-		afterIdx++
+
+	if !changed {
+		return nil // Line not found, nothing to do
 	}
-	after := ""
-	if afterIdx < len(content) {
-		after = content[afterIdx:]
-	}
-	_ = os.WriteFile(rcPath, []byte(before+after), 0644)
+
+	return os.WriteFile(rcPath, []byte(strings.Join(out, "\n")+"\n"), 0644)
 }

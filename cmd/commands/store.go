@@ -11,6 +11,7 @@ import (
 
 	"github.com/gi4nks/ambros/v3/internal/errors"
 	"github.com/gi4nks/ambros/v3/internal/models"
+	"github.com/gi4nks/ambros/v3/internal/plugins" // New import
 )
 
 type StoreCommand struct {
@@ -22,7 +23,7 @@ type StoreCommand struct {
 	force       bool
 }
 
-func NewStoreCommand(logger *zap.Logger, repo RepositoryInterface) *StoreCommand {
+func NewStoreCommand(logger *zap.Logger, repo RepositoryInterface, api plugins.CoreAPI) *StoreCommand {
 	sc := &StoreCommand{}
 
 	cmd := &cobra.Command{
@@ -40,7 +41,7 @@ Examples:
 		RunE: sc.runE,
 	}
 
-	sc.BaseCommand = NewBaseCommand(cmd, logger, repo)
+	sc.BaseCommand = NewBaseCommand(cmd, logger, repo, api)
 	sc.cmd = cmd
 	sc.setupFlags(cmd)
 	return sc

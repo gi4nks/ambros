@@ -15,13 +15,6 @@ if [[ ! -t 0 ]] || [[ -n "${GIT_PARAMS:-}${GIT_DIR:-}${CI:-}" ]]; then
     (return 0 2>/dev/null) || exit 0
 fi
 
-# Store original command executables (use command -v for portability)
-ORIGINAL_LS=$(command -v ls || true)
-ORIGINAL_GIT=$(command -v git || true)
-ORIGINAL_CURL=$(command -v curl || true)
-ORIGINAL_NPM=$(command -v npm || true)
-ORIGINAL_DOCKER=$(command -v docker || true)
-
 # List of commands to intercept (add more as needed)
 AMBROS_INTERCEPTED_COMMANDS=(
     "ls" "git" "curl" "wget" "npm" "yarn" "docker" 
@@ -33,58 +26,23 @@ AMBROS_INTERCEPTED_COMMANDS=(
 # We'll call 'ambros run --help' and look for the string '--auto'.
 AMBROS_SUPPORTS_AUTO=false
 if command -v ambros >/dev/null 2>&1; then
-    if ambros run --help 2>&1 | grep -q -- "--auto"; then
+    if command ambros run --help 2>&1 | grep -q -- "--auto"; then
         AMBROS_SUPPORTS_AUTO=true
     fi
 fi
 
-# Function to execute command through Ambros
+# Function to execute command through Ambros.
+# This is called by the function wrappers below. Using `command` ensures
+# we call the external ambros command and not a potentially wrapped function.
 ambros_exec() {
     local cmd="$1"
     shift
 
-    # Check if Ambros should track this command
-    if [[ " ${AMBROS_INTERCEPTED_COMMANDS[@]} " =~ " ${cmd} " ]]; then
-        # Build the ambros invocation with supported flags only
-        if [ "$AMBROS_SUPPORTS_AUTO" = true ]; then
-            ambros run --store --auto -- "$cmd" "$@"
-        else
-            # Fallback: use --store only (supported in older versions)
-            ambros run --store -- "$cmd" "$@"
-        fi
+    if [ "$AMBROS_SUPPORTS_AUTO" = true ]; then
+        command ambros run --store --auto -- "$cmd" "$@"
     else
-        # Execute normally for non-tracked commands.
-        # Prefer the saved absolute path (ORIGINAL_...) if available to avoid
-        # recursive trapping when the user has the integration enabled.
-        case "$cmd" in
-            ls)
-                if [[ -n "$ORIGINAL_LS" ]]; then
-                    "$ORIGINAL_LS" "$@"; return
-                fi
-                ;;
-            git)
-                if [[ -n "$ORIGINAL_GIT" ]]; then
-                    "$ORIGINAL_GIT" "$@"; return
-                fi
-                ;;
-            curl)
-                if [[ -n "$ORIGINAL_CURL" ]]; then
-                    "$ORIGINAL_CURL" "$@"; return
-                fi
-                ;;
-            npm)
-                if [[ -n "$ORIGINAL_NPM" ]]; then
-                    "$ORIGINAL_NPM" "$@"; return
-                fi
-                ;;
-            docker)
-                if [[ -n "$ORIGINAL_DOCKER" ]]; then
-                    "$ORIGINAL_DOCKER" "$@"; return
-                fi
-                ;;
-        esac
-        # Fallback to command which will execute the external binary.
-        command "$cmd" "$@"
+        # Fallback for older versions of Ambros without --auto
+        command ambros run --store -- "$cmd" "$@"
     fi
 }
 

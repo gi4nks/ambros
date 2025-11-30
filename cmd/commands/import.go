@@ -11,10 +11,11 @@ import (
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 
 	"github.com/gi4nks/ambros/v3/internal/errors"
 	"github.com/gi4nks/ambros/v3/internal/models"
+	"github.com/gi4nks/ambros/v3/internal/plugins" // New import
 )
 
 type ImportCommand struct {
@@ -26,7 +27,7 @@ type ImportCommand struct {
 	skipExisting bool
 }
 
-func NewImportCommand(logger *zap.Logger, repo RepositoryInterface) *ImportCommand {
+func NewImportCommand(logger *zap.Logger, repo RepositoryInterface, api plugins.CoreAPI) *ImportCommand {
 	ic := &ImportCommand{}
 
 	cmd := &cobra.Command{

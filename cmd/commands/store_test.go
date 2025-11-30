@@ -20,7 +20,7 @@ func TestStoreCommand(t *testing.T) {
 			return cmd.Name == "echo" && len(cmd.Arguments) == 1 && cmd.Arguments[0] == "hello"
 		})).Return(nil)
 
-		storeCmd := NewStoreCommand(logger, mockRepo)
+		storeCmd := NewStoreCommand(logger, mockRepo, nil)
 
 		err := storeCmd.runE(storeCmd.cmd, []string{"echo", "hello"})
 		assert.NoError(t, err)
@@ -34,7 +34,7 @@ func TestStoreCommand(t *testing.T) {
 			return cmd.ID == "my-echo" && cmd.Name == "echo"
 		})).Return(nil)
 
-		storeCmd := NewStoreCommand(logger, mockRepo)
+		storeCmd := NewStoreCommand(logger, mockRepo, nil)
 		storeCmd.name = "my-echo"
 
 		err := storeCmd.runE(storeCmd.cmd, []string{"echo", "hello"})
@@ -51,7 +51,7 @@ func TestStoreCommand(t *testing.T) {
 				cmd.Output == "List files in directory"
 		})).Return(nil)
 
-		storeCmd := NewStoreCommand(logger, mockRepo)
+		storeCmd := NewStoreCommand(logger, mockRepo, nil)
 		storeCmd.tags = []string{"tag1", "tag2"}
 		storeCmd.category = "files"
 		storeCmd.description = "List files in directory"
@@ -66,7 +66,7 @@ func TestStoreCommand(t *testing.T) {
 		existingCmd := &models.Command{Entity: models.Entity{ID: "existing"}}
 		mockRepo.On("Get", "existing").Return(existingCmd, nil) // Command exists
 
-		storeCmd := NewStoreCommand(logger, mockRepo)
+		storeCmd := NewStoreCommand(logger, mockRepo, nil)
 		storeCmd.name = "existing"
 		storeCmd.force = false
 
@@ -83,7 +83,7 @@ func TestStoreCommand(t *testing.T) {
 			return cmd.ID == "existing" && cmd.Name == "echo"
 		})).Return(nil)
 
-		storeCmd := NewStoreCommand(logger, mockRepo)
+		storeCmd := NewStoreCommand(logger, mockRepo, nil)
 		storeCmd.name = "existing"
 		storeCmd.force = true
 
@@ -96,7 +96,7 @@ func TestStoreCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("Put", mock.Anything, mock.AnythingOfType("models.Command")).Return(assert.AnError)
 
-		storeCmd := NewStoreCommand(logger, mockRepo)
+		storeCmd := NewStoreCommand(logger, mockRepo, nil)
 
 		err := storeCmd.runE(storeCmd.cmd, []string{"echo", "test"})
 		assert.Error(t, err)
@@ -105,7 +105,7 @@ func TestStoreCommand(t *testing.T) {
 
 	t.Run("command structure validation", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		storeCmd := NewStoreCommand(logger, mockRepo)
+		storeCmd := NewStoreCommand(logger, mockRepo, nil)
 
 		assert.Equal(t, "store [command...]", storeCmd.cmd.Use)
 		assert.Equal(t, "Store a command for future use", storeCmd.cmd.Short)
@@ -141,7 +141,7 @@ func TestStoreCommand(t *testing.T) {
 func TestStoreCommand_CommandExists(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	mockRepo := new(mocks.MockRepository)
-	storeCmd := NewStoreCommand(logger, mockRepo)
+	storeCmd := NewStoreCommand(logger, mockRepo, nil)
 
 	t.Run("command exists", func(t *testing.T) {
 		existingCmd := &models.Command{Entity: models.Entity{ID: "existing"}}
@@ -164,7 +164,7 @@ func TestStoreCommand_CommandExists(t *testing.T) {
 func TestStoreCommand_GenerateCommandID(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	mockRepo := new(mocks.MockRepository)
-	storeCmd := NewStoreCommand(logger, mockRepo)
+	storeCmd := NewStoreCommand(logger, mockRepo, nil)
 
 	id1 := storeCmd.generateCommandID()
 	time.Sleep(1 * time.Millisecond) // Ensure different timestamps
@@ -192,7 +192,7 @@ func TestStoreCommand_WithComplexArguments(t *testing.T) {
 				cmd.Arguments[2] == "dest/"
 		})).Return(nil)
 
-		storeCmd := NewStoreCommand(logger, mockRepo)
+		storeCmd := NewStoreCommand(logger, mockRepo, nil)
 		storeCmd.name = "backup-sync"
 		storeCmd.tags = []string{"backup", "sync"}
 		storeCmd.description = "Backup source to destination"
@@ -208,7 +208,7 @@ func TestStoreCommand_WithComplexArguments(t *testing.T) {
 			return cmd.Name == "pwd" && len(cmd.Arguments) == 0
 		})).Return(nil)
 
-		storeCmd := NewStoreCommand(logger, mockRepo)
+		storeCmd := NewStoreCommand(logger, mockRepo, nil)
 
 		err := storeCmd.runE(storeCmd.cmd, []string{"pwd"})
 		assert.NoError(t, err)

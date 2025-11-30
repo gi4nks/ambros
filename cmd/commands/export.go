@@ -8,10 +8,11 @@ import (
 
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 
 	"github.com/gi4nks/ambros/v3/internal/errors"
 	"github.com/gi4nks/ambros/v3/internal/models"
+	"github.com/gi4nks/ambros/v3/internal/plugins" // New import
 )
 
 // ExportCommand represents the export command
@@ -27,7 +28,7 @@ type ExportCommand struct {
 }
 
 // NewExportCommand creates a new export command
-func NewExportCommand(logger *zap.Logger, repo RepositoryInterface) *ExportCommand {
+func NewExportCommand(logger *zap.Logger, repo RepositoryInterface, api plugins.CoreAPI) *ExportCommand {
 	ec := &ExportCommand{}
 
 	cmd := &cobra.Command{
@@ -43,7 +44,7 @@ Examples:
 		RunE: ec.runE,
 	}
 
-	ec.BaseCommand = NewBaseCommand(cmd, logger, repo)
+	ec.BaseCommand = NewBaseCommand(cmd, logger, repo, api)
 	ec.cmd = cmd
 	ec.setupFlags(ec.cmd)
 	return ec
