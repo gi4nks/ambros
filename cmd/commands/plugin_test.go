@@ -9,6 +9,7 @@ import (
 	"github.com/gi4nks/ambros/v3/internal/models" // New import
 	"github.com/gi4nks/ambros/v3/internal/repos/mocks"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
@@ -141,6 +142,175 @@ echo "Hello from local plugin"`
 		err := pc.runE(pc.cmd, []string{"install"})
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "source path or plugin name required")
+
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("run plugin with insufficient arguments", func(t *testing.T) {
+		mockRepo := new(mocks.MockRepository)
+		pc := NewPluginCommand(logger, mockRepo)
+		pc.baseDir_ = tempDir
+
+		// Missing command name
+		err := pc.runE(pc.cmd, []string{"run", "my-plugin"})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "plugin name and command required")
+
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("run plugin that does not exist", func(t *testing.T) {
+		mockRepo := new(mocks.MockRepository)
+		pluginsDir := filepath.Join(tempDir, "run-nonexistent-test")
+		err := os.MkdirAll(pluginsDir, 0755)
+		require.NoError(t, err)
+
+		pc := NewPluginCommand(logger, mockRepo)
+		pc.baseDir_ = pluginsDir
+
+		err = pc.runE(pc.cmd, []string{"run", "nonexistent-plugin", "test"})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "not found")
+
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("run plugin that is disabled", func(t *testing.T) {
+		mockRepo := new(mocks.MockRepository)
+		pluginsDir := filepath.Join(tempDir, "run-disabled-test")
+		err := os.MkdirAll(pluginsDir, 0755)
+		require.NoError(t, err)
+
+		// Create a disabled plugin
+		pluginDir := filepath.Join(pluginsDir, "disabled-plugin")
+		err = os.MkdirAll(pluginDir, 0755)
+		require.NoError(t, err)
+
+		manifest := `{
+	"name": "disabled-plugin",
+	"version": "1.0.0",
+	"description": "A disabled plugin",
+	"enabled": false,
+	"executable": "./run.sh"
+}`
+		err = os.WriteFile(filepath.Join(pluginDir, "plugin.json"), []byte(manifest), 0644)
+		require.NoError(t, err)
+
+		// Create executable
+		execContent := `#!/bin/sh
+echo "Hello"`
+		err = os.WriteFile(filepath.Join(pluginDir, "run.sh"), []byte(execContent), 0755)
+		require.NoError(t, err)
+
+		pc := NewPluginCommand(logger, mockRepo)
+		pc.baseDir_ = pluginsDir
+
+		err = pc.runE(pc.cmd, []string{"run", "disabled-plugin", "test"})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "disabled")
+
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("run plugin successfully and store result", func(t *testing.T) {
+		mockRepo := new(mocks.MockRepository)
+		pluginsDir := filepath.Join(tempDir, "run-success-test")
+		err := os.MkdirAll(pluginsDir, 0755)
+		require.NoError(t, err)
+
+		// Create a working plugin
+		pluginDir := filepath.Join(pluginsDir, "working-plugin")
+		err = os.MkdirAll(pluginDir, 0755)
+		require.NoError(t, err)
+
+		manifest := `{
+	"name": "working-plugin",
+	"version": "1.0.0",
+	"description": "A working plugin",
+	"enabled": true,
+	"executable": "./run.sh",
+	"commands": [
+		{"name": "hello", "description": "Says hello"}
+	]
+}`
+		err = os.WriteFile(filepath.Join(pluginDir, "plugin.json"), []byte(manifest), 0644)
+		require.NoError(t, err)
+
+		// Create executable that outputs based on command
+		execContent := `#!/bin/sh
+case "$1" in
+    "hello")
+        echo "Hello from working-plugin!"
+        exit 0
+        ;;
+    *)
+        echo "Unknown command: $1"
+        exit 1
+        ;;
+esac`
+		err = os.WriteFile(filepath.Join(pluginDir, "run.sh"), []byte(execContent), 0755)
+		require.NoError(t, err)
+
+		// Mock the repository Put call
+		mockRepo.On("Put", mock.Anything, mock.MatchedBy(func(cmd models.Command) bool {
+			return cmd.Name == "working-plugin" &&
+				cmd.Category == "plugin" &&
+				cmd.Status == true &&
+				len(cmd.Tags) == 2 &&
+				cmd.Tags[0] == "plugin" &&
+				cmd.Tags[1] == "working-plugin"
+		})).Return(nil)
+
+		pc := NewPluginCommand(logger, mockRepo)
+		pc.baseDir_ = pluginsDir
+
+		err = pc.runE(pc.cmd, []string{"run", "working-plugin", "hello"})
+		assert.NoError(t, err)
+
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("run plugin with failing command stores failure", func(t *testing.T) {
+		mockRepo := new(mocks.MockRepository)
+		pluginsDir := filepath.Join(tempDir, "run-fail-test")
+		err := os.MkdirAll(pluginsDir, 0755)
+		require.NoError(t, err)
+
+		// Create a plugin that will fail
+		pluginDir := filepath.Join(pluginsDir, "failing-plugin")
+		err = os.MkdirAll(pluginDir, 0755)
+		require.NoError(t, err)
+
+		manifest := `{
+	"name": "failing-plugin",
+	"version": "1.0.0",
+	"description": "A plugin that fails",
+	"enabled": true,
+	"executable": "./run.sh"
+}`
+		err = os.WriteFile(filepath.Join(pluginDir, "plugin.json"), []byte(manifest), 0644)
+		require.NoError(t, err)
+
+		// Create executable that always fails
+		execContent := `#!/bin/sh
+echo "This will fail"
+exit 1`
+		err = os.WriteFile(filepath.Join(pluginDir, "run.sh"), []byte(execContent), 0755)
+		require.NoError(t, err)
+
+		// Mock the repository Put call for the failed command
+		mockRepo.On("Put", mock.Anything, mock.MatchedBy(func(cmd models.Command) bool {
+			return cmd.Name == "failing-plugin" &&
+				cmd.Status == false &&
+				cmd.Category == "plugin"
+		})).Return(nil)
+
+		pc := NewPluginCommand(logger, mockRepo)
+		pc.baseDir_ = pluginsDir
+
+		err = pc.runE(pc.cmd, []string{"run", "failing-plugin", "test"})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed with exit code")
 
 		mockRepo.AssertExpectations(t)
 	})

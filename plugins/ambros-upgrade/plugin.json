@@ -50,5 +50,5 @@
     "install_path": "/usr/local/bin/ambros",
     "backup_dir": "~/.ambros/backups"
   },
-  "dependencies": ["curl", "jq", "tar"]
+  "dependencies": []
 }

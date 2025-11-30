@@ -63,5 +63,5 @@
     "branch_prefix": "release/",
     "auto_push": "true"
   },
-  "dependencies": ["git", "sed"]
+  "dependencies": []
 }
