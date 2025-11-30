@@ -1,0 +1,54 @@
+{
+  "name": "ambros-upgrade",
+  "version": "1.0.0",
+  "description": "Update and upgrade Ambros to the latest or a specific version",
+  "author": "Ambros Team",
+  "enabled": true,
+  "type": "shell",
+  "executable": "./ambros-upgrade.sh",
+  "commands": [
+    {
+      "name": "check",
+      "description": "Check for available updates",
+      "usage": "ambros ambros-upgrade check",
+      "args": []
+    },
+    {
+      "name": "current",
+      "description": "Show the currently installed version",
+      "usage": "ambros ambros-upgrade current",
+      "args": []
+    },
+    {
+      "name": "list",
+      "description": "List all available versions",
+      "usage": "ambros ambros-upgrade list [--limit N]",
+      "args": ["limit"]
+    },
+    {
+      "name": "upgrade",
+      "description": "Upgrade to the latest version",
+      "usage": "ambros ambros-upgrade upgrade [--force]",
+      "args": ["force"]
+    },
+    {
+      "name": "install",
+      "description": "Install a specific version",
+      "usage": "ambros ambros-upgrade install <version>",
+      "args": ["version"]
+    },
+    {
+      "name": "rollback",
+      "description": "Rollback to the previous version",
+      "usage": "ambros ambros-upgrade rollback",
+      "args": []
+    }
+  ],
+  "hooks": [],
+  "config": {
+    "github_repo": "gi4nks/ambros",
+    "install_path": "/usr/local/bin/ambros",
+    "backup_dir": "~/.ambros/backups"
+  },
+  "dependencies": ["curl", "jq", "tar"]
+}
