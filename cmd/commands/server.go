@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/sahilm/fuzzy"
 	iofs "io/fs"
 	"net/http"
 	"os"
@@ -13,6 +12,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/sahilm/fuzzy"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -60,7 +61,7 @@ Examples:
   ambros server --port 3000              # Start on custom port
   ambros server --host 0.0.0.0          # Listen on all interfaces
   ambros server --dev                   # Development mode with hot reload
-  ambros server --cors                  # Enable CORS for development`,
+  ambros server --cors                  # Enable CORS headers`,
 		RunE: sc.runE,
 	}
 
@@ -226,6 +227,9 @@ func (sc *ServerCommand) handleAdvancedAnalytics(w http.ResponseWriter, r *http.
 		return
 	}
 
+	// Generate deep analytics with alias suggestions and pattern recognition
+	deepAnalytics := sc.generateDeepAnalytics(commands)
+
 	analytics := map[string]interface{}{
 		"command_patterns":    sc.analyzeCommandPatterns(commands),
 		"execution_trends":    sc.analyzeExecutionTrends(commands),
@@ -233,6 +237,11 @@ func (sc *ServerCommand) handleAdvancedAnalytics(w http.ResponseWriter, r *http.
 		"performance_metrics": sc.analyzePerformance(commands),
 		"usage_predictions":   sc.generateUsagePredictions(commands),
 		"recommendations":     sc.generateRecommendations(commands),
+		// New deep analytics features
+		"alias_suggestions":  deepAnalytics.AliasSuggestions,
+		"sequence_patterns":  deepAnalytics.SequencePatterns,
+		"workflow_insights":  deepAnalytics.WorkflowInsights,
+		"command_complexity": deepAnalytics.CommandComplexity,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -613,6 +622,40 @@ type UsagePredictions struct {
 	TrendingCommands []string `json:"trending_commands"`
 }
 
+// AliasSuggestion represents a suggested shell alias for a frequently used command
+type AliasSuggestion struct {
+	Alias       string `json:"alias"`
+	Command     string `json:"command"`
+	FullCommand string `json:"full_command"`
+	UsageCount  int    `json:"usage_count"`
+	Reason      string `json:"reason"`
+}
+
+// CommandSequencePattern represents a detected sequence of commands often run together
+type CommandSequencePattern struct {
+	Sequence    []string `json:"sequence"`
+	Occurrences int      `json:"occurrences"`
+	AvgInterval string   `json:"avg_interval"`
+	Suggestion  string   `json:"suggestion"`
+}
+
+// WorkflowInsight represents an identified workflow pattern with automation opportunities
+type WorkflowInsight struct {
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Commands    []string `json:"commands"`
+	Frequency   int      `json:"frequency"`
+	Suggestion  string   `json:"suggestion"`
+}
+
+// DeepAnalytics contains advanced analytics with alias suggestions and pattern recognition
+type DeepAnalytics struct {
+	AliasSuggestions  []AliasSuggestion        `json:"alias_suggestions"`
+	SequencePatterns  []CommandSequencePattern `json:"sequence_patterns"`
+	WorkflowInsights  []WorkflowInsight        `json:"workflow_insights"`
+	CommandComplexity map[string]int           `json:"command_complexity"`
+}
+
 func (sc *ServerCommand) analyzeCommandPatterns(commands []models.Command) CommandPatterns {
 	// Count by command name (fallback to first argument)
 	freq := make(map[string]int)
@@ -937,6 +980,487 @@ func (sc *ServerCommand) generateRecommendations(commands []models.Command) []st
 	return suggestions
 }
 
+// generateDeepAnalytics performs advanced analytics including alias suggestions, sequence patterns, and workflow insights
+func (sc *ServerCommand) generateDeepAnalytics(commands []models.Command) DeepAnalytics {
+	return DeepAnalytics{
+		AliasSuggestions:  sc.generateAliasSuggestions(commands),
+		SequencePatterns:  sc.analyzeSequencePatterns(commands),
+		WorkflowInsights:  sc.identifyWorkflowInsights(commands),
+		CommandComplexity: sc.analyzeCommandComplexity(commands),
+	}
+}
+
+// generateAliasSuggestions suggests shell aliases for frequently used long commands
+func (sc *ServerCommand) generateAliasSuggestions(commands []models.Command) []AliasSuggestion {
+	suggestions := []AliasSuggestion{}
+
+	// Track full command strings and their counts
+	commandCounts := make(map[string]int)
+	for _, cmd := range commands {
+		fullCmd := cmd.Command
+		if fullCmd == "" {
+			fullCmd = cmd.Name
+			if len(cmd.Arguments) > 0 {
+				fullCmd = fullCmd + " " + strings.Join(cmd.Arguments, " ")
+			}
+		}
+		if fullCmd != "" {
+			commandCounts[fullCmd]++
+		}
+	}
+
+	// Find long commands that are used frequently
+	type cmdCount struct {
+		cmd   string
+		count int
+	}
+	var sortedCmds []cmdCount
+	for cmd, count := range commandCounts {
+		// Only consider commands longer than 15 chars and used at least 3 times
+		if len(cmd) > 15 && count >= 3 {
+			sortedCmds = append(sortedCmds, cmdCount{cmd, count})
+		}
+	}
+
+	// Sort by count descending
+	sort.Slice(sortedCmds, func(i, j int) bool {
+		return sortedCmds[i].count > sortedCmds[j].count
+	})
+
+	// Generate alias suggestions for top commands
+	for i := 0; i < min(5, len(sortedCmds)); i++ {
+		cmd := sortedCmds[i]
+		alias := sc.generateAliasName(cmd.cmd)
+		suggestions = append(suggestions, AliasSuggestion{
+			Alias:       alias,
+			Command:     strings.Fields(cmd.cmd)[0],
+			FullCommand: cmd.cmd,
+			UsageCount:  cmd.count,
+			Reason:      fmt.Sprintf("Used %d times, saves %d characters per invocation", cmd.count, len(cmd.cmd)-len(alias)),
+		})
+	}
+
+	// Also suggest aliases for complex flag combinations
+	flagPatterns := sc.detectComplexFlagPatterns(commands)
+	for _, fp := range flagPatterns {
+		suggestions = append(suggestions, fp)
+	}
+
+	return suggestions
+}
+
+// generateAliasName generates a suggested alias name from a command
+func (sc *ServerCommand) generateAliasName(cmd string) string {
+	parts := strings.Fields(cmd)
+	if len(parts) == 0 {
+		return "alias"
+	}
+
+	baseName := parts[0]
+	// Remove common prefixes/paths
+	if idx := strings.LastIndex(baseName, "/"); idx >= 0 {
+		baseName = baseName[idx+1:]
+	}
+
+	// Extract first letter of each significant part
+	alias := ""
+	for _, part := range parts {
+		if len(part) == 0 || strings.HasPrefix(part, "-") || strings.HasPrefix(part, "/") {
+			continue
+		}
+		// Skip common words
+		lower := strings.ToLower(part)
+		if lower == "the" || lower == "a" || lower == "an" || lower == "to" || lower == "for" {
+			continue
+		}
+		alias += string(part[0])
+		if len(alias) >= 4 {
+			break
+		}
+	}
+
+	if alias == "" {
+		alias = baseName[:min(3, len(baseName))]
+	}
+
+	return strings.ToLower(alias)
+}
+
+// detectComplexFlagPatterns finds commands with frequently used flag combinations
+func (sc *ServerCommand) detectComplexFlagPatterns(commands []models.Command) []AliasSuggestion {
+	suggestions := []AliasSuggestion{}
+
+	// Track base command + flags patterns
+	patternCounts := make(map[string]struct {
+		fullCmd string
+		count   int
+	})
+
+	for _, cmd := range commands {
+		fullCmd := cmd.Command
+		if fullCmd == "" {
+			fullCmd = cmd.Name
+			if len(cmd.Arguments) > 0 {
+				fullCmd = fullCmd + " " + strings.Join(cmd.Arguments, " ")
+			}
+		}
+
+		parts := strings.Fields(fullCmd)
+		if len(parts) < 2 {
+			continue
+		}
+
+		// Extract base command and flags
+		base := parts[0]
+		var flags []string
+		for _, p := range parts[1:] {
+			if strings.HasPrefix(p, "-") {
+				flags = append(flags, p)
+			}
+		}
+
+		if len(flags) >= 2 {
+			pattern := base + " " + strings.Join(flags, " ")
+			if existing, ok := patternCounts[pattern]; ok {
+				patternCounts[pattern] = struct {
+					fullCmd string
+					count   int
+				}{existing.fullCmd, existing.count + 1}
+			} else {
+				patternCounts[pattern] = struct {
+					fullCmd string
+					count   int
+				}{fullCmd, 1}
+			}
+		}
+	}
+
+	// Find patterns used at least 3 times
+	for pattern, data := range patternCounts {
+		if data.count >= 3 && len(pattern) > 20 {
+			parts := strings.Fields(pattern)
+			alias := parts[0][:min(2, len(parts[0]))]
+			for _, p := range parts[1:] {
+				if strings.HasPrefix(p, "--") && len(p) > 2 {
+					alias += string(p[2])
+				} else if strings.HasPrefix(p, "-") && len(p) > 1 {
+					alias += string(p[1])
+				}
+			}
+			suggestions = append(suggestions, AliasSuggestion{
+				Alias:       strings.ToLower(alias),
+				Command:     parts[0],
+				FullCommand: pattern,
+				UsageCount:  data.count,
+				Reason:      fmt.Sprintf("Complex flag pattern used %d times", data.count),
+			})
+		}
+	}
+
+	return suggestions
+}
+
+// analyzeSequencePatterns detects sequences of commands that are often run together
+func (sc *ServerCommand) analyzeSequencePatterns(commands []models.Command) []CommandSequencePattern {
+	patterns := []CommandSequencePattern{}
+
+	if len(commands) < 2 {
+		return patterns
+	}
+
+	// Sort commands by creation time
+	sortedCmds := make([]models.Command, len(commands))
+	copy(sortedCmds, commands)
+	sort.Slice(sortedCmds, func(i, j int) bool {
+		return sortedCmds[i].CreatedAt.Before(sortedCmds[j].CreatedAt)
+	})
+
+	// Detect 2-command sequences
+	pairCounts := make(map[string]struct {
+		intervals []time.Duration
+		count     int
+	})
+
+	for i := 1; i < len(sortedCmds); i++ {
+		prev := sc.getCommandBase(sortedCmds[i-1])
+		curr := sc.getCommandBase(sortedCmds[i])
+		if prev == "" || curr == "" {
+			continue
+		}
+
+		// Only count if within 5 minutes of each other
+		interval := sortedCmds[i].CreatedAt.Sub(sortedCmds[i-1].CreatedAt)
+		if interval > 5*time.Minute {
+			continue
+		}
+
+		pair := prev + " → " + curr
+		if existing, ok := pairCounts[pair]; ok {
+			pairCounts[pair] = struct {
+				intervals []time.Duration
+				count     int
+			}{append(existing.intervals, interval), existing.count + 1}
+		} else {
+			pairCounts[pair] = struct {
+				intervals []time.Duration
+				count     int
+			}{[]time.Duration{interval}, 1}
+		}
+	}
+
+	// Detect 3-command sequences
+	tripleCounts := make(map[string]int)
+	for i := 2; i < len(sortedCmds); i++ {
+		c1 := sc.getCommandBase(sortedCmds[i-2])
+		c2 := sc.getCommandBase(sortedCmds[i-1])
+		c3 := sc.getCommandBase(sortedCmds[i])
+		if c1 == "" || c2 == "" || c3 == "" {
+			continue
+		}
+
+		// Only count if all three within 5 minutes
+		if sortedCmds[i].CreatedAt.Sub(sortedCmds[i-2].CreatedAt) > 5*time.Minute {
+			continue
+		}
+
+		triple := c1 + " → " + c2 + " → " + c3
+		tripleCounts[triple]++
+	}
+
+	// Convert pairs to patterns (threshold: 3 occurrences)
+	for pair, data := range pairCounts {
+		if data.count >= 3 {
+			avgInterval := time.Duration(0)
+			for _, d := range data.intervals {
+				avgInterval += d
+			}
+			avgInterval /= time.Duration(len(data.intervals))
+
+			parts := strings.Split(pair, " → ")
+			patterns = append(patterns, CommandSequencePattern{
+				Sequence:    parts,
+				Occurrences: data.count,
+				AvgInterval: avgInterval.Round(time.Second).String(),
+				Suggestion:  fmt.Sprintf("Consider creating a chain command for '%s' and '%s'", parts[0], parts[1]),
+			})
+		}
+	}
+
+	// Convert triples to patterns (threshold: 2 occurrences)
+	for triple, count := range tripleCounts {
+		if count >= 2 {
+			parts := strings.Split(triple, " → ")
+			patterns = append(patterns, CommandSequencePattern{
+				Sequence:    parts,
+				Occurrences: count,
+				AvgInterval: "< 5m",
+				Suggestion:  "Consider creating a workflow for this 3-step sequence",
+			})
+		}
+	}
+
+	// Sort by occurrences descending
+	sort.Slice(patterns, func(i, j int) bool {
+		return patterns[i].Occurrences > patterns[j].Occurrences
+	})
+
+	// Return top 10 patterns
+	if len(patterns) > 10 {
+		patterns = patterns[:10]
+	}
+
+	return patterns
+}
+
+// getCommandBase extracts the base command name
+func (sc *ServerCommand) getCommandBase(cmd models.Command) string {
+	fullCmd := cmd.Command
+	if fullCmd == "" {
+		fullCmd = cmd.Name
+	}
+	parts := strings.Fields(fullCmd)
+	if len(parts) == 0 {
+		return ""
+	}
+	base := parts[0]
+	// Remove path prefix
+	if idx := strings.LastIndex(base, "/"); idx >= 0 {
+		base = base[idx+1:]
+	}
+	return base
+}
+
+// identifyWorkflowInsights identifies common workflow patterns
+func (sc *ServerCommand) identifyWorkflowInsights(commands []models.Command) []WorkflowInsight {
+	insights := []WorkflowInsight{}
+
+	// Count command usage by base name
+	cmdCounts := make(map[string]int)
+	for _, cmd := range commands {
+		base := sc.getCommandBase(cmd)
+		if base != "" {
+			cmdCounts[base]++
+		}
+	}
+
+	// Predefined workflow patterns to detect
+	workflowPatterns := []struct {
+		name     string
+		desc     string
+		commands []string
+		minCount int
+	}{
+		{
+			name:     "Git Development Flow",
+			desc:     "Standard git development workflow detected",
+			commands: []string{"git", "make", "go"},
+			minCount: 5,
+		},
+		{
+			name:     "Docker Development",
+			desc:     "Container-based development workflow",
+			commands: []string{"docker", "docker-compose"},
+			minCount: 3,
+		},
+		{
+			name:     "Kubernetes Operations",
+			desc:     "Kubernetes cluster management workflow",
+			commands: []string{"kubectl", "helm"},
+			minCount: 3,
+		},
+		{
+			name:     "Node.js Development",
+			desc:     "Node.js/npm-based development workflow",
+			commands: []string{"npm", "node", "yarn"},
+			minCount: 3,
+		},
+		{
+			name:     "Python Development",
+			desc:     "Python development workflow",
+			commands: []string{"python", "pip", "pytest"},
+			minCount: 3,
+		},
+		{
+			name:     "Go Development",
+			desc:     "Go development workflow",
+			commands: []string{"go", "make"},
+			minCount: 3,
+		},
+		{
+			name:     "CI/CD Pipeline",
+			desc:     "Continuous integration/deployment commands",
+			commands: []string{"git", "docker", "kubectl"},
+			minCount: 3,
+		},
+	}
+
+	// Check each workflow pattern
+	for _, pattern := range workflowPatterns {
+		matchCount := 0
+		totalUsage := 0
+		matchedCmds := []string{}
+
+		for _, cmd := range pattern.commands {
+			if count, ok := cmdCounts[cmd]; ok && count >= pattern.minCount {
+				matchCount++
+				totalUsage += count
+				matchedCmds = append(matchedCmds, cmd)
+			}
+		}
+
+		// If at least 2 commands from the pattern are frequently used
+		if matchCount >= 2 {
+			suggestion := "Consider creating command chains to automate common sequences"
+			if pattern.name == "Git Development Flow" {
+				suggestion = "Try: `ambros chain create dev-flow 'git pull' 'make test' 'git push'`"
+			} else if pattern.name == "Docker Development" {
+				suggestion = "Try: `ambros chain create docker-dev 'docker-compose build' 'docker-compose up'`"
+			} else if pattern.name == "CI/CD Pipeline" {
+				suggestion = "Consider setting up scheduled tasks for deployment automation"
+			}
+
+			insights = append(insights, WorkflowInsight{
+				Name:        pattern.name,
+				Description: pattern.desc,
+				Commands:    matchedCmds,
+				Frequency:   totalUsage,
+				Suggestion:  suggestion,
+			})
+		}
+	}
+
+	// Sort by frequency
+	sort.Slice(insights, func(i, j int) bool {
+		return insights[i].Frequency > insights[j].Frequency
+	})
+
+	return insights
+}
+
+// analyzeCommandComplexity measures the complexity of commands (args, pipes, redirects)
+func (sc *ServerCommand) analyzeCommandComplexity(commands []models.Command) map[string]int {
+	complexity := make(map[string]int)
+
+	for _, cmd := range commands {
+		fullCmd := cmd.Command
+		if fullCmd == "" {
+			fullCmd = cmd.Name
+			if len(cmd.Arguments) > 0 {
+				fullCmd = fullCmd + " " + strings.Join(cmd.Arguments, " ")
+			}
+		}
+
+		score := sc.calculateComplexityScore(fullCmd)
+		base := sc.getCommandBase(cmd)
+		if base != "" {
+			// Keep track of max complexity for each base command
+			if current, ok := complexity[base]; !ok || score > current {
+				complexity[base] = score
+			}
+		}
+	}
+
+	return complexity
+}
+
+// calculateComplexityScore calculates a complexity score for a command
+func (sc *ServerCommand) calculateComplexityScore(cmd string) int {
+	score := 0
+
+	// Base score from length
+	score += len(cmd) / 20
+
+	// Count arguments
+	parts := strings.Fields(cmd)
+	score += len(parts) - 1
+
+	// Count flags
+	for _, p := range parts {
+		if strings.HasPrefix(p, "--") {
+			score += 2
+		} else if strings.HasPrefix(p, "-") {
+			score++
+		}
+	}
+
+	// Pipes add complexity
+	score += strings.Count(cmd, "|") * 3
+
+	// Redirects add complexity
+	score += strings.Count(cmd, ">") * 2
+	score += strings.Count(cmd, "<") * 2
+
+	// Subshells/command substitution
+	score += strings.Count(cmd, "$(") * 3
+	score += strings.Count(cmd, "`") * 3
+
+	// Logical operators
+	score += strings.Count(cmd, "&&") * 2
+	score += strings.Count(cmd, "||") * 2
+
+	return score
+}
+
 // trigramTokens returns the set of trigrams for a string
 func trigramTokens(s string) map[string]struct{} {
 	s = strings.ToLower(s)
@@ -1025,9 +1549,9 @@ func (sc *ServerCommand) generateSearchSuggestions(query string, commands []mode
 		}
 	}
 
-	// run fuzzy matching on candidates
+	// run fuzzy matching on candidates using sahilm/fuzzy (Find returns ordered matches)
 	if len(candidates) > 0 {
-		fr := fuzzy.RankFindNormalized(q, candidates)
+		fr := fuzzy.Find(q, candidates)
 		if len(fr) > 0 {
 			// Add top fuzzy results by translating back to original command names
 			for i := 0; i < min(3, len(fr)); i++ {
@@ -1075,6 +1599,14 @@ func (sc *ServerCommand) generateSearchSuggestions(query string, commands []mode
 
 func max(a, b int) int {
 	if a > b {
+		return a
+	}
+	return b
+}
+
+// min returns the smaller of two ints
+func min(a, b int) int {
+	if a < b {
 		return a
 	}
 	return b

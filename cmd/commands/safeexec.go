@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/gi4nks/ambros/v3/internal/errors" // New import
 )
 
 var validCmdName = regexp.MustCompile(`^[A-Za-z0-9._/\\-]+$`)
@@ -39,10 +41,10 @@ func ensureNoSymlinkInPath(base, target string) error {
 	// ensure base is a prefix of target
 	rel, err := filepath.Rel(base, target)
 	if err != nil {
-		return fmt.Errorf("failed to evaluate relative path: %w", err)
+		return errors.NewError(errors.ErrInternalServer, "failed to evaluate relative path", err)
 	}
 	if strings.HasPrefix(rel, "..") {
-		return fmt.Errorf("target not under base path")
+		return errors.NewError(errors.ErrInvalidCommand, "target not under base path", nil)
 	}
 
 	cur := base
@@ -50,7 +52,7 @@ func ensureNoSymlinkInPath(base, target string) error {
 	if rel == "." {
 		fi, err := os.Lstat(cur)
 		if err == nil && (fi.Mode()&os.ModeSymlink) != 0 {
-			return fmt.Errorf("symlink detected in path: %s", cur)
+			return errors.NewError(errors.ErrInvalidCommand, fmt.Sprintf("symlink detected in path: %s", cur), nil)
 		}
 		return nil
 	}
@@ -64,7 +66,7 @@ func ensureNoSymlinkInPath(base, target string) error {
 			continue
 		}
 		if (fi.Mode() & os.ModeSymlink) != 0 {
-			return fmt.Errorf("symlink detected in path: %s", cur)
+			return errors.NewError(errors.ErrInvalidCommand, fmt.Sprintf("symlink detected in path: %s", cur), nil)
 		}
 	}
 	return nil
@@ -74,13 +76,16 @@ func ensureNoSymlinkInPath(base, target string) error {
 // executable. It rejects names with shell metacharacters and attempts to
 // canonicalize path-style names to a safe plugins directory. For simple names
 // it falls back to exec.LookPath.
-func ResolveCommandPath(name string) (string, error) {
+func SafeResolveCommandPath(name string) (string, error) {
+	if name == "" {
+		return "", errors.NewError(errors.ErrInvalidCommand, "command name cannot be empty", nil)
+	}
 	// Reject names containing common shell metacharacters
 	if strings.ContainsAny(name, ";&|$<>`*?~(){}[]'\"\\") {
-		return "", fmt.Errorf("invalid characters in command name: %s", name)
+		return "", errors.NewError(errors.ErrInvalidCommand, fmt.Sprintf("invalid characters in command name: %s", name), nil)
 	}
 	if !ValidateCommandName(name) {
-		return "", fmt.Errorf("invalid command name: %s", name)
+		return "", errors.NewError(errors.ErrInvalidCommand, fmt.Sprintf("invalid command name: %s", name), nil)
 	}
 
 	// If the name contains a path separator, treat it as a path-style invocation.
@@ -88,11 +93,11 @@ func ResolveCommandPath(name string) (string, error) {
 	// plugins directory to avoid arbitrary filesystem execution.
 	if strings.ContainsAny(name, string(filepath.Separator)) {
 		if filepath.IsAbs(name) {
-			return "", fmt.Errorf("absolute paths are not allowed: %s", name)
+			return "", errors.NewError(errors.ErrInvalidCommand, fmt.Sprintf("absolute paths are not allowed: %s", name), nil)
 		}
 		// Reject traversal segments
 		if strings.HasPrefix(name, "..") || strings.Contains(name, string(filepath.Separator)+"..") {
-			return "", fmt.Errorf("path traversal not allowed in command name: %s", name)
+			return "", errors.NewError(errors.ErrInvalidCommand, fmt.Sprintf("path traversal not allowed in command name: %s", name), nil)
 		}
 
 		pluginsBase := defaultPluginsBase()
@@ -100,7 +105,7 @@ func ResolveCommandPath(name string) (string, error) {
 
 		// Ensure path is inside plugins base
 		if rel, err := filepath.Rel(pluginsBase, absPath); err != nil || strings.HasPrefix(rel, "..") {
-			return "", fmt.Errorf("resolved path outside plugins base: %s", absPath)
+			return "", errors.NewError(errors.ErrInvalidCommand, fmt.Sprintf("resolved path outside plugins base: %s", absPath), nil)
 		}
 
 		// Check for symlinks in the path components
@@ -114,10 +119,10 @@ func ResolveCommandPath(name string) (string, error) {
 			return "", err
 		}
 		if (fi.Mode() & os.ModeSymlink) != 0 {
-			return "", fmt.Errorf("executable path is a symlink: %s", absPath)
+			return "", errors.NewError(errors.ErrInvalidCommand, fmt.Sprintf("executable path is a symlink: %s", absPath), nil)
 		}
 		if fi.Mode().Perm()&0100 == 0 {
-			return "", fmt.Errorf("executable does not have execute bit: %s", absPath)
+			return "", errors.NewError(errors.ErrInvalidCommand, fmt.Sprintf("executable does not have execute bit: %s", absPath), nil)
 		}
 
 		return absPath, nil

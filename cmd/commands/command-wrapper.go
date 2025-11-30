@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"errors"
+	"errors" // Standard errors package
 	"os/exec"
 	"strconv"
 	"strings"
@@ -12,6 +12,7 @@ import (
 
 	"go.uber.org/zap"
 
+	ambrosErrors "github.com/gi4nks/ambros/v3/internal/errors" // Alias for ambros's custom errors
 	"github.com/gi4nks/ambros/v3/internal/models"
 	"github.com/gi4nks/ambros/v3/internal/utils"
 )
@@ -21,6 +22,7 @@ type CommandWrapper struct {
 	logger     *zap.Logger
 	repository RepositoryInterface
 	utilities  *utils.Utilities
+	executor   *Executor // Add this field
 }
 
 // NewCommandWrapper creates a new command wrapper
@@ -29,6 +31,7 @@ func NewCommandWrapper(logger *zap.Logger, repo RepositoryInterface) *CommandWra
 		logger:     logger,
 		repository: repo,
 		utilities:  utils.NewUtilities(logger),
+		executor:   NewExecutor(logger), // Initialize the executor
 	}
 }
 
@@ -153,7 +156,7 @@ func (cw *CommandWrapper) ExecuteCommand(command *models.Command) {
 	var bufferError bytes.Buffer
 
 	// Resolve and validate executable path before executing
-	resolved, err := ResolveCommandPath(command.Name)
+	resolved, err := cw.executor.ResolveCommandPath(command.Name)
 	if err != nil {
 		cw.logger.Error("Invalid command name", zap.String("name", command.Name), zap.Error(err))
 		command.Error = err.Error()
@@ -165,6 +168,14 @@ func (cw *CommandWrapper) ExecuteCommand(command *models.Command) {
 	cw.logger.Debug("Executing command",
 		zap.String("name", command.Name),
 		zap.Strings("arguments", command.Arguments))
+
+	// Emit a warning if the command looks interactive; the CommandWrapper is
+	// frequently used by scripts or server-side code so we avoid printing to
+	// stdout/stderr and rely on structured logging.
+	if cw.executor.isLikelyInteractive(command.Name, command.Arguments) {
+		cw.logger.Warn("Likely interactive command executed via CommandWrapper",
+			zap.String("command", command.Name), zap.Strings("args", command.Arguments))
+	}
 
 	outputReader, err := cmd.StdoutPipe()
 	if err != nil {
@@ -240,7 +251,7 @@ func (cw *CommandWrapper) ExecuteCommands(commands []*models.Command) error {
 	for _, command := range commands {
 		command.CreatedAt = time.Now()
 		// Validate command name and resolve path; continue to attempt storing even on error
-		resolved, err := ResolveCommandPath(command.Name)
+		resolved, err := cw.executor.ResolveCommandPath(command.Name)
 		if err != nil {
 			cw.logger.Error("Invalid command name", zap.String("name", command.Name), zap.Error(err))
 			command.Error = err.Error()
@@ -288,7 +299,7 @@ func (cw *CommandWrapper) ExecuteCommands(commands []*models.Command) error {
 
 		// Stop pipeline if command failed
 		if !command.Status {
-			return errors.New("command pipeline failed")
+			return ambrosErrors.NewError(ambrosErrors.ErrExecutionFailed, "command pipeline failed", nil)
 		}
 	}
 
@@ -300,7 +311,7 @@ func (cw *CommandWrapper) ExecuteCommands(commands []*models.Command) error {
 // CommandsFromArguments parses a command string into multiple commands split by pipes
 func (cw *CommandWrapper) CommandsFromArguments(args []string) ([][]string, error) {
 	if len(args) <= 0 {
-		return nil, errors.New("arguments must be provided")
+		return nil, ambrosErrors.NewError(ambrosErrors.ErrInvalidCommand, "arguments must be provided", nil)
 	}
 	command := strings.Join(args, " ")
 	pipeCommands, err := splitByUnescapedPipe(command)
@@ -334,7 +345,7 @@ func (cw *CommandWrapper) CommandFromArguments(args []string) (string, []string,
 // StringsFromArguments validates and returns string arguments
 func (cw *CommandWrapper) StringsFromArguments(args []string) ([]string, error) {
 	if len(args) <= 0 {
-		return nil, errors.New("arguments must be provided")
+		return nil, ambrosErrors.NewError(ambrosErrors.ErrInvalidCommand, "arguments must be provided", nil)
 	}
 
 	return args, nil
@@ -343,7 +354,7 @@ func (cw *CommandWrapper) StringsFromArguments(args []string) ([]string, error) 
 // StringFromArguments extracts a single string argument
 func (cw *CommandWrapper) StringFromArguments(args []string) (string, error) {
 	if len(args) < 1 {
-		return "", errors.New("argument must be provided")
+		return "", ambrosErrors.NewError(ambrosErrors.ErrInvalidCommand, "argument must be provided", nil)
 	}
 
 	return args[0], nil
@@ -352,12 +363,12 @@ func (cw *CommandWrapper) StringFromArguments(args []string) (string, error) {
 // IntFromArguments extracts a single integer argument
 func (cw *CommandWrapper) IntFromArguments(args []string) (int, error) {
 	if len(args) != 1 {
-		return -1, errors.New("exactly one argument must be provided")
+		return -1, ambrosErrors.NewError(ambrosErrors.ErrInvalidCommand, "exactly one argument must be provided", nil)
 	}
 
 	i, err := strconv.Atoi(args[0])
 	if err != nil {
-		return -1, errors.New("argument must be a valid integer")
+		return -1, ambrosErrors.NewError(ambrosErrors.ErrInvalidCommand, "argument must be a valid integer", err)
 	}
 
 	return i, nil

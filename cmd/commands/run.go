@@ -2,28 +2,24 @@ package commands
 
 import (
 	"fmt"
-	"io"
 	"os"
-	"os/exec"
-	"os/signal"
-	"strings"
-	"sync"
+	"strings" // New import
 	"time"
 
-	"github.com/creack/pty"
 	"github.com/fatih/color"
-	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
 	"github.com/gi4nks/ambros/v3/internal/errors"
 	"github.com/gi4nks/ambros/v3/internal/models"
+	"github.com/gi4nks/ambros/v3/internal/plugins" // New import
 )
 
 type RunCommand struct {
 	*BaseCommand
 	opts     RunOptions
 	wrapper  *CommandWrapper
+	executor *Executor // New field for shared execution logic
 	exitFunc func(int) // For testable exit behavior
 }
 
@@ -36,10 +32,11 @@ type RunOptions struct {
 	auto     bool
 }
 
-func NewRunCommand(logger *zap.Logger, repo RepositoryInterface) *RunCommand {
+func NewRunCommand(logger *zap.Logger, repo RepositoryInterface, api plugins.CoreAPI) *RunCommand {
 	rc := &RunCommand{
 		wrapper:  NewCommandWrapper(logger, repo),
-		exitFunc: os.Exit, // Default to os.Exit
+		executor: NewExecutor(logger), // Initialize the executor
+		exitFunc: os.Exit,             // Default to os.Exit
 	}
 
 	cmd := &cobra.Command{
@@ -63,7 +60,7 @@ Note: If you get "unknown flag" errors, add -- before your command.`,
 		Args: cobra.MinimumNArgs(1),
 	}
 
-	rc.BaseCommand = NewBaseCommand(cmd, logger, repo)
+	rc.BaseCommand = NewBaseCommand(cmd, logger, repo, api)
 	rc.cmd = cmd
 	rc.setupFlags(cmd)
 	return rc
@@ -187,11 +184,18 @@ func (rc *RunCommand) Execute(args []string) (int, error) {
 	var execErr error
 	var exitCode int
 
+	// If the command looks interactive and user didn't request --auto, warn them
+	if rc.executor.isLikelyInteractive(commandName, commandArgs) && !rc.opts.auto {
+		// Hint the user about --auto which attaches a ttys/streams
+		fmt.Fprintln(os.Stderr, color.YellowString("Warning: command looks interactive. Use --auto to attach a TTY and stream input/output."))
+		rc.logger.Warn("Likely interactive command executed without --auto", zap.String("command", commandName))
+	}
+
 	if rc.opts.auto {
 		// Default auto behavior streams output to the terminal. For callers who want
 		// to capture the output (like the interactive UI), call ExecuteCapture
 		// instead. Here we keep the default behavior for Execute.
-		exitCode, execErr = rc.executeCommandAuto(commandName, commandArgs)
+		exitCode, execErr = rc.executor.ExecuteCommandAuto(commandName, commandArgs)
 		success = execErr == nil && exitCode == 0
 		// executeCommandAuto streams output directly; we don't capture combined output here
 		output = ""
@@ -201,7 +205,7 @@ func (rc *RunCommand) Execute(args []string) (int, error) {
 		}
 	} else {
 		// Execute the command normally and capture output
-		output, errorMsg, success, execErr = rc.executeCommand(commandName, commandArgs)
+		output, errorMsg, success, execErr = rc.executor.ExecuteCommand(commandName, commandArgs)
 	}
 
 	if execErr != nil && !rc.opts.auto {
@@ -266,209 +270,6 @@ func (rc *RunCommand) Execute(args []string) (int, error) {
 	}
 
 	return 0, nil
-}
-
-// ExecuteCapture runs the command similarly to Execute but always captures combined
-// stdout/stderr into a byte buffer and returns (exitCode, output, error).
-func (rc *RunCommand) ExecuteCapture(args []string) (int, string, error) {
-	rc.logger.Debug("ExecuteCapture invoked", zap.Strings("rawArgs", args))
-
-	if len(args) == 0 {
-		return 1, "", errors.NewError(errors.ErrInvalidCommand,
-			"No command specified. Use: ambros run [flags] -- <command> [args...]", nil)
-	}
-
-	commandName := args[0]
-	commandArgs := args[1:]
-
-	// Resolve command path to avoid shell lookup surprises
-	if _, err := ResolveCommandPath(commandName); err != nil {
-		return 1, "", err
-	}
-
-	// If not a TTY, use CombinedOutput for simplicity
-	if !isatty.IsTerminal(os.Stdin.Fd()) {
-		cmd := exec.Command(commandName, commandArgs...)
-		out, err := cmd.CombinedOutput()
-		if err == nil {
-			return 0, string(out), nil
-		}
-		if status, ok := extractExitStatus(err); ok {
-			return status, string(out), nil
-		}
-		return 1, string(out), err
-	}
-
-	// TTY case: allocate a pty and capture output by copying into a buffer
-	cmd := exec.Command(commandName, commandArgs...)
-	ptmx, err := pty.Start(cmd)
-	if err != nil {
-		return 1, "", err
-	}
-	defer func() { _ = ptmx.Close() }()
-
-	// Copy output into buffer while also writing to stdout so user sees it
-	var buf strings.Builder
-	done := make(chan struct{})
-	go func() {
-		// Read from PTY and copy to both buffer and stdout
-		b := make([]byte, 1024)
-		for {
-			n, rerr := ptmx.Read(b)
-			if n > 0 {
-				s := string(b[:n])
-				buf.WriteString(s)
-				_, _ = os.Stdout.Write(b[:n])
-			}
-			if rerr != nil {
-				break
-			}
-		}
-		close(done)
-	}()
-
-	err = cmd.Wait()
-	<-done
-
-	if err == nil {
-		return 0, buf.String(), nil
-	}
-	if status, ok := extractExitStatus(err); ok {
-		return status, buf.String(), nil
-	}
-	return 1, buf.String(), err
-}
-
-func (rc *RunCommand) executeCommand(name string, args []string) (string, string, bool, error) {
-	if _, err := ResolveCommandPath(name); err != nil {
-		// Do not treat a missing executable as a hard error here — keep compatibility
-		// with existing tests which expect executeCommand to return (success=false,
-		// errorMsg!="", err==nil) for nonexistent commands.
-		return "", err.Error(), false, nil
-	}
-	cmd := exec.Command(name, args...)
-
-	// Capture both stdout and stderr
-	output, err := cmd.CombinedOutput()
-
-	success := err == nil
-	var errorMsg string
-
-	if err != nil {
-		errorMsg = err.Error()
-	}
-
-	return string(output), errorMsg, success, nil
-}
-
-// executeCommandAuto runs the target command transparently: it attaches the current
-// process stdin/stdout/stderr to the child, forwards signals and returns the child's
-// exit code. If the command fails to start, an error is returned and exit code will be 1.
-func (rc *RunCommand) executeCommandAuto(name string, args []string) (int, error) {
-	if _, err := ResolveCommandPath(name); err != nil {
-		return 1, err
-	}
-	cmd := exec.Command(name, args...)
-
-	// If stdin is a TTY, allocate a pty so interactive programs work correctly.
-	if isatty.IsTerminal(os.Stdin.Fd()) {
-		ptmx, err := pty.Start(cmd)
-		if err != nil {
-			return 1, err
-		}
-		// Make sure to close the pty when done
-		defer func() { _ = ptmx.Close() }()
-
-		// Handle window size changes
-		sigwinch := make(chan os.Signal, 1)
-		// platform-specific registration: may be a no-op on Windows
-		notifyWinch(sigwinch)
-		go func() {
-			for range sigwinch {
-				_ = pty.InheritSize(os.Stdin, ptmx)
-			}
-		}()
-		// Ensure initial size is copied
-		_ = pty.InheritSize(os.Stdin, ptmx)
-
-		// Copy input and output and wait for them to finish to avoid races
-		var wg sync.WaitGroup
-		wg.Add(2)
-		go func() {
-			defer wg.Done()
-			_, _ = io.Copy(ptmx, os.Stdin)
-		}()
-		go func() {
-			defer wg.Done()
-			_, _ = io.Copy(os.Stdout, ptmx)
-		}()
-
-		// Forward signals to child process
-		sigs := make(chan os.Signal, 1)
-		signal.Notify(sigs)
-		done := make(chan struct{})
-		go func() {
-			for s := range sigs {
-				if cmd.Process != nil {
-					_ = cmd.Process.Signal(s)
-				}
-			}
-			close(done)
-		}()
-		// Wait for command to exit
-		err = cmd.Wait()
-
-		// Close the PTY to ensure io.Copy goroutines return, then wait for them
-		_ = ptmx.Close()
-		wg.Wait()
-
-		// Cleanup
-		signal.Stop(sigwinch)
-		close(sigwinch)
-		signal.Stop(sigs)
-		close(sigs)
-		<-done
-
-		if status, ok := extractExitStatus(err); ok {
-			return status, nil
-		}
-		return 1, err
-	}
-
-	// Non-tty case: attach stdio directly
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Start(); err != nil {
-		return 1, err
-	}
-
-	// Forward signals to child
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs)
-	done := make(chan struct{})
-
-	go func() {
-		for s := range sigs {
-			if cmd.Process != nil {
-				_ = cmd.Process.Signal(s)
-			}
-		}
-		close(done)
-	}()
-
-	err := cmd.Wait()
-
-	// Stop forwarding
-	signal.Stop(sigs)
-	close(sigs)
-	<-done
-
-	if status, ok := extractExitStatus(err); ok {
-		return status, nil
-	}
-	return 1, err
 }
 
 func (rc *RunCommand) generateCommandID() string {

@@ -54,7 +54,7 @@ func TestSearchCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("GetAllCommands").Return(sampleCommands, nil)
 
-		searchCmd := NewSearchCommand(logger, mockRepo)
+		searchCmd := NewSearchCommand(logger, mockRepo, nil)
 		searchCmd.opts.format = "text"
 
 		err := searchCmd.runE(searchCmd.cmd, []string{})
@@ -66,7 +66,7 @@ func TestSearchCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("GetAllCommands").Return(sampleCommands, nil)
 
-		searchCmd := NewSearchCommand(logger, mockRepo)
+		searchCmd := NewSearchCommand(logger, mockRepo, nil)
 		searchCmd.opts.format = "text"
 
 		err := searchCmd.runE(searchCmd.cmd, []string{"echo"})
@@ -78,7 +78,7 @@ func TestSearchCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("GetAllCommands").Return(sampleCommands, nil)
 
-		searchCmd := NewSearchCommand(logger, mockRepo)
+		searchCmd := NewSearchCommand(logger, mockRepo, nil)
 		searchCmd.opts.tag = []string{"test"}
 		searchCmd.opts.format = "text"
 
@@ -91,7 +91,7 @@ func TestSearchCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("GetAllCommands").Return(sampleCommands, nil)
 
-		searchCmd := NewSearchCommand(logger, mockRepo)
+		searchCmd := NewSearchCommand(logger, mockRepo, nil)
 		searchCmd.opts.category = "utility"
 		searchCmd.opts.format = "text"
 
@@ -104,7 +104,7 @@ func TestSearchCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("GetAllCommands").Return(sampleCommands, nil)
 
-		searchCmd := NewSearchCommand(logger, mockRepo)
+		searchCmd := NewSearchCommand(logger, mockRepo, nil)
 		searchCmd.opts.status = "success"
 		searchCmd.opts.format = "text"
 
@@ -117,7 +117,7 @@ func TestSearchCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("GetAllCommands").Return(sampleCommands, nil)
 
-		searchCmd := NewSearchCommand(logger, mockRepo)
+		searchCmd := NewSearchCommand(logger, mockRepo, nil)
 		searchCmd.opts.since = "24h"
 		searchCmd.opts.format = "text"
 
@@ -130,7 +130,7 @@ func TestSearchCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("GetAllCommands").Return(sampleCommands, nil)
 
-		searchCmd := NewSearchCommand(logger, mockRepo)
+		searchCmd := NewSearchCommand(logger, mockRepo, nil)
 		searchCmd.opts.limit = 1
 		searchCmd.opts.format = "text"
 
@@ -143,7 +143,7 @@ func TestSearchCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("GetAllCommands").Return(sampleCommands, nil)
 
-		searchCmd := NewSearchCommand(logger, mockRepo)
+		searchCmd := NewSearchCommand(logger, mockRepo, nil)
 		searchCmd.opts.format = "json"
 
 		err := searchCmd.runE(searchCmd.cmd, []string{})
@@ -155,7 +155,7 @@ func TestSearchCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("GetAllCommands").Return(sampleCommands, nil)
 
-		searchCmd := NewSearchCommand(logger, mockRepo)
+		searchCmd := NewSearchCommand(logger, mockRepo, nil)
 		searchCmd.opts.format = "yaml"
 
 		err := searchCmd.runE(searchCmd.cmd, []string{})
@@ -167,7 +167,7 @@ func TestSearchCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("GetAllCommands").Return(sampleCommands, nil)
 
-		searchCmd := NewSearchCommand(logger, mockRepo)
+		searchCmd := NewSearchCommand(logger, mockRepo, nil)
 		searchCmd.opts.format = "invalid"
 
 		err := searchCmd.runE(searchCmd.cmd, []string{})
@@ -179,7 +179,7 @@ func TestSearchCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("GetAllCommands").Return(nil, assert.AnError)
 
-		searchCmd := NewSearchCommand(logger, mockRepo)
+		searchCmd := NewSearchCommand(logger, mockRepo, nil)
 		searchCmd.opts.format = "text"
 
 		err := searchCmd.runE(searchCmd.cmd, []string{})
@@ -189,7 +189,7 @@ func TestSearchCommand(t *testing.T) {
 
 	t.Run("command structure validation", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		searchCmd := NewSearchCommand(logger, mockRepo)
+		searchCmd := NewSearchCommand(logger, mockRepo, nil)
 
 		assert.Equal(t, "search [query]", searchCmd.cmd.Use)
 		assert.Equal(t, "Search through command history", searchCmd.cmd.Short)
@@ -287,7 +287,7 @@ func TestSearchCommand_FilterCommands(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			searchCmd := NewSearchCommand(logger, mockRepo)
+			searchCmd := NewSearchCommand(logger, mockRepo, nil)
 			searchCmd.opts = tt.opts
 
 			filtered := searchCmd.filterCommands(commands, tt.query)

@@ -13,14 +13,18 @@ import (
 
 	"github.com/gi4nks/ambros/v3/internal/errors"
 	"github.com/gi4nks/ambros/v3/internal/models"
+	"github.com/gi4nks/ambros/v3/internal/plugins" // New import
 )
 
 type TemplateCommand struct {
 	*BaseCommand
+	executor *Executor // Add this field
 }
 
-func NewTemplateCommand(logger *zap.Logger, repo RepositoryInterface) *TemplateCommand {
-	tc := &TemplateCommand{}
+func NewTemplateCommand(logger *zap.Logger, repo RepositoryInterface, api plugins.CoreAPI) *TemplateCommand {
+	tc := &TemplateCommand{
+		executor: NewExecutor(logger), // Initialize the executor
+	}
 
 	cmd := &cobra.Command{
 		Use:   "template <action> [args...]",
@@ -44,7 +48,7 @@ Examples:
 		RunE: tc.runE,
 	}
 
-	tc.BaseCommand = NewBaseCommand(cmd, logger, repo)
+	tc.BaseCommand = NewBaseCommand(cmd, logger, repo, api)
 	tc.cmd = cmd
 	return tc
 }
@@ -169,13 +173,8 @@ func (tc *TemplateCommand) runTemplate(args []string) error {
 	color.Yellow("🚀 Running template: %s", name)
 	fmt.Printf("Command: %s %s\n", templateCmd.Name, strings.Join(fullArgs, " "))
 
-	// Create a run command instance and execute
-	runCmd := NewRunCommand(tc.logger, tc.repository)
-	runCmd.opts.store = true // Always store template executions
-	runCmd.opts.tag = []string{"template", name}
-
 	// Execute the template command by calling executeCommand and handling output
-	output, errorMsg, success, err := runCmd.executeCommand(templateCmd.Name, fullArgs)
+	output, errorMsg, success, err := tc.executor.ExecuteCommand(templateCmd.Name, fullArgs)
 	if err != nil {
 		return err
 	}
@@ -188,32 +187,30 @@ func (tc *TemplateCommand) runTemplate(args []string) error {
 		fmt.Fprint(os.Stderr, errorMsg)
 	}
 
-	// Store the execution if successful
-	if runCmd.opts.store {
-		newCmd := &models.Command{
-			Entity: models.Entity{
-				ID:        fmt.Sprintf("CMD-%d", time.Now().UnixNano()),
-				CreatedAt: time.Now(),
-			},
-			Name:      templateCmd.Name,
-			Arguments: fullArgs,
-			Status:    success,
-			Output:    output,
-			Error:     errorMsg,
-			Tags:      runCmd.opts.tag,
-			Category:  runCmd.opts.category,
-		}
-		newCmd.TerminatedAt = time.Now()
+	// Store the execution
+	newCmd := &models.Command{
+		Entity: models.Entity{
+			ID:        fmt.Sprintf("CMD-%d", time.Now().UnixNano()),
+			CreatedAt: time.Now(),
+		},
+		Name:      templateCmd.Name,
+		Arguments: fullArgs,
+		Status:    success,
+		Output:    output,
+		Error:     errorMsg,
+		Tags:      []string{"template", name}, // Re-add tags
+		Category:  "template_execution",       // New category for template executions
+	}
+	newCmd.TerminatedAt = time.Now()
 
-		if err := tc.repository.Put(context.Background(), *newCmd); err != nil {
-			tc.logger.Warn("Failed to store template execution", zap.Error(err))
+	if err := tc.repository.Put(context.Background(), *newCmd); err != nil {
+		tc.logger.Warn("Failed to store template execution", zap.Error(err))
+	} else {
+		duration := newCmd.TerminatedAt.Sub(newCmd.CreatedAt)
+		if success {
+			color.Green("[%s] ✅ Success (%v)", newCmd.ID, duration.Round(time.Millisecond))
 		} else {
-			duration := newCmd.TerminatedAt.Sub(newCmd.CreatedAt)
-			if success {
-				color.Green("[%s] ✅ Success (%v)", newCmd.ID, duration.Round(time.Millisecond))
-			} else {
-				color.Red("[%s] ❌ Failed (%v)", newCmd.ID, duration.Round(time.Millisecond))
-			}
+			color.Red("[%s] ❌ Failed (%v)", newCmd.ID, duration.Round(time.Millisecond))
 		}
 	}
 
@@ -291,7 +288,7 @@ func (tc *TemplateCommand) deleteTemplate(args []string) error {
 			if tag == name && cmd.Category == "template" {
 				// Delete the template from repository
 				if err := tc.repository.Delete(cmd.ID); err != nil {
-					return fmt.Errorf("failed to delete template: %w", err)
+					return errors.NewError(errors.ErrRepositoryWrite, "failed to delete template", err)
 				}
 				color.Green("🗑️  Template '%s' deleted successfully", name)
 				found = true

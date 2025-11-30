@@ -11,6 +11,7 @@ import (
 
 	"github.com/gi4nks/ambros/v3/internal/errors"
 	"github.com/gi4nks/ambros/v3/internal/models"
+	"github.com/gi4nks/ambros/v3/internal/plugins" // New import
 )
 
 type LastCommand struct {
@@ -19,7 +20,7 @@ type LastCommand struct {
 	failedOnly bool
 }
 
-func NewLastCommand(logger *zap.Logger, repo RepositoryInterface) *LastCommand {
+func NewLastCommand(logger *zap.Logger, repo RepositoryInterface, api plugins.CoreAPI) *LastCommand {
 	lc := &LastCommand{}
 
 	cmd := &cobra.Command{
@@ -29,7 +30,7 @@ func NewLastCommand(logger *zap.Logger, repo RepositoryInterface) *LastCommand {
 		RunE:  lc.runE,
 	}
 
-	lc.BaseCommand = NewBaseCommand(cmd, logger, repo)
+	lc.BaseCommand = NewBaseCommand(cmd, logger, repo, api)
 	lc.cmd = cmd
 	lc.setupFlags(cmd)
 	return lc

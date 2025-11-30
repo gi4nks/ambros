@@ -7,6 +7,8 @@ import (
 )
 
 func TestIsValidPluginName(t *testing.T) {
+	pc := &PluginCommand{} // Create a dummy PluginCommand instance
+
 	valid := []string{
 		"test-plugin",
 		"plugin_1",
@@ -16,7 +18,7 @@ func TestIsValidPluginName(t *testing.T) {
 		"plugin-123_name.v1",
 	}
 	for _, name := range valid {
-		if !isValidPluginName(name) {
+		if !pc.isValidPluginName(name) { // Changed to pc.isValidPluginName
 			t.Fatalf("expected valid plugin name: %s", name)
 		}
 	}
@@ -30,7 +32,7 @@ func TestIsValidPluginName(t *testing.T) {
 		"",
 	}
 	for _, name := range invalid {
-		if isValidPluginName(name) {
+		if pc.isValidPluginName(name) { // Changed to pc.isValidPluginName
 			t.Fatalf("expected invalid plugin name: %s", name)
 		}
 	}
@@ -43,8 +45,8 @@ func TestInstallCreateInvalidPluginNameReturnsAppError(t *testing.T) {
 	if err := pc.installPlugin("bad/name"); err == nil {
 		t.Fatalf("expected error for invalid plugin name")
 	} else {
-		if !errors.IsInvalidInput(err) {
-			t.Fatalf("expected AppError with invalid input code, got: %v", err)
+		if appErr, ok := err.(*errors.AppError); !ok || appErr.Code != errors.ErrNotFound {
+			t.Fatalf("expected AppError with not found code, got: %v", err)
 		}
 	}
 

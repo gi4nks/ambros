@@ -6,13 +6,17 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
+	"github.com/gi4nks/ambros/v3/internal/plugins" // New import
 	"github.com/gi4nks/ambros/v3/internal/repos"
 	"github.com/gi4nks/ambros/v3/internal/utils"
 )
 
 var (
-	cfgFile string
-	debug   bool
+	cfgFile        string
+	debug          bool
+	pluginCmd      *PluginCommand
+	globalConfig   *utils.Configuration // Global variable to hold the configuration
+	globalExecutor *Executor            // Global variable to hold the executor
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -44,13 +48,13 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.ambros.yaml)")
 	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "enable debug mode")
 
-	// Initialize logger
+	// Initialize logger (before config load, as config might influence logging)
 	logger := initLogger()
+	globalConfig = utils.NewConfiguration(logger) // Initialize global config with logger
+	globalExecutor = NewExecutor(logger)          // Initialize global executor
 
-	// Add subcommands that don't require repository
-	rootCmd.AddCommand(NewVersionCommand(logger).Command())
-	rootCmd.AddCommand(NewConfigurationCommand(logger).Command())
-	rootCmd.AddCommand(NewIntegrateCommand(logger).Command())
+	// Add subcommands that don't require repository (yet)
+	rootCmd.AddCommand(NewConfigurationCommand(logger, globalConfig).Command()) // Pass globalConfig
 }
 
 // InitializeRepository initializes the repository and adds repository-dependent commands
@@ -58,41 +62,56 @@ func InitializeRepository() error {
 	logger := initLogger()
 
 	// Initialize repository
-	config := utils.NewConfiguration(logger)
-	repo, err := repos.NewRepository(config.RepositoryFullName(), logger)
+	repo, err := repos.NewRepository(globalConfig.RepositoryFullName(), logger)
 	if err != nil {
 		return err
 	}
 
+	// Create CoreAPI implementation
+	coreAPI := NewCoreAPIImpl(logger, globalConfig, repo, globalExecutor, rootCmd)
+
+	// Set CoreAPI in the global plugin registry
+	plugins.GetGlobalRegistry().SetCoreAPI(coreAPI)
+
 	// Add repository-dependent commands
-	addRepositoryCommands(logger, repo)
+	addRepositoryCommands(logger, repo, coreAPI)
 	return nil
 }
 
-func addRepositoryCommands(logger *zap.Logger, repo RepositoryInterface) {
+func addRepositoryCommands(logger *zap.Logger, repo RepositoryInterface, api plugins.CoreAPI) {
+	rootCmd.AddCommand(NewVersionCommand(logger, api).Command())
+	rootCmd.AddCommand(NewIntegrateCommand(logger, api).Command())
+
 	// Add all command implementations that require repository
-	rootCmd.AddCommand(NewRunCommand(logger, repo).Command())
-	rootCmd.AddCommand(NewLastCommand(logger, repo).Command())
-	rootCmd.AddCommand(NewSearchCommand(logger, repo).Command())
-	rootCmd.AddCommand(NewOutputCommand(logger, repo).Command())
-	rootCmd.AddCommand(NewTemplateCommand(logger, repo).Command())
-	rootCmd.AddCommand(NewAnalyticsCommand(logger, repo).Command())
-	rootCmd.AddCommand(NewEnvCommand(logger, repo).Command())
-	rootCmd.AddCommand(NewInteractiveCommand(logger, repo).Command())
-	rootCmd.AddCommand(NewExportCommand(logger, repo).Command())
-	rootCmd.AddCommand(NewImportCommand(logger, repo).Command())
-	rootCmd.AddCommand(NewLogsCommand(logger, repo).Command())
-	rootCmd.AddCommand(NewChainCommand(logger, repo).Command())
-	rootCmd.AddCommand(NewStoreCommand(logger, repo).Command())
+	rootCmd.AddCommand(NewRunCommand(logger, repo, api).Command())
+	rootCmd.AddCommand(NewLastCommand(logger, repo, api).Command())
+	rootCmd.AddCommand(NewSearchCommand(logger, repo, api).Command())
+	rootCmd.AddCommand(NewOutputCommand(logger, repo, api).Command())
+	rootCmd.AddCommand(NewTemplateCommand(logger, repo, api).Command())
+	rootCmd.AddCommand(NewAnalyticsCommand(logger, repo, api).Command())
+	rootCmd.AddCommand(NewEnvCommand(logger, repo, api).Command())
+	rootCmd.AddCommand(NewInteractiveCommand(logger, repo, api).Command())
+	rootCmd.AddCommand(NewExportCommand(logger, repo, api).Command())
+	rootCmd.AddCommand(NewImportCommand(logger, repo, api).Command())
+	rootCmd.AddCommand(NewLogsCommand(logger, repo, api).Command())
+	rootCmd.AddCommand(NewChainCommand(logger, repo, api).Command())
+	rootCmd.AddCommand(NewStoreCommand(logger, repo, api).Command())
 	// Unified rerun command replaces recall/revive
-	rootCmd.AddCommand(NewRerunCommand(logger, repo).Command())
-	rootCmd.AddCommand(NewSchedulerCommand(logger, repo).Command())
+	rootCmd.AddCommand(NewRerunCommand(logger, repo, api).Command())
+	rootCmd.AddCommand(NewSchedulerCommand(logger, repo, api).Command())
 	// Database utilities
 	rootCmd.AddCommand(NewDBCommand(logger, repo).Command())
 
 	// Additional server and plugin commands
 	rootCmd.AddCommand(NewServerCommand(logger, repo).Command())
-	rootCmd.AddCommand(NewPluginCommand(logger, repo).Command())
+	pluginCmd = NewPluginCommand(logger, repo) // Store in package-level variable
+	rootCmd.AddCommand(pluginCmd.Command())
+}
+
+// GetPluginCommand returns the global PluginCommand instance for hook execution.
+// May return nil if plugins are not yet initialized.
+func GetPluginCommand() *PluginCommand {
+	return pluginCmd
 }
 
 func initLogger() *zap.Logger {
@@ -117,6 +136,15 @@ func initLogger() *zap.Logger {
 }
 
 func initConfig() {
-	// Configuration initialization can be added here
-	// For now, we'll use the default configuration
+	// Load configuration
+	if err := globalConfig.Load(cfgFile); err != nil {
+		globalConfig.Logger.Fatal("Failed to load configuration", zap.Error(err))
+	}
+
+	// Re-initialize logger if debug mode changed after config load
+	if globalConfig.DebugMode && !debug {
+		debug = true // Force debug mode on if enabled in config
+		globalConfig.Logger.Info("Debug mode enabled via config file, re-initializing logger")
+		initLogger() // Re-init logger to apply debug settings
+	}
 }

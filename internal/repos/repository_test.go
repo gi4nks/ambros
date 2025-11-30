@@ -474,11 +474,34 @@ func TestGetTemplate(t *testing.T) {
 	f := setupTest(t)
 	defer f.tearDown()
 
-	// Test template retrieval (placeholder implementation)
-	template, err := f.repo.GetTemplate("test-template")
+	// No template stored should return error
+	template, err := f.repo.GetTemplate("missing")
 	assert.Error(t, err)
 	assert.Nil(t, template)
-	assert.Contains(t, err.Error(), "template not found")
+
+	// Store a template command (current storage mechanism)
+	cmd := models.Command{
+		Entity: models.Entity{
+			ID:        "tpl-1",
+			CreatedAt: time.Now(),
+		},
+		Name:      "echo",
+		Arguments: []string{"hello"},
+		Category:  "template",
+		Tags:      []string{"template", "greeter"},
+		Output:    "Template command",
+		Variables: map[string]string{"name": "world"},
+	}
+
+	err = f.repo.Put(context.Background(), cmd)
+	require.NoError(t, err)
+
+	template, err = f.repo.GetTemplate("greeter")
+	require.NoError(t, err)
+	assert.Equal(t, "greeter", template.Name)
+	assert.Equal(t, "echo hello", template.Pattern)
+	assert.Equal(t, "Template command", template.Description)
+	assert.Equal(t, "world", template.Variables["name"])
 }
 
 func TestNotFoundErrors(t *testing.T) {

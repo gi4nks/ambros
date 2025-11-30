@@ -24,7 +24,7 @@ func TestTemplateCommand(t *testing.T) {
 				cmd.Status == true
 		})).Return(nil)
 
-		templateCmd := NewTemplateCommand(logger, mockRepo)
+		templateCmd := NewTemplateCommand(logger, mockRepo, nil)
 
 		err := templateCmd.runE(templateCmd.cmd, []string{"save", "greeting", "echo", "hello"})
 		assert.NoError(t, err)
@@ -42,7 +42,7 @@ func TestTemplateCommand(t *testing.T) {
 				len(cmd.Tags) == 2 && cmd.Tags[0] == "template" && cmd.Tags[1] == "deploy"
 		})).Return(nil)
 
-		templateCmd := NewTemplateCommand(logger, mockRepo)
+		templateCmd := NewTemplateCommand(logger, mockRepo, nil)
 
 		err := templateCmd.runE(templateCmd.cmd, []string{"save", "deploy", "kubectl", "apply", "-f", "deployment.yaml", "--namespace=prod"})
 		assert.NoError(t, err)
@@ -51,7 +51,7 @@ func TestTemplateCommand(t *testing.T) {
 
 	t.Run("save template with insufficient arguments", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		templateCmd := NewTemplateCommand(logger, mockRepo)
+		templateCmd := NewTemplateCommand(logger, mockRepo, nil)
 
 		// Missing command
 		err := templateCmd.runE(templateCmd.cmd, []string{"save", "test"})
@@ -68,7 +68,7 @@ func TestTemplateCommand(t *testing.T) {
 
 	t.Run("save template with empty command", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		templateCmd := NewTemplateCommand(logger, mockRepo)
+		templateCmd := NewTemplateCommand(logger, mockRepo, nil)
 
 		err := templateCmd.runE(templateCmd.cmd, []string{"save", "test", ""})
 		assert.Error(t, err)
@@ -81,7 +81,7 @@ func TestTemplateCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("Put", mock.Anything, mock.Anything).Return(assert.AnError)
 
-		templateCmd := NewTemplateCommand(logger, mockRepo)
+		templateCmd := NewTemplateCommand(logger, mockRepo, nil)
 
 		err := templateCmd.runE(templateCmd.cmd, []string{"save", "test", "echo", "hello"})
 		assert.Error(t, err)
@@ -117,7 +117,7 @@ func TestTemplateCommand(t *testing.T) {
 
 		mockRepo.On("SearchByTag", "template").Return(templates, nil)
 
-		templateCmd := NewTemplateCommand(logger, mockRepo)
+		templateCmd := NewTemplateCommand(logger, mockRepo, nil)
 
 		err := templateCmd.runE(templateCmd.cmd, []string{"list"})
 		assert.NoError(t, err)
@@ -128,7 +128,7 @@ func TestTemplateCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("SearchByTag", "template").Return([]models.Command{}, nil)
 
-		templateCmd := NewTemplateCommand(logger, mockRepo)
+		templateCmd := NewTemplateCommand(logger, mockRepo, nil)
 
 		err := templateCmd.runE(templateCmd.cmd, []string{"list"})
 		assert.NoError(t, err)
@@ -139,7 +139,7 @@ func TestTemplateCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("SearchByTag", "template").Return(nil, assert.AnError)
 
-		templateCmd := NewTemplateCommand(logger, mockRepo)
+		templateCmd := NewTemplateCommand(logger, mockRepo, nil)
 
 		err := templateCmd.runE(templateCmd.cmd, []string{"list"})
 		assert.Error(t, err)
@@ -166,7 +166,7 @@ func TestTemplateCommand(t *testing.T) {
 
 		mockRepo.On("SearchByTag", "template").Return(templates, nil)
 
-		templateCmd := NewTemplateCommand(logger, mockRepo)
+		templateCmd := NewTemplateCommand(logger, mockRepo, nil)
 
 		err := templateCmd.runE(templateCmd.cmd, []string{"show", "greeting"})
 		assert.NoError(t, err)
@@ -177,7 +177,7 @@ func TestTemplateCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("SearchByTag", "template").Return([]models.Command{}, nil)
 
-		templateCmd := NewTemplateCommand(logger, mockRepo)
+		templateCmd := NewTemplateCommand(logger, mockRepo, nil)
 
 		err := templateCmd.runE(templateCmd.cmd, []string{"show", "nonexistent"})
 		assert.Error(t, err)
@@ -187,7 +187,7 @@ func TestTemplateCommand(t *testing.T) {
 
 	t.Run("show template with insufficient arguments", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		templateCmd := NewTemplateCommand(logger, mockRepo)
+		templateCmd := NewTemplateCommand(logger, mockRepo, nil)
 
 		err := templateCmd.runE(templateCmd.cmd, []string{"show"})
 		assert.Error(t, err)
@@ -200,7 +200,7 @@ func TestTemplateCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("SearchByTag", "template").Return(nil, assert.AnError)
 
-		templateCmd := NewTemplateCommand(logger, mockRepo)
+		templateCmd := NewTemplateCommand(logger, mockRepo, nil)
 
 		err := templateCmd.runE(templateCmd.cmd, []string{"show", "test"})
 		assert.Error(t, err)
@@ -225,7 +225,7 @@ func TestTemplateCommand(t *testing.T) {
 		mockRepo.On("SearchByTag", "template").Return(templates, nil)
 		mockRepo.On("Delete", "TPL-greeting-123").Return(nil)
 
-		templateCmd := NewTemplateCommand(logger, mockRepo)
+		templateCmd := NewTemplateCommand(logger, mockRepo, nil)
 
 		err := templateCmd.runE(templateCmd.cmd, []string{"delete", "greeting"})
 		assert.NoError(t, err)
@@ -236,7 +236,7 @@ func TestTemplateCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("SearchByTag", "template").Return([]models.Command{}, nil)
 
-		templateCmd := NewTemplateCommand(logger, mockRepo)
+		templateCmd := NewTemplateCommand(logger, mockRepo, nil)
 
 		err := templateCmd.runE(templateCmd.cmd, []string{"delete", "nonexistent"})
 		assert.Error(t, err)
@@ -246,7 +246,7 @@ func TestTemplateCommand(t *testing.T) {
 
 	t.Run("delete template with insufficient arguments", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		templateCmd := NewTemplateCommand(logger, mockRepo)
+		templateCmd := NewTemplateCommand(logger, mockRepo, nil)
 
 		err := templateCmd.runE(templateCmd.cmd, []string{"delete"})
 		assert.Error(t, err)
@@ -259,7 +259,7 @@ func TestTemplateCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("SearchByTag", "template").Return(nil, assert.AnError)
 
-		templateCmd := NewTemplateCommand(logger, mockRepo)
+		templateCmd := NewTemplateCommand(logger, mockRepo, nil)
 
 		err := templateCmd.runE(templateCmd.cmd, []string{"delete", "test"})
 		assert.Error(t, err)
@@ -284,7 +284,7 @@ func TestTemplateCommand(t *testing.T) {
 		mockRepo.On("SearchByTag", "template").Return(templates, nil)
 		mockRepo.On("Delete", "TPL-greeting-123").Return(assert.AnError)
 
-		templateCmd := NewTemplateCommand(logger, mockRepo)
+		templateCmd := NewTemplateCommand(logger, mockRepo, nil)
 
 		err := templateCmd.runE(templateCmd.cmd, []string{"delete", "greeting"})
 		assert.Error(t, err)
@@ -317,7 +317,7 @@ func TestTemplateCommand(t *testing.T) {
 				len(cmd.Tags) >= 2 && cmd.Tags[0] == "template" && cmd.Tags[1] == "greeting"
 		})).Return(nil)
 
-		templateCmd := NewTemplateCommand(logger, mockRepo)
+		templateCmd := NewTemplateCommand(logger, mockRepo, nil)
 
 		err := templateCmd.runE(templateCmd.cmd, []string{"run", "greeting", "world"})
 		assert.NoError(t, err)
@@ -328,7 +328,7 @@ func TestTemplateCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("SearchByTag", "template").Return([]models.Command{}, nil)
 
-		templateCmd := NewTemplateCommand(logger, mockRepo)
+		templateCmd := NewTemplateCommand(logger, mockRepo, nil)
 
 		err := templateCmd.runE(templateCmd.cmd, []string{"run", "nonexistent"})
 		assert.Error(t, err)
@@ -338,7 +338,7 @@ func TestTemplateCommand(t *testing.T) {
 
 	t.Run("run template with insufficient arguments", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		templateCmd := NewTemplateCommand(logger, mockRepo)
+		templateCmd := NewTemplateCommand(logger, mockRepo, nil)
 
 		err := templateCmd.runE(templateCmd.cmd, []string{"run"})
 		assert.Error(t, err)
@@ -351,7 +351,7 @@ func TestTemplateCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("SearchByTag", "template").Return(nil, assert.AnError)
 
-		templateCmd := NewTemplateCommand(logger, mockRepo)
+		templateCmd := NewTemplateCommand(logger, mockRepo, nil)
 
 		err := templateCmd.runE(templateCmd.cmd, []string{"run", "test"})
 		assert.Error(t, err)
@@ -361,7 +361,7 @@ func TestTemplateCommand(t *testing.T) {
 
 	t.Run("unknown action", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		templateCmd := NewTemplateCommand(logger, mockRepo)
+		templateCmd := NewTemplateCommand(logger, mockRepo, nil)
 
 		err := templateCmd.runE(templateCmd.cmd, []string{"unknown"})
 		assert.Error(t, err)
@@ -372,7 +372,7 @@ func TestTemplateCommand(t *testing.T) {
 
 	t.Run("no action provided", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		templateCmd := NewTemplateCommand(logger, mockRepo)
+		templateCmd := NewTemplateCommand(logger, mockRepo, nil)
 
 		err := templateCmd.runE(templateCmd.cmd, []string{})
 		assert.Error(t, err)
@@ -394,7 +394,7 @@ func TestTemplateCommand_EdgeCases(t *testing.T) {
 				len(cmd.Tags) == 2 && cmd.Tags[0] == "template" && cmd.Tags[1] == "current-dir"
 		})).Return(nil)
 
-		templateCmd := NewTemplateCommand(logger, mockRepo)
+		templateCmd := NewTemplateCommand(logger, mockRepo, nil)
 
 		err := templateCmd.runE(templateCmd.cmd, []string{"save", "current-dir", "pwd"})
 		assert.NoError(t, err)
@@ -409,7 +409,7 @@ func TestTemplateCommand_EdgeCases(t *testing.T) {
 				cmd.Category == "template"
 		})).Return(nil)
 
-		templateCmd := NewTemplateCommand(logger, mockRepo)
+		templateCmd := NewTemplateCommand(logger, mockRepo, nil)
 
 		err := templateCmd.runE(templateCmd.cmd, []string{"save", "quoted", "echo", "hello", "world"})
 		assert.NoError(t, err)
@@ -442,7 +442,7 @@ func TestTemplateCommand_EdgeCases(t *testing.T) {
 
 		mockRepo.On("SearchByTag", "template").Return(commands, nil)
 
-		templateCmd := NewTemplateCommand(logger, mockRepo)
+		templateCmd := NewTemplateCommand(logger, mockRepo, nil)
 
 		err := templateCmd.runE(templateCmd.cmd, []string{"list"})
 		assert.NoError(t, err)
@@ -467,7 +467,7 @@ func TestTemplateCommand_EdgeCases(t *testing.T) {
 			return cmd.Name == "pwd" && len(cmd.Arguments) == 0
 		})).Return(nil)
 
-		templateCmd := NewTemplateCommand(logger, mockRepo)
+		templateCmd := NewTemplateCommand(logger, mockRepo, nil)
 
 		err := templateCmd.runE(templateCmd.cmd, []string{"run", "current-dir"})
 		assert.NoError(t, err)
@@ -481,7 +481,7 @@ func TestTemplateCommand_EdgeCases(t *testing.T) {
 				cmd.Category == "template"
 		})).Return(nil)
 
-		templateCmd := NewTemplateCommand(logger, mockRepo)
+		templateCmd := NewTemplateCommand(logger, mockRepo, nil)
 
 		err := templateCmd.runE(templateCmd.cmd, []string{"save", "my-template_v1.0", "echo", "test"})
 		assert.NoError(t, err)
@@ -494,7 +494,7 @@ func TestTemplateCommand_CommandStructure(t *testing.T) {
 
 	t.Run("command structure validation", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		templateCmd := NewTemplateCommand(logger, mockRepo)
+		templateCmd := NewTemplateCommand(logger, mockRepo, nil)
 
 		// Verify command is properly configured
 		assert.Equal(t, "template", templateCmd.cmd.Use[:8])
@@ -511,7 +511,7 @@ func TestTemplateCommand_CommandStructure(t *testing.T) {
 			capturedCmd = args.Get(1).(models.Command)
 		}).Return(nil)
 
-		templateCmd := NewTemplateCommand(logger, mockRepo)
+		templateCmd := NewTemplateCommand(logger, mockRepo, nil)
 
 		err := templateCmd.runE(templateCmd.cmd, []string{"save", "test", "echo", "hello"})
 		assert.NoError(t, err)
@@ -531,7 +531,7 @@ func TestTemplateCommand_CommandStructure(t *testing.T) {
 			capturedCmd = args.Get(1).(models.Command)
 		}).Return(nil)
 
-		templateCmd := NewTemplateCommand(logger, mockRepo)
+		templateCmd := NewTemplateCommand(logger, mockRepo, nil)
 		startTime := time.Now()
 
 		err := templateCmd.runE(templateCmd.cmd, []string{"save", "timing-test", "echo", "timing"})

@@ -18,7 +18,7 @@ func TestSchedulerCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("GetAllCommands").Return([]models.Command{}, nil)
 
-		schedulerCmd := NewSchedulerCommand(logger, mockRepo)
+		schedulerCmd := NewSchedulerCommand(logger, mockRepo, nil)
 
 		err := schedulerCmd.runE(schedulerCmd.cmd, []string{"list"})
 		assert.NoError(t, err)
@@ -45,7 +45,7 @@ func TestSchedulerCommand(t *testing.T) {
 		}
 		mockRepo.On("GetAllCommands").Return(commands, nil)
 
-		schedulerCmd := NewSchedulerCommand(logger, mockRepo)
+		schedulerCmd := NewSchedulerCommand(logger, mockRepo, nil)
 
 		err := schedulerCmd.runE(schedulerCmd.cmd, []string{"list"})
 		assert.NoError(t, err)
@@ -63,7 +63,7 @@ func TestSchedulerCommand(t *testing.T) {
 			return cmd.Schedule != nil && cmd.Schedule.CronExpr == "0 9 * * *"
 		})).Return(nil)
 
-		schedulerCmd := NewSchedulerCommand(logger, mockRepo)
+		schedulerCmd := NewSchedulerCommand(logger, mockRepo, nil)
 
 		err := schedulerCmd.runE(schedulerCmd.cmd, []string{"add", "cmd1", "0", "9", "*", "*", "*"})
 		assert.NoError(t, err)
@@ -81,7 +81,7 @@ func TestSchedulerCommand(t *testing.T) {
 			return cmd.Schedule != nil && cmd.Schedule.CronExpr == "0 */2 * * *"
 		})).Return(nil)
 
-		schedulerCmd := NewSchedulerCommand(logger, mockRepo)
+		schedulerCmd := NewSchedulerCommand(logger, mockRepo, nil)
 		schedulerCmd.cronExpr = "0 */2 * * *"
 
 		err := schedulerCmd.runE(schedulerCmd.cmd, []string{"add", "cmd1"})
@@ -100,7 +100,7 @@ func TestSchedulerCommand(t *testing.T) {
 			return cmd.Schedule != nil && cmd.Schedule.CronExpr == "0 * * * *"
 		})).Return(nil)
 
-		schedulerCmd := NewSchedulerCommand(logger, mockRepo)
+		schedulerCmd := NewSchedulerCommand(logger, mockRepo, nil)
 		schedulerCmd.interval = "1h"
 
 		err := schedulerCmd.runE(schedulerCmd.cmd, []string{"add", "cmd1"})
@@ -112,7 +112,7 @@ func TestSchedulerCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("Get", "nonexistent").Return(nil, assert.AnError)
 
-		schedulerCmd := NewSchedulerCommand(logger, mockRepo)
+		schedulerCmd := NewSchedulerCommand(logger, mockRepo, nil)
 
 		err := schedulerCmd.runE(schedulerCmd.cmd, []string{"add", "nonexistent", "0", "9", "*", "*", "*"})
 		assert.Error(t, err)
@@ -135,7 +135,7 @@ func TestSchedulerCommand(t *testing.T) {
 			return cmd.Schedule == nil
 		})).Return(nil)
 
-		schedulerCmd := NewSchedulerCommand(logger, mockRepo)
+		schedulerCmd := NewSchedulerCommand(logger, mockRepo, nil)
 
 		err := schedulerCmd.runE(schedulerCmd.cmd, []string{"remove", "cmd1"})
 		assert.NoError(t, err)
@@ -157,7 +157,7 @@ func TestSchedulerCommand(t *testing.T) {
 			return cmd.Schedule != nil && cmd.Schedule.Enabled
 		})).Return(nil)
 
-		schedulerCmd := NewSchedulerCommand(logger, mockRepo)
+		schedulerCmd := NewSchedulerCommand(logger, mockRepo, nil)
 
 		err := schedulerCmd.runE(schedulerCmd.cmd, []string{"enable", "cmd1"})
 		assert.NoError(t, err)
@@ -179,7 +179,7 @@ func TestSchedulerCommand(t *testing.T) {
 			return cmd.Schedule != nil && !cmd.Schedule.Enabled
 		})).Return(nil)
 
-		schedulerCmd := NewSchedulerCommand(logger, mockRepo)
+		schedulerCmd := NewSchedulerCommand(logger, mockRepo, nil)
 
 		err := schedulerCmd.runE(schedulerCmd.cmd, []string{"disable", "cmd1"})
 		assert.NoError(t, err)
@@ -204,7 +204,7 @@ func TestSchedulerCommand(t *testing.T) {
 		}
 		mockRepo.On("GetAllCommands").Return(commands, nil)
 
-		schedulerCmd := NewSchedulerCommand(logger, mockRepo)
+		schedulerCmd := NewSchedulerCommand(logger, mockRepo, nil)
 
 		err := schedulerCmd.runE(schedulerCmd.cmd, []string{"status"})
 		assert.NoError(t, err)
@@ -213,7 +213,7 @@ func TestSchedulerCommand(t *testing.T) {
 
 	t.Run("unknown subcommand", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		schedulerCmd := NewSchedulerCommand(logger, mockRepo)
+		schedulerCmd := NewSchedulerCommand(logger, mockRepo, nil)
 
 		err := schedulerCmd.runE(schedulerCmd.cmd, []string{"unknown"})
 		assert.Error(t, err)
@@ -222,7 +222,7 @@ func TestSchedulerCommand(t *testing.T) {
 
 	t.Run("command structure validation", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		schedulerCmd := NewSchedulerCommand(logger, mockRepo)
+		schedulerCmd := NewSchedulerCommand(logger, mockRepo, nil)
 
 		assert.Equal(t, "scheduler", schedulerCmd.cmd.Use)
 		assert.Equal(t, "Manage scheduled command executions", schedulerCmd.cmd.Short)
@@ -239,7 +239,7 @@ func TestSchedulerCommand(t *testing.T) {
 func TestSchedulerCommand_IntervalToCron(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	mockRepo := new(mocks.MockRepository)
-	schedulerCmd := NewSchedulerCommand(logger, mockRepo)
+	schedulerCmd := NewSchedulerCommand(logger, mockRepo, nil)
 
 	tests := []struct {
 		interval string
@@ -263,7 +263,7 @@ func TestSchedulerCommand_IntervalToCron(t *testing.T) {
 func TestSchedulerCommand_ValidateCronExpr(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	mockRepo := new(mocks.MockRepository)
-	schedulerCmd := NewSchedulerCommand(logger, mockRepo)
+	schedulerCmd := NewSchedulerCommand(logger, mockRepo, nil)
 
 	tests := []struct {
 		name     string

@@ -17,11 +17,13 @@ import (
 
 	"github.com/gi4nks/ambros/v3/internal/errors"
 	"github.com/gi4nks/ambros/v3/internal/models"
+	"github.com/gi4nks/ambros/v3/internal/plugins" // New import
 )
 
 // ChainCommand represents the chain command with advanced chain management features
 type ChainCommand struct {
 	*BaseCommand
+	executor    *Executor // New field for shared execution logic
 	name        string
 	description string
 	conditional bool
@@ -63,9 +65,10 @@ type CommandExecutionResult struct {
 }
 
 // NewChainCommand creates a new enhanced chain command
-func NewChainCommand(logger *zap.Logger, repo RepositoryInterface) *ChainCommand {
+func NewChainCommand(logger *zap.Logger, repo RepositoryInterface, api plugins.CoreAPI) *ChainCommand {
 	cc := &ChainCommand{
-		chains: make(map[string]*models.CommandChain),
+		executor: NewExecutor(logger), // Initialize the executor
+		chains:   make(map[string]*models.CommandChain),
 	}
 
 	cmd := &cobra.Command{
@@ -98,26 +101,18 @@ Subcommands:
   template              Manage chain templates
   analytics             View chain execution analytics
 
-Execution Modes:
-  --parallel           Execute commands in parallel
-  --conditional        Continue execution on command failure
-  --retry <n>          Retry failed commands n times
-  --timeout <duration> Set overall chain timeout
-  --dry-run           Show what would be executed without running
-  --interactive       Prompt for confirmation before each command
-
 Examples:
   ambros chain create deploy "build,test,package,deploy"
-  ambros chain exec deploy --parallel --retry 2
-  ambros chain list --stats
-  ambros chain show deploy
-  ambros chain export deploy > deploy-chain.json
-  ambros chain import deploy-chain.json`,
+  ambros ambros chain exec deploy --parallel --retry 2
+  ambros ambros chain list --stats
+  ambros ambros chain show deploy
+  ambros ambros chain export deploy > deploy-chain.json
+  ambros ambros chain import deploy-chain.json`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: cc.runE,
 	}
 
-	cc.BaseCommand = NewBaseCommand(cmd, logger, repo)
+	cc.BaseCommand = NewBaseCommand(cmd, logger, repo, api)
 	cc.cmd = cmd
 	cc.setupFlags(cmd)
 	return cc
@@ -384,15 +379,22 @@ func (c *ChainCommand) executeSystemCommand(command string) (string, error) {
 	// Parse the command respecting quotes/escapes
 	parts, err := shellFields(command)
 	if err != nil {
-		return "", err
+		return "", errors.NewError(errors.ErrInvalidCommand, "failed to parse command", err)
 	}
 	if len(parts) == 0 {
-		return "", fmt.Errorf("empty command")
+		return "", errors.NewError(errors.ErrInvalidCommand, "empty command", nil)
 	}
 
 	// Validate executable path to avoid shell surprises or path injection
-	if _, err := ResolveCommandPath(parts[0]); err != nil {
+	if _, err := c.executor.ResolveCommandPath(parts[0]); err != nil {
 		return "", err
+	}
+
+	// If the command is likely interactive and chain isn't in interactive mode,
+	// warn the user.
+	if c.executor.isLikelyInteractive(parts[0], parts[1:]) && !c.interactive {
+		color.Yellow("Warning: command %s looks interactive. Consider adding --interactive or use ambros run --auto for interactive processes.", parts[0])
+		c.logger.Warn("Likely interactive command in chain", zap.String("command", parts[0]))
 	}
 
 	// Execute the command
@@ -600,7 +602,7 @@ func (c *ChainCommand) showChain(name string) error {
 func (c *ChainCommand) exportChain(name string) error {
 	chain, exists := c.getChain(name)
 	if !exists {
-		return fmt.Errorf("chain not found: %s", name)
+		return errors.NewError(errors.ErrCommandNotFound, fmt.Sprintf("chain not found: %s", name), nil)
 	}
 
 	data, err := json.MarshalIndent(chain, "", "  ")

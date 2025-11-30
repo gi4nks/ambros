@@ -1,8 +1,9 @@
 package commands
 
 import (
-	"fmt"
 	"strings"
+
+	"github.com/gi4nks/ambros/v3/internal/errors"
 )
 
 // splitByUnescapedPipe splits a command string by unquoted/unescaped pipes.
@@ -48,10 +49,10 @@ func splitByUnescapedPipe(s string) ([]string, error) {
 	}
 
 	if escape {
-		return nil, fmt.Errorf("unfinished escape in command")
+		return nil, errors.NewError(errors.ErrInvalidCommand, "unfinished escape in command", nil)
 	}
 	if inSingle || inDouble {
-		return nil, fmt.Errorf("unmatched quote in command")
+		return nil, errors.NewError(errors.ErrInvalidCommand, "unmatched quote in command", nil)
 	}
 
 	last := strings.TrimSpace(cur.String())
@@ -105,10 +106,10 @@ func shellFields(s string) ([]string, error) {
 	}
 
 	if escape {
-		return nil, fmt.Errorf("unfinished escape in command")
+		return nil, errors.NewError(errors.ErrInvalidCommand, "unfinished escape in command", nil)
 	}
 	if inSingle || inDouble {
-		return nil, fmt.Errorf("unmatched quote in command")
+		return nil, errors.NewError(errors.ErrInvalidCommand, "unmatched quote in command", nil)
 	}
 	if cur.Len() > 0 {
 		res = append(res, cur.String())

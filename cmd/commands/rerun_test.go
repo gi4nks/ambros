@@ -28,7 +28,7 @@ func TestRerunCommand(t *testing.T) {
 		}
 		mockRepo.On("Get", "test-id").Return(storedCmd, nil)
 
-		rerunCmd := NewRerunCommand(logger, mockRepo)
+		rerunCmd := NewRerunCommand(logger, mockRepo, nil)
 		rerunCmd.store = false
 
 		err := rerunCmd.runE(rerunCmd.cmd, []string{"test-id"})
@@ -53,7 +53,7 @@ func TestRerunCommand(t *testing.T) {
 			return len(cmd.Tags) >= 1
 		})).Return(nil)
 
-		rerunCmd := NewRerunCommand(logger, mockRepo)
+		rerunCmd := NewRerunCommand(logger, mockRepo, nil)
 		rerunCmd.store = true
 
 		err := rerunCmd.runE(rerunCmd.cmd, []string{"test-id"})
@@ -75,7 +75,7 @@ func TestRerunCommand(t *testing.T) {
 		}
 		mockRepo.On("Get", "test-id").Return(storedCmd, nil)
 
-		rerunCmd := NewRerunCommand(logger, mockRepo)
+		rerunCmd := NewRerunCommand(logger, mockRepo, nil)
 		rerunCmd.dryRun = true
 
 		err := rerunCmd.runE(rerunCmd.cmd, []string{"test-id"})
@@ -88,7 +88,7 @@ func TestRerunCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("Get", "nonexistent-id").Return(nil, assert.AnError)
 
-		rerunCmd := NewRerunCommand(logger, mockRepo)
+		rerunCmd := NewRerunCommand(logger, mockRepo, nil)
 
 		err := rerunCmd.runE(rerunCmd.cmd, []string{"nonexistent-id"})
 		assert.Error(t, err)
@@ -113,7 +113,7 @@ func TestRerunCommand(t *testing.T) {
 			return !cmd.Status && len(cmd.Tags) >= 1
 		})).Return(nil)
 
-		rerunCmd := NewRerunCommand(logger, mockRepo)
+		rerunCmd := NewRerunCommand(logger, mockRepo, nil)
 		rerunCmd.store = true
 
 		var exitCode int
@@ -139,7 +139,7 @@ func TestRerunCommand(t *testing.T) {
 		mockRepo.On("Get", "test-id").Return(storedCmd, nil)
 		mockRepo.On("Put", mock.Anything, mock.AnythingOfType("models.Command")).Return(assert.AnError)
 
-		rerunCmd := NewRerunCommand(logger, mockRepo)
+		rerunCmd := NewRerunCommand(logger, mockRepo, nil)
 		rerunCmd.store = true
 
 		err := rerunCmd.runE(rerunCmd.cmd, []string{"test-id"})
@@ -161,7 +161,7 @@ func TestRerunCommand(t *testing.T) {
 		}
 		mockRepo.On("Get", "test-id").Return(storedCmd, nil)
 
-		rerunCmd := NewRerunCommand(logger, mockRepo)
+		rerunCmd := NewRerunCommand(logger, mockRepo, nil)
 		rerunCmd.history = true
 
 		err := rerunCmd.runE(rerunCmd.cmd, []string{"test-id"})
@@ -171,7 +171,7 @@ func TestRerunCommand(t *testing.T) {
 
 	t.Run("command structure validation", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		rerunCmd := NewRerunCommand(logger, mockRepo)
+		rerunCmd := NewRerunCommand(logger, mockRepo, nil)
 
 		assert.Equal(t, "rerun <command-id>", rerunCmd.cmd.Use)
 		assert.NotNil(t, rerunCmd.Command())
@@ -203,7 +203,7 @@ func TestRerunCommand(t *testing.T) {
 func TestRerunCommand_ExecuteCommand(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	mockRepo := new(mocks.MockRepository)
-	rerunCmd := NewRerunCommand(logger, mockRepo)
+	rerunCmd := NewRerunCommand(logger, mockRepo, nil)
 
 	t.Run("successful command", func(t *testing.T) {
 		output, errorMsg, success, err := rerunCmd.executeCommand("echo", []string{"hello"})
@@ -226,7 +226,7 @@ func TestRerunCommand_ExecuteCommand(t *testing.T) {
 func TestRerunCommand_GenerateCommandID(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	mockRepo := new(mocks.MockRepository)
-	rerunCmd := NewRerunCommand(logger, mockRepo)
+	rerunCmd := NewRerunCommand(logger, mockRepo, nil)
 
 	id1 := rerunCmd.generateCommandID()
 	time.Sleep(1 * time.Millisecond)
@@ -242,7 +242,7 @@ func TestRerunCommand_GenerateCommandID(t *testing.T) {
 func TestRerunCommand_FormatStatus(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	mockRepo := new(mocks.MockRepository)
-	rerunCmd := NewRerunCommand(logger, mockRepo)
+	rerunCmd := NewRerunCommand(logger, mockRepo, nil)
 
 	tests := []struct {
 		name     string

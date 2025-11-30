@@ -36,7 +36,7 @@ func TestLastCommand(t *testing.T) {
 
 		mockRepo.On("GetAllCommands").Return(expectedCommands, nil)
 
-		lastCmd := NewLastCommand(logger, mockRepo)
+		lastCmd := NewLastCommand(logger, mockRepo, nil)
 		err := lastCmd.runE(lastCmd.cmd, []string{})
 
 		assert.NoError(t, err)
@@ -58,7 +58,7 @@ func TestLastCommand(t *testing.T) {
 
 		mockRepo.On("GetAllCommands").Return(expectedCommands, nil)
 
-		lastCmd := NewLastCommand(logger, mockRepo)
+		lastCmd := NewLastCommand(logger, mockRepo, nil)
 		lastCmd.limit = 5
 
 		err := lastCmd.runE(lastCmd.cmd, []string{})
@@ -90,7 +90,7 @@ func TestLastCommand(t *testing.T) {
 
 		mockRepo.On("GetAllCommands").Return(expectedCommands, nil)
 
-		lastCmd := NewLastCommand(logger, mockRepo)
+		lastCmd := NewLastCommand(logger, mockRepo, nil)
 		lastCmd.failedOnly = true
 
 		err := lastCmd.runE(lastCmd.cmd, []string{})
@@ -103,7 +103,7 @@ func TestLastCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("GetAllCommands").Return(nil, assert.AnError)
 
-		lastCmd := NewLastCommand(logger, mockRepo)
+		lastCmd := NewLastCommand(logger, mockRepo, nil)
 		err := lastCmd.runE(lastCmd.cmd, []string{})
 
 		assert.Error(t, err)
@@ -114,7 +114,7 @@ func TestLastCommand(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
 		mockRepo.On("GetAllCommands").Return([]models.Command{}, nil)
 
-		lastCmd := NewLastCommand(logger, mockRepo)
+		lastCmd := NewLastCommand(logger, mockRepo, nil)
 		err := lastCmd.runE(lastCmd.cmd, []string{})
 
 		assert.NoError(t, err)
@@ -123,7 +123,7 @@ func TestLastCommand(t *testing.T) {
 
 	t.Run("test command structure", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		lastCmd := NewLastCommand(logger, mockRepo)
+		lastCmd := NewLastCommand(logger, mockRepo, nil)
 
 		assert.Equal(t, "last", lastCmd.cmd.Use)
 		assert.Equal(t, "Show last executed commands", lastCmd.cmd.Short)
@@ -133,7 +133,7 @@ func TestLastCommand(t *testing.T) {
 
 	t.Run("test flags setup", func(t *testing.T) {
 		mockRepo := new(mocks.MockRepository)
-		lastCmd := NewLastCommand(logger, mockRepo)
+		lastCmd := NewLastCommand(logger, mockRepo, nil)
 
 		// Test that flags are properly set up
 		limitFlag := lastCmd.cmd.Flags().Lookup("limit")
@@ -158,7 +158,7 @@ func TestLastCommand(t *testing.T) {
 func TestLastCommand_FormatStatus(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	mockRepo := new(mocks.MockRepository)
-	lastCmd := NewLastCommand(logger, mockRepo)
+	lastCmd := NewLastCommand(logger, mockRepo, nil)
 
 	tests := []struct {
 		name     string

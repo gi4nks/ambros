@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/gi4nks/ambros/v3/internal/errors"
+	"github.com/gi4nks/ambros/v3/internal/plugins" // New import
 )
 
 type LogsCommand struct {
@@ -17,7 +18,7 @@ type LogsCommand struct {
 	failedOnly bool
 }
 
-func NewLogsCommand(logger *zap.Logger, repo RepositoryInterface) *LogsCommand {
+func NewLogsCommand(logger *zap.Logger, repo RepositoryInterface, api plugins.CoreAPI) *LogsCommand {
 	lc := &LogsCommand{}
 
 	cmd := &cobra.Command{
@@ -27,7 +28,7 @@ func NewLogsCommand(logger *zap.Logger, repo RepositoryInterface) *LogsCommand {
 		RunE:  lc.runE,
 	}
 
-	lc.BaseCommand = NewBaseCommand(cmd, logger, repo)
+	lc.BaseCommand = NewBaseCommand(cmd, logger, repo, api)
 	lc.cmd = cmd
 	lc.setupFlags(cmd)
 	return lc

@@ -34,6 +34,10 @@
 - **Security Sandboxing**: Safe plugin execution environment
 
 ### 📊 **Advanced Analytics**
+- **Alias Suggestions**: Automatically suggests shell aliases for frequently used long commands
+- **Command Sequence Detection**: Identifies patterns of commands often run together
+- **Workflow Insights**: Recognizes development workflows (Git, Docker, K8s, Node.js, Python, Go)
+- **Command Complexity Analysis**: Measures command complexity (pipes, flags, subshells)
 - **ML-Powered Insights**: Command usage predictions and recommendations
 - **Performance Metrics**: Execution time analysis and trending
 - **Failure Analysis**: Smart suggestions for failed commands
@@ -217,6 +221,13 @@ ambros analytics failures
 # Advanced analytics via web dashboard
 ambros server --port 8080
 # Visit: http://localhost:8080/#analytics
+
+# The analytics dashboard provides:
+# - Alias suggestions for frequently used long commands
+# - Command sequence pattern detection
+# - Workflow insights (Git, Docker, K8s, Node.js, Python, Go)
+# - Command complexity scoring
+# - Usage predictions and recommendations
 ```
 
 ### Web Dashboard
@@ -489,8 +500,29 @@ The web dashboard provides a complete interface for all Ambros features:
 | `/api/chains` | GET/POST/PUT/DELETE | Chain management |
 | `/api/plugins` | GET/POST | Plugin management |
 | `/api/scheduler` | GET/POST | Scheduled tasks |
-| `/api/analytics/advanced` | GET | Advanced analytics |
+| `/api/analytics/advanced` | GET | Advanced analytics (includes alias suggestions, sequence patterns, workflow insights) |
 | `/api/search/smart` | GET | Enhanced search |
+
+### Advanced Analytics Response
+
+The `/api/analytics/advanced` endpoint returns comprehensive analytics:
+
+```json
+{
+  "command_patterns": { "most_common": ["git", "docker"], "patterns": ["version control"] },
+  "execution_trends": { "trend": "increasing", "peak_hours": [9, 14, 16] },
+  "alias_suggestions": [
+    { "alias": "dcub", "full_command": "docker-compose up -d --build", "usage_count": 15, "reason": "Saves 25 characters" }
+  ],
+  "sequence_patterns": [
+    { "sequence": ["git", "npm"], "occurrences": 8, "avg_interval": "45s", "suggestion": "Consider creating a chain" }
+  ],
+  "workflow_insights": [
+    { "name": "Git Development Flow", "commands": ["git", "make"], "frequency": 50, "suggestion": "Try: ambros chain create..." }
+  ],
+  "command_complexity": { "docker": 8, "kubectl": 12, "git": 3 }
+}
+```
 
 ## 🔌 Plugin Development
 
@@ -545,6 +577,51 @@ $AMBROS_COMMAND_NAME    # Command name
 $AMBROS_CONFIG_DIR      # Ambros config directory
 $AMBROS_PLUGIN_CONFIG   # Plugin configuration (JSON)
 ```
+
+### Go Internal Plugins
+
+Ambros supports Go-based internal plugins for tighter integration:
+
+```go
+// Implement the GoPlugin interface
+type MyPlugin struct {
+    api plugins.CoreAPI
+}
+
+func (p *MyPlugin) GetManifest() models.Plugin {
+    return models.Plugin{
+        Name: "my-go-plugin",
+        Type: models.PluginTypeGoInternal,
+        Commands: []models.PluginCommandDef{
+            {Name: "hello", Description: "Say hello"},
+        },
+        Hooks: []string{"pre-run", "post-run"},
+    }
+}
+
+func (p *MyPlugin) Init(api plugins.CoreAPI) error {
+    p.api = api
+    return nil
+}
+
+func (p *MyPlugin) Run(ctx context.Context, cmd string, args []string, stdout, stderr io.Writer) error {
+    // Execute command logic
+    return nil
+}
+
+func (p *MyPlugin) HandleHook(ctx context.Context, hook string, args []string) error {
+    // Handle hook events
+    return nil
+}
+```
+
+The CoreAPI provides plugins with:
+- `Logger()` - Application logger
+- `GetConfig()` - Configuration access
+- `GetRepository()` - Data repository access
+- `ExecuteCommand()` - Run commands with store/tag/category options
+- `RegisterCommand()` - Register new CLI commands
+- `TriggerHook()` - Trigger hooks to other plugins
 
 ## 🚀 Production Deployment
 

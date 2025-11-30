@@ -11,7 +11,7 @@ func TestVersionCommand(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 
 	t.Run("version command with full output", func(t *testing.T) {
-		versionCmd := NewVersionCommand(logger)
+		versionCmd := NewVersionCommand(logger, nil)
 		versionCmd.short = false
 
 		err := versionCmd.runE(versionCmd.cmd, []string{})
@@ -19,7 +19,7 @@ func TestVersionCommand(t *testing.T) {
 	})
 
 	t.Run("version command with short output", func(t *testing.T) {
-		versionCmd := NewVersionCommand(logger)
+		versionCmd := NewVersionCommand(logger, nil)
 		versionCmd.short = true
 
 		err := versionCmd.runE(versionCmd.cmd, []string{})
@@ -27,7 +27,7 @@ func TestVersionCommand(t *testing.T) {
 	})
 
 	t.Run("command structure validation", func(t *testing.T) {
-		versionCmd := NewVersionCommand(logger)
+		versionCmd := NewVersionCommand(logger, nil)
 
 		assert.Equal(t, "version", versionCmd.cmd.Use)
 		assert.Equal(t, "Show version information", versionCmd.cmd.Short)
@@ -55,7 +55,7 @@ func TestVersionCommand(t *testing.T) {
 
 	t.Run("version command does not require repository", func(t *testing.T) {
 		// Version command should work without repository
-		versionCmd := NewVersionCommand(logger)
+		versionCmd := NewVersionCommand(logger, nil)
 		assert.Nil(t, versionCmd.repository)
 	})
 }
@@ -79,7 +79,7 @@ func TestVersionCommand_SetBuildInfo(t *testing.T) {
 	}()
 
 	logger, _ := zap.NewDevelopment()
-	versionCmd := NewVersionCommand(logger)
+	versionCmd := NewVersionCommand(logger, nil)
 
 	// Test that the command uses the updated values
 	err := versionCmd.runE(versionCmd.cmd, []string{})
@@ -93,7 +93,7 @@ func TestVersionCommand_SetBuildInfo(t *testing.T) {
 
 func TestVersionCommand_Creation(t *testing.T) {
 	logger := zap.NewNop()
-	cmd := NewVersionCommand(logger)
+	cmd := NewVersionCommand(logger, nil)
 
 	assert.NotNil(t, cmd)
 	assert.Equal(t, "version", cmd.Command().Use)
@@ -112,7 +112,7 @@ func TestVersionCommand_Integration(t *testing.T) {
 	}
 
 	suite := NewCommandTestSuite(t)
-	cmd := NewVersionCommand(suite.Logger)
+	cmd := NewVersionCommand(suite.Logger, nil)
 
 	// Execute command with and without short flag
 	tests := []struct {

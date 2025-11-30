@@ -23,7 +23,7 @@ func TestIntegrateInstallUninstall(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	defer logger.Sync()
 
-	ic := NewIntegrateCommand(logger)
+	ic := NewIntegrateCommand(logger, nil)
 
 	// Run install non-interactively targeting default shells
 	if err := ic.install(nil, nil, "", true); err != nil {

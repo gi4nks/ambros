@@ -11,6 +11,7 @@ import (
 
 	"github.com/gi4nks/ambros/v3/internal/errors"
 	"github.com/gi4nks/ambros/v3/internal/models"
+	"github.com/gi4nks/ambros/v3/internal/plugins" // New import
 )
 
 type AnalyticsCommand struct {
@@ -24,7 +25,7 @@ type AnalyticsOptions struct {
 	detail bool
 }
 
-func NewAnalyticsCommand(logger *zap.Logger, repo RepositoryInterface) *AnalyticsCommand {
+func NewAnalyticsCommand(logger *zap.Logger, repo RepositoryInterface, api plugins.CoreAPI) *AnalyticsCommand {
 	ac := &AnalyticsCommand{}
 
 	cmd := &cobra.Command{
@@ -46,7 +47,7 @@ Examples:
 		RunE: ac.runE,
 	}
 
-	ac.BaseCommand = NewBaseCommand(cmd, logger, repo)
+	ac.BaseCommand = NewBaseCommand(cmd, logger, repo, api)
 	ac.cmd = cmd
 	ac.setupFlags(cmd)
 	return ac

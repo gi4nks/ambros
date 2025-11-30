@@ -8,16 +8,20 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fatih/color"
+
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
 	"github.com/gi4nks/ambros/v3/internal/errors"
 	"github.com/gi4nks/ambros/v3/internal/models"
+	"github.com/gi4nks/ambros/v3/internal/plugins" // New import
 )
 
 // RerunCommand unifies recall and revive behaviors
 type RerunCommand struct {
 	*BaseCommand
+	executor *Executor // New field for shared execution logic
 	history  bool
 	store    bool
 	dryRun   bool
@@ -26,8 +30,12 @@ type RerunCommand struct {
 }
 
 // NewRerunCommand creates a new rerun command that subsumes recall and revive
-func NewRerunCommand(logger *zap.Logger, repo RepositoryInterface) *RerunCommand {
-	rc := &RerunCommand{exitFunc: os.Exit}
+func NewRerunCommand(logger *zap.Logger, repo RepositoryInterface, api plugins.CoreAPI) *RerunCommand {
+	rc := &RerunCommand{
+		executor: NewExecutor(logger), // Initialize the executor
+		exitFunc: os.Exit,             // Default to os.Exit
+	}
+	// ... rest of the function
 
 	cmd := &cobra.Command{
 		Use:   "rerun <command-id>",
@@ -45,7 +53,7 @@ Examples:
 		RunE: rc.runE,
 	}
 
-	rc.BaseCommand = NewBaseCommand(cmd, logger, repo)
+	rc.BaseCommand = NewBaseCommand(cmd, logger, repo, api)
 	rc.cmd = cmd
 	rc.setupFlags(cmd)
 	return rc
@@ -165,8 +173,12 @@ func (rc *RerunCommand) runE(cmd *cobra.Command, args []string) error {
 }
 
 func (rc *RerunCommand) executeCommand(name string, args []string) (string, string, bool, error) {
-	if _, err := ResolveCommandPath(name); err != nil {
+	if _, err := rc.executor.ResolveCommandPath(name); err != nil {
 		return "", err.Error(), false, err
+	}
+	if rc.executor.isLikelyInteractive(name, args) {
+		fmt.Fprintln(os.Stderr, color.YellowString("Warning: the command %s may be interactive. Use 'ambros run --auto' to attach a TTY.", name))
+		rc.logger.Warn("Likely interactive command in rerun", zap.String("command", name))
 	}
 	cmd := exec.Command(name, args...)
 	output, err := cmd.CombinedOutput()

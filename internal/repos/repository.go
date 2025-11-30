@@ -235,8 +235,33 @@ func (r *Repository) SearchByStatus(success bool) ([]models.Command, error) {
 
 // GetTemplate retrieves a command template by name
 func (r *Repository) GetTemplate(name string) (*models.Template, error) {
-	// This is a placeholder implementation
-	// Templates could be stored in a separate key prefix
+	templates, err := r.SearchByTag("template")
+	if err != nil {
+		return nil, fmt.Errorf("failed to search templates: %w", err)
+	}
+
+	for _, cmd := range templates {
+		if !strings.EqualFold(cmd.Category, "template") {
+			continue
+		}
+
+		for _, tag := range cmd.Tags {
+			if strings.EqualFold(tag, name) {
+				pattern := strings.TrimSpace(strings.Join(
+					append([]string{cmd.Name}, cmd.Arguments...), " "))
+
+				return &models.Template{
+					Entity:      cmd.Entity,
+					Name:        name,
+					Pattern:     pattern,
+					Description: cmd.Output,
+					Variables:   cmd.Variables,
+					Tags:        cmd.Tags,
+				}, nil
+			}
+		}
+	}
+
 	return nil, fmt.Errorf("template not found: %s", name)
 }
 

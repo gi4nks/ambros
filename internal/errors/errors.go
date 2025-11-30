@@ -31,6 +31,7 @@ const (
 	ErrInvalidRequest = "invalid_request"
 	ErrUnauthorized   = "unauthorized"
 	ErrInternalServer = "internal_server"
+	ErrNotFound       = "not_found"
 )
 
 // AppError represents an application-specific error

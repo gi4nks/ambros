@@ -13,6 +13,7 @@ import (
 
 	"github.com/gi4nks/ambros/v3/internal/errors"
 	"github.com/gi4nks/ambros/v3/internal/models"
+	"github.com/gi4nks/ambros/v3/internal/plugins" // New import
 )
 
 type SearchCommand struct {
@@ -29,7 +30,7 @@ type SearchOptions struct {
 	format   string
 }
 
-func NewSearchCommand(logger *zap.Logger, repo RepositoryInterface) *SearchCommand {
+func NewSearchCommand(logger *zap.Logger, repo RepositoryInterface, api plugins.CoreAPI) *SearchCommand {
 	sc := &SearchCommand{}
 
 	cmd := &cobra.Command{
@@ -39,7 +40,7 @@ func NewSearchCommand(logger *zap.Logger, repo RepositoryInterface) *SearchComma
 		RunE:  sc.runE,
 	}
 
-	sc.BaseCommand = NewBaseCommand(cmd, logger, repo)
+	sc.BaseCommand = NewBaseCommand(cmd, logger, repo, api)
 	sc.cmd = cmd
 	sc.setupFlags(cmd)
 	return sc

@@ -9,6 +9,37 @@ import (
 	"go.uber.org/zap"
 )
 
+type Plugin struct {
+	Name         string             `json:"name"`
+	Version      string             `json:"version"`
+	Description  string             `json:"description"`
+	Author       string             `json:"author"`
+	Enabled      bool               `json:"enabled"`
+	Type         PluginType         `json:"type"`       // New field for plugin type
+	Executable   string             `json:"executable"` // For shell/external plugins
+	Commands     []PluginCommandDef `json:"commands"`
+	Hooks        []string           `json:"hooks"`
+	Config       map[string]string  `json:"config"`
+	Dependencies []string           `json:"dependencies"`
+}
+
+type PluginCommandDef struct {
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Usage       string   `json:"usage"`
+	Args        []string `json:"args"`
+}
+
+// PluginType defines the type of plugin
+type PluginType string
+
+const (
+	PluginTypeShell     PluginType = "shell"      // Shell script based plugin
+	PluginTypeGoInternal PluginType = "go_internal" // Go plugin built into Ambros binary
+	// PluginTypeGoExternal PluginType = "go_external" // Go plugin as shared library (future)
+	// PluginTypeGRPC       PluginType = "grpc"        // GRPC based plugin (future)
+)
+
 type Entity struct {
 	ID           string    `json:"id"`
 	CreatedAt    time.Time `json:"created_at"`
