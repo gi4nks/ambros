@@ -133,8 +133,6 @@ func (sc *ServerCommand) createEnhancedAPI(apiServer *api.Server) http.Handler {
 	// Enhanced API endpoints for advanced dashboard and integrations
 	mux.HandleFunc("/api/dashboard", sc.handleDashboard)
 	mux.HandleFunc("/api/analytics/advanced", sc.handleAdvancedAnalytics)
-	mux.HandleFunc("/api/environments", sc.handleEnvironments)
-	mux.HandleFunc("/api/templates", sc.handleTemplates)
 	mux.HandleFunc("/api/plugins", sc.handlePlugins)
 	mux.HandleFunc("/api/search/smart", sc.handleSmartSearch)
 
@@ -169,7 +167,6 @@ func (sc *ServerCommand) handleDashboard(w http.ResponseWriter, r *http.Request)
 	totalCommands := len(commands)
 	successCount := 0
 	recentCommands := 0
-	templateCount := 0
 	now := time.Now()
 	last24h := now.Add(-24 * time.Hour)
 
@@ -180,12 +177,6 @@ func (sc *ServerCommand) handleDashboard(w http.ResponseWriter, r *http.Request)
 		if cmd.CreatedAt.After(last24h) {
 			recentCommands++
 		}
-		for _, tag := range cmd.Tags {
-			if tag == "template" {
-				templateCount++
-				break
-			}
-		}
 	}
 
 	dashboard := map[string]interface{}{
@@ -193,7 +184,6 @@ func (sc *ServerCommand) handleDashboard(w http.ResponseWriter, r *http.Request)
 			"total_commands":  totalCommands,
 			"success_rate":    float64(successCount) / float64(totalCommands) * 100,
 			"recent_commands": recentCommands,
-			"template_count":  templateCount,
 		},
 		"recent_activity": commands[max(0, len(commands)-10):],
 		"quick_stats": map[string]interface{}{
@@ -238,73 +228,6 @@ func (sc *ServerCommand) handleAdvancedAnalytics(w http.ResponseWriter, r *http.
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(analytics); err != nil {
 		sc.logger.Error("Failed to encode analytics", zap.Error(err))
-	}
-}
-
-func (sc *ServerCommand) handleEnvironments(w http.ResponseWriter, r *http.Request) {
-	// Handle environment API requests
-	switch r.Method {
-	case http.MethodGet:
-		envs, err := sc.repository.SearchByTag("environment")
-		if err != nil {
-			http.Error(w, "Failed to get environments", http.StatusInternalServerError)
-			return
-		}
-
-		// Group by environment name
-		envMap := make(map[string]interface{})
-		for _, env := range envs {
-			if env.Category == "environment" {
-				envName := sc.extractEnvName(env.Name)
-				if envName != "" {
-					if _, exists := envMap[envName]; !exists {
-						envMap[envName] = map[string]interface{}{
-							"name":       envName,
-							"variables":  []map[string]string{},
-							"created_at": env.CreatedAt,
-						}
-					}
-
-					if env.Variables != nil {
-						if key, exists := env.Variables["var_key"]; exists {
-							value := env.Variables["var_value"]
-							envData := envMap[envName].(map[string]interface{})
-							vars := envData["variables"].([]map[string]string)
-							vars = append(vars, map[string]string{
-								"key":   key,
-								"value": value,
-							})
-							envData["variables"] = vars
-						}
-					}
-				}
-			}
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(envMap); err != nil {
-			sc.logger.Error("Failed to encode environment map", zap.Error(err))
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
-			return
-		}
-
-	default:
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-	}
-}
-
-func (sc *ServerCommand) handleTemplates(w http.ResponseWriter, r *http.Request) {
-	templates, err := sc.repository.SearchByTag("template")
-	if err != nil {
-		http.Error(w, "Failed to get templates", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(templates); err != nil {
-		sc.logger.Error("Failed to encode templates", zap.Error(err))
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
 	}
 }
 
@@ -405,8 +328,6 @@ func (sc *ServerCommand) handleWebApp(w http.ResponseWriter, r *http.Request) {
         <div class="nav">
             <a href="#dashboard" class="nav-item" onclick="loadSection('dashboard')">📊 Dashboard</a>
             <a href="#commands" class="nav-item" onclick="loadSection('commands')">💻 Commands</a>
-            <a href="#environments" class="nav-item" onclick="loadSection('environments')">🌍 Environments</a>
-            <a href="#templates" class="nav-item" onclick="loadSection('templates')">🎯 Templates</a>
             <a href="#analytics" class="nav-item" onclick="loadSection('analytics')">📈 Analytics</a>
         </div>
         
@@ -447,8 +368,7 @@ func (sc *ServerCommand) displayStartupInfo() {
 	color.Cyan("║  Features:                                                  ║")
 	color.Cyan("║  • 📱 Web Dashboard Interface                                ║")
 	color.Cyan("║  • 🔍 Smart Search & Analytics                               ║")
-	color.Cyan("║  • 🌍 Environment Management                                 ║")
-	color.Cyan("║  • 🎯 Template Management                                    ║")
+	color.Cyan("║  • 📊 Command History & Statistics                           ║")
 	color.Cyan("║  • 🔗 API Endpoints                                         ║")
 	color.Cyan("╚══════════════════════════════════════════════════════════════╝")
 }
@@ -1445,16 +1365,6 @@ func jaccardSimilarity(a, b string) float64 {
 		return 0.0
 	}
 	return float64(inter) / float64(union)
-}
-
-// Fuzzing helper: ensure suggestions are robust to random input
-
-func (sc *ServerCommand) extractEnvName(cmdName string) string {
-	parts := strings.Split(cmdName, ":")
-	if len(parts) >= 2 && parts[0] == "env" {
-		return parts[1]
-	}
-	return ""
 }
 
 func (sc *ServerCommand) performSmartSearch(commands []models.Command, query string) []models.Command {
