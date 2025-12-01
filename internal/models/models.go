@@ -34,7 +34,7 @@ type PluginCommandDef struct {
 type PluginType string
 
 const (
-	PluginTypeShell     PluginType = "shell"      // Shell script based plugin
+	PluginTypeShell      PluginType = "shell"       // Shell script based plugin
 	PluginTypeGoInternal PluginType = "go_internal" // Go plugin built into Ambros binary
 	// PluginTypeGoExternal PluginType = "go_external" // Go plugin as shared library (future)
 	// PluginTypeGRPC       PluginType = "grpc"        // GRPC based plugin (future)
@@ -57,14 +57,6 @@ type Command struct {
 	Tags      []string          `json:"tags,omitempty"`
 	Category  string            `json:"category,omitempty"`
 	Variables map[string]string `json:"variables,omitempty"`
-	Schedule  *Schedule         `json:"schedule,omitempty"`
-}
-
-type Schedule struct {
-	CronExpr string    `json:"cron_expr"`
-	NextRun  time.Time `json:"next_run"`
-	LastRun  time.Time `json:"last_run"`
-	Enabled  bool      `json:"enabled"`
 }
 
 type CommandChain struct {
@@ -120,7 +112,6 @@ func (c *Command) Clone() *Command {
 		Tags:      append([]string{}, c.Tags...),
 		Category:  c.Category,
 		Variables: make(map[string]string),
-		Schedule:  c.Schedule,
 	}
 
 	// Copy the elements of the Arguments slice to the clone's Arguments slice
@@ -159,7 +150,6 @@ func (c Command) ToMap() map[string]interface{} {
 		"Tags":         c.Tags,
 		"Category":     c.Category,
 		"Variables":    c.Variables,
-		"Schedule":     c.Schedule,
 		"CreatedAt":    c.CreatedAt,
 		"TerminatedAt": c.TerminatedAt,
 	}

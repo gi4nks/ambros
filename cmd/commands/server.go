@@ -53,7 +53,6 @@ Features:
   - Real-time analytics dashboard
   - Environment and template management
   - Interactive command execution
-  - Scheduling management
   - Export/import functionality
 
 Examples:
@@ -136,7 +135,6 @@ func (sc *ServerCommand) createEnhancedAPI(apiServer *api.Server) http.Handler {
 	mux.HandleFunc("/api/analytics/advanced", sc.handleAdvancedAnalytics)
 	mux.HandleFunc("/api/environments", sc.handleEnvironments)
 	mux.HandleFunc("/api/templates", sc.handleTemplates)
-	mux.HandleFunc("/api/scheduler", sc.handleScheduler)
 	mux.HandleFunc("/api/chains", sc.handleChains)
 	mux.HandleFunc("/api/plugins", sc.handlePlugins)
 	mux.HandleFunc("/api/search/smart", sc.handleSmartSearch)
@@ -173,8 +171,6 @@ func (sc *ServerCommand) handleDashboard(w http.ResponseWriter, r *http.Request)
 	successCount := 0
 	recentCommands := 0
 	templateCount := 0
-	scheduledCount := 0
-
 	now := time.Now()
 	last24h := now.Add(-24 * time.Hour)
 
@@ -191,9 +187,6 @@ func (sc *ServerCommand) handleDashboard(w http.ResponseWriter, r *http.Request)
 				break
 			}
 		}
-		if cmd.Schedule != nil {
-			scheduledCount++
-		}
 	}
 
 	dashboard := map[string]interface{}{
@@ -202,7 +195,6 @@ func (sc *ServerCommand) handleDashboard(w http.ResponseWriter, r *http.Request)
 			"success_rate":    float64(successCount) / float64(totalCommands) * 100,
 			"recent_commands": recentCommands,
 			"template_count":  templateCount,
-			"scheduled_count": scheduledCount,
 		},
 		"recent_activity": commands[max(0, len(commands)-10):],
 		"quick_stats": map[string]interface{}{
@@ -312,28 +304,6 @@ func (sc *ServerCommand) handleTemplates(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(templates); err != nil {
 		sc.logger.Error("Failed to encode templates", zap.Error(err))
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-}
-
-func (sc *ServerCommand) handleScheduler(w http.ResponseWriter, r *http.Request) {
-	commands, err := sc.repository.GetAllCommands()
-	if err != nil {
-		http.Error(w, "Failed to get commands", http.StatusInternalServerError)
-		return
-	}
-
-	var scheduled []models.Command
-	for _, cmd := range commands {
-		if cmd.Schedule != nil {
-			scheduled = append(scheduled, cmd)
-		}
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(scheduled); err != nil {
-		sc.logger.Error("Failed to encode scheduled commands", zap.Error(err))
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -458,7 +428,6 @@ func (sc *ServerCommand) handleWebApp(w http.ResponseWriter, r *http.Request) {
             <a href="#commands" class="nav-item" onclick="loadSection('commands')">💻 Commands</a>
             <a href="#environments" class="nav-item" onclick="loadSection('environments')">🌍 Environments</a>
             <a href="#templates" class="nav-item" onclick="loadSection('templates')">🎯 Templates</a>
-            <a href="#scheduler" class="nav-item" onclick="loadSection('scheduler')">📅 Scheduler</a>
             <a href="#analytics" class="nav-item" onclick="loadSection('analytics')">📈 Analytics</a>
         </div>
         
@@ -501,7 +470,6 @@ func (sc *ServerCommand) displayStartupInfo() {
 	color.Cyan("║  • 🔍 Smart Search & Analytics                               ║")
 	color.Cyan("║  • 🌍 Environment Management                                 ║")
 	color.Cyan("║  • 🎯 Template Management                                    ║")
-	color.Cyan("║  • 📅 Scheduler Management                                   ║")
 	color.Cyan("║  • 🔗 API Endpoints                                         ║")
 	color.Cyan("╚══════════════════════════════════════════════════════════════╝")
 }
