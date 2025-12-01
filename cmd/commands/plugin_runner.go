@@ -106,8 +106,9 @@ func executePlugin(pc *PluginCommand, p *models.Plugin, commandName string, args
 		zap.String("command", commandName),
 		zap.Strings("args", args))
 
-	// For shell plugins, execute the script
-	if p.Type == models.PluginTypeShell {
+	switch p.Type {
+	case models.PluginTypeShell:
+		// For shell plugins, execute the script
 		// Validate the executable path to ensure it's safe.
 		if err := pc.validateExecutablePath(p.Name, p.Executable); err != nil {
 			return errors.NewError(errors.ErrInvalidCommand, fmt.Sprintf("plugin '%s' has an invalid executable path", p.Name), err)
@@ -152,7 +153,8 @@ func executePlugin(pc *PluginCommand, p *models.Plugin, commandName string, args
 			// A different error occurred (e.g., command not found).
 			return errors.NewError(errors.ErrExecutionFailed, fmt.Sprintf("failed to run plugin '%s'", p.Name), err)
 		}
-	} else if p.Type == models.PluginTypeGoInternal {
+
+	case models.PluginTypeGoInternal:
 		// For Go internal plugins, use the InternalPluginRegistry
 		registry := plugins.GetGlobalRegistry()
 		goPlugin, found := registry.GetPlugin(p.Name)
@@ -177,7 +179,8 @@ func executePlugin(pc *PluginCommand, p *models.Plugin, commandName string, args
 		pc.logger.Info("Go plugin executed successfully",
 			zap.String("plugin", p.Name),
 			zap.String("command", commandName))
-	} else {
+
+	default:
 		return errors.NewError(errors.ErrExecutionFailed,
 			fmt.Sprintf("unsupported plugin type '%s' for plugin '%s'", p.Type, p.Name), nil)
 	}
