@@ -59,15 +59,6 @@ type Command struct {
 	Variables map[string]string `json:"variables,omitempty"`
 }
 
-type CommandChain struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	Commands    []string  `json:"commands"` // Command IDs
-	Conditional bool      `json:"conditional"`
-	CreatedAt   time.Time `json:"created_at"`
-}
-
 type CommandTemplate struct {
 	ID          string            `json:"id"`
 	Name        string            `json:"name"`
