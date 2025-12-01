@@ -1,6 +1,6 @@
 # Ambros User Manual
 
-**Version 3.2.6**
+**Version 3.2.7**
 
 Ambros is a powerful command-line tool for storing, managing, and analyzing shell command executions. It captures command outputs, tracks success/failure status, and provides advanced analytics to help you understand your command-line workflow.
 
@@ -695,4 +695,4 @@ Apache 2.0 - See [LICENSE](../LICENSE) for details.
 
 ---
 
-*Last updated: December 2025 - Ambros v3.2.6*
+*Last updated: December 2025 - Ambros v3.2.7*

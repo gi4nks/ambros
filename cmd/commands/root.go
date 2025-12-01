@@ -91,8 +91,6 @@ func addRepositoryCommands(logger *zap.Logger, repo RepositoryInterface, api plu
 	rootCmd.AddCommand(NewInteractiveCommand(logger, repo, api).Command())
 	rootCmd.AddCommand(NewExportCommand(logger, repo, api).Command())
 	rootCmd.AddCommand(NewImportCommand(logger, repo, api).Command())
-	rootCmd.AddCommand(NewLogsCommand(logger, repo, api).Command())
-	rootCmd.AddCommand(NewStoreCommand(logger, repo, api).Command())
 	// Unified rerun command replaces recall/revive
 	rootCmd.AddCommand(NewRerunCommand(logger, repo, api).Command())
 	// Database utilities

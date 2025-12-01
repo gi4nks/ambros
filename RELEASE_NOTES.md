@@ -457,6 +457,50 @@ If you want me to produce release artifacts (binaries + checksums) and attach th
 
 ---
 
+## Ambros v3.2.7 - Additional cleanup release
+
+**Release Date**: December 1, 2025
+
+This release removes two more commands that overlap with existing functionality.
+
+### Removed Features
+
+**Logs Command** (~100 lines removed)
+- Overlaps with `last` and `search` commands
+- `ambros last --output` or `ambros search --status failed` provide the same functionality
+
+**Store Command** (~150 lines removed)
+- Niche use case (store command without executing)
+- Can be achieved with `ambros run --dry-run` or direct database operations
+- Doesn't fit the core workflow of execute → store → recall
+
+### Migration Notes
+
+**logs → last/search:**
+```bash
+# Instead of: ambros logs --failed
+# Use:
+ambros search --status failed
+
+# Instead of: ambros logs --since 2024-01-01
+# Use:
+ambros search --from 2024-01-01
+```
+
+**store → run with dry-run:**
+```bash
+# If you need to save a command without executing:
+# Use tags/notes in your actual executions instead
+ambros run --tag saved-for-later -- echo "reminder command"
+```
+
+### Stats
+
+- ~250 lines of code removed
+- 4 files deleted (logs.go, logs_test.go, store.go, store_test.go)
+
+---
+
 ## Ambros v3.2.6 - Feature cleanup release
 
 **Release Date**: December 1, 2025
