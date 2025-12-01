@@ -1,3 +1,21 @@
+# Ambros v3.2.8 - Streamlined Focus 🎯
+
+**Release Date**: December 2025
+
+## 🔄 Changes
+
+### ❌ Removed Features
+
+**Server Command & Web Interface**
+- Removed `ambros server` command and all web dashboard functionality
+- Removed REST API endpoints (`/api/commands`, `/api/search`, `/api/analytics`, etc.)
+- Removed embedded HTML/CSS/JavaScript web interface
+- Removed `internal/api` package
+
+**Rationale**: The web interface duplicated CLI functionality and embedded static code increased maintenance complexity. The CLI provides all necessary functionality for command management, analytics, and search.
+
+---
+
 # Ambros v3.0.0 - The Command Butler 🤖
 
 **Release Date**: September 8, 2025

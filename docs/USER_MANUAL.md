@@ -1,6 +1,6 @@
 # Ambros User Manual
 
-**Version 3.2.7**
+**Version 3.2.8**
 
 Ambros is a powerful command-line tool for storing, managing, and analyzing shell command executions. It captures command outputs, tracks success/failure status, and provides advanced analytics to help you understand your command-line workflow.
 
@@ -20,9 +20,8 @@ Ambros is a powerful command-line tool for storing, managing, and analyzing shel
    - [Import/Export](#importexport)
    - [Database Cleanup](#database-cleanup)
    - [Configuration](#configuration)
-5. [Web Interface](#web-interface)
-6. [Advanced Usage](#advanced-usage)
-7. [Troubleshooting](#troubleshooting)
+5. [Advanced Usage](#advanced-usage)
+6. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -392,47 +391,6 @@ ambros db backup /path/to/backup.db
 
 ---
 
-### Server & Web Interface
-
-#### `ambros server`
-Start the web server for the UI and API.
-
-```bash
-# Start server on default port (8080)
-ambros server
-
-# Start on specific port
-ambros server --port 3000
-
-# Start with specific host
-ambros server --host 0.0.0.0 --port 8080
-```
-
-**API Endpoints:**
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/commands` | GET | List commands |
-| `/api/commands/:id` | GET | Get command by ID |
-| `/api/commands` | POST | Execute command |
-| `/api/search` | GET | Search commands |
-| `/api/analytics` | GET | Basic analytics |
-| `/api/analytics/advanced` | GET | Advanced analytics |
-
----
-
-## Web Interface
-
-Access the web interface at `http://localhost:8080` after starting the server.
-
-### Features:
-- **Dashboard**: Overview of recent commands and statistics
-- **Command History**: Browse and search all commands
-- **Search**: Advanced search with filters
-- **Analytics**: Visual charts and insights
-
----
-
 ## Advanced Usage
 
 ### Shell Integration
@@ -682,7 +640,6 @@ Include:
 │                                                                 │
 │ OTHER                                                           │
 │   ambros analytics              Show statistics                 │
-│   ambros server                 Start web interface             │
 │   ambros --help                 Show help                       │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -695,4 +652,4 @@ Apache 2.0 - See [LICENSE](../LICENSE) for details.
 
 ---
 
-*Last updated: December 2025 - Ambros v3.2.7*
+*Last updated: December 2025 - Ambros v3.2.8*
