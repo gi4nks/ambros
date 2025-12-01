@@ -135,7 +135,6 @@ func (sc *ServerCommand) createEnhancedAPI(apiServer *api.Server) http.Handler {
 	mux.HandleFunc("/api/analytics/advanced", sc.handleAdvancedAnalytics)
 	mux.HandleFunc("/api/environments", sc.handleEnvironments)
 	mux.HandleFunc("/api/templates", sc.handleTemplates)
-	mux.HandleFunc("/api/chains", sc.handleChains)
 	mux.HandleFunc("/api/plugins", sc.handlePlugins)
 	mux.HandleFunc("/api/search/smart", sc.handleSmartSearch)
 
@@ -304,26 +303,6 @@ func (sc *ServerCommand) handleTemplates(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(templates); err != nil {
 		sc.logger.Error("Failed to encode templates", zap.Error(err))
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-}
-
-func (sc *ServerCommand) handleChains(w http.ResponseWriter, r *http.Request) {
-	// TODO: Implement chain storage and retrieval
-	chains := []map[string]interface{}{
-		{
-			"id":          "chain-1",
-			"name":        "Deployment Chain",
-			"description": "Build, test, and deploy",
-			"commands":    []string{"build", "test", "deploy"},
-			"created_at":  time.Now(),
-		},
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(chains); err != nil {
-		sc.logger.Error("Failed to encode chains", zap.Error(err))
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}

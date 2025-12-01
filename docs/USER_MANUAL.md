@@ -1,6 +1,6 @@
 # Ambros User Manual
 
-**Version 3.2.2**
+**Version 3.2.5**
 
 Ambros is a powerful command-line tool for storing, managing, and analyzing shell command executions. It captures command outputs, tracks success/failure status, and provides advanced analytics to help you understand your command-line workflow.
 
@@ -16,7 +16,6 @@ Ambros is a powerful command-line tool for storing, managing, and analyzing shel
    - [Viewing History](#viewing-history)
    - [Searching Commands](#searching-commands)
    - [Templates](#templates)
-   - [Chains](#chains)
    - [Plugins](#plugins)
    - [Analytics](#analytics)
    - [Import/Export](#importexport)
@@ -107,16 +106,6 @@ ambros template add deploy-app "kubectl apply -f {{file}}"
 
 # Use the template
 ambros template run deploy-app --var file=deployment.yaml
-```
-
-### Chains
-Chains are sequences of commands that run together:
-```bash
-# Create a chain
-ambros chain add build-deploy --commands "npm install" "npm build" "npm deploy"
-
-# Run the chain
-ambros chain run build-deploy
 ```
 
 ### Plugins
@@ -290,50 +279,6 @@ ambros template delete <name>
 - Use `{{variable}}` syntax for placeholders
 - Provide values with `--var variable=value`
 - Variables are required unless they have defaults
-
----
-
-### Chains
-
-#### `ambros chain`
-Create and run command sequences.
-
-```bash
-# List all chains
-ambros chain list
-
-# Add a new chain
-ambros chain add <name> --commands "cmd1" "cmd2" "cmd3"
-
-# Add with description
-ambros chain add build-pipeline \
-  --description "Full build and deploy pipeline" \
-  --commands "npm install" "npm test" "npm build" "npm deploy"
-
-# Add conditional chain (stops on first failure)
-ambros chain add safe-deploy \
-  --conditional \
-  --commands "npm test" "npm build" "npm deploy"
-
-# Run a chain
-ambros chain run <name>
-
-# Run with dry-run
-ambros chain run <name> --dry-run
-
-# Show chain details
-ambros chain info <name>
-
-# Delete a chain
-ambros chain delete <name>
-```
-
-**Flags for `chain add`:**
-| Flag | Description |
-|------|-------------|
-| `--commands` | Commands in the chain (required) |
-| `--description` | Chain description |
-| `--conditional` | Stop on first failure |
 
 ---
 
@@ -511,7 +456,6 @@ ambros server --host 0.0.0.0 --port 8080
 | `/api/commands` | POST | Execute command |
 | `/api/search` | GET | Search commands |
 | `/api/templates` | GET | List templates |
-| `/api/chains` | GET | List chains |
 | `/api/analytics` | GET | Basic analytics |
 | `/api/analytics/advanced` | GET | Advanced analytics |
 
@@ -526,7 +470,6 @@ Access the web interface at `http://localhost:8080` after starting the server.
 - **Command History**: Browse and search all commands
 - **Search**: Advanced search with filters
 - **Templates**: Manage command templates
-- **Chains**: Create and run command chains
 - **Analytics**: Visual charts and insights
 
 ---
@@ -775,11 +718,6 @@ Include:
 │   ambros template list          List templates                  │
 │   ambros template add <n> "c"   Create template                 │
 │   ambros template run <n>       Run template                    │
-│                                                                 │
-│ CHAINS                                                          │
-│   ambros chain list             List chains                     │
-│   ambros chain add <n> -c ...   Create chain                    │
-│   ambros chain run <n>          Run chain                       │
 │                                                                 │
 │ PLUGINS                                                         │
 │   ambros plugin list            List plugins                    │
