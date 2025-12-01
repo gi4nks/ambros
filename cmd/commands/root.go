@@ -95,6 +95,8 @@ func addRepositoryCommands(logger *zap.Logger, repo RepositoryInterface, api plu
 	rootCmd.AddCommand(NewRerunCommand(logger, repo, api).Command())
 	// Database utilities
 	rootCmd.AddCommand(NewDBCommand(logger, repo).Command())
+	// MCP server
+	rootCmd.AddCommand(NewMCPCommand(logger, repo, api).Command())
 
 	// Plugin commands
 	pluginCmd = NewPluginCommand(logger, repo) // Store in package-level variable

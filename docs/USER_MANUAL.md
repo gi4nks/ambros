@@ -1,6 +1,6 @@
 # Ambros User Manual
 
-**Version 3.2.8**
+**Version 3.3.0**
 
 Ambros is a powerful command-line tool for storing, managing, and analyzing shell command executions. It captures command outputs, tracks success/failure status, and provides advanced analytics to help you understand your command-line workflow.
 
@@ -20,6 +20,7 @@ Ambros is a powerful command-line tool for storing, managing, and analyzing shel
    - [Import/Export](#importexport)
    - [Database Cleanup](#database-cleanup)
    - [Configuration](#configuration)
+   - [MCP Server](#mcp-server)
 5. [Advanced Usage](#advanced-usage)
 6. [Troubleshooting](#troubleshooting)
 
@@ -391,6 +392,78 @@ ambros db backup /path/to/backup.db
 
 ---
 
+### MCP Server
+
+#### `ambros mcp`
+Start a Model Context Protocol (MCP) server that exposes Ambros functionality as tools for AI assistants.
+
+```bash
+# Start MCP server (runs over stdio)
+ambros mcp
+```
+
+**Available Tools:**
+
+| Tool | Description |
+|------|-------------|
+| `ambros_last` | Get recent commands from history |
+| `ambros_search` | Search command history with filters |
+| `ambros_analytics` | Get analytics and statistics |
+| `ambros_output` | Get output of a specific command |
+| `ambros_command` | Get full details of a command as JSON |
+
+**Tool Parameters:**
+
+`ambros_last`:
+- `limit` (number): Maximum commands to return (default: 10, max: 100)
+- `failed_only` (boolean): Only return failed commands
+
+`ambros_search`:
+- `query` (string): Text to search in command names/arguments
+- `tag` (string): Filter by tag
+- `category` (string): Filter by category
+- `status` (string): Filter by 'success' or 'failed'
+- `since` (string): Duration like '24h', '7d', '30d'
+- `limit` (number): Maximum results (default: 10)
+
+`ambros_analytics`:
+- `action` (string): 'summary', 'most-used', 'slowest', or 'failures'
+
+`ambros_output` / `ambros_command`:
+- `id` (string, required): Command ID to retrieve
+
+**Configuration for Claude Desktop:**
+
+Add to `~/.config/claude/claude_desktop_config.json` (macOS/Linux) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
+
+```json
+{
+  "mcpServers": {
+    "ambros": {
+      "command": "ambros",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+**Configuration for VS Code with GitHub Copilot:**
+
+Add to your VS Code settings or `.vscode/mcp.json`:
+
+```json
+{
+  "servers": {
+    "ambros": {
+      "command": "ambros",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+---
+
 ## Advanced Usage
 
 ### Shell Integration
@@ -638,6 +711,9 @@ Include:
 │   ambros export <file>          Export history                  │
 │   ambros import <file>          Import history                  │
 │                                                                 │
+│ MCP SERVER                                                      │
+│   ambros mcp                    Start MCP server for AI tools   │
+│                                                                 │
 │ OTHER                                                           │
 │   ambros analytics              Show statistics                 │
 │   ambros --help                 Show help                       │
@@ -652,4 +728,4 @@ Apache 2.0 - See [LICENSE](../LICENSE) for details.
 
 ---
 
-*Last updated: December 2025 - Ambros v3.2.8*
+*Last updated: December 2025 - Ambros v3.3.0*

@@ -1,3 +1,47 @@
+# Ambros v3.3.0 - MCP Server Integration 🤖
+
+**Release Date**: December 2025
+
+## 🎉 New Features
+
+### MCP Server (`ambros mcp`)
+Ambros now exposes its functionality via the Model Context Protocol (MCP), enabling AI assistants to interact with your command history.
+
+**Available Tools:**
+- `ambros_last` - Get recent commands from history
+- `ambros_search` - Search command history with filters (query, tag, category, status, since)
+- `ambros_analytics` - Get analytics (summary, most-used, slowest, failures)
+- `ambros_output` - Get stdout/stderr output of a specific command
+- `ambros_command` - Get full command details as JSON
+
+**Integration Examples:**
+
+Claude Desktop (`~/.config/claude/claude_desktop_config.json`):
+```json
+{
+  "mcpServers": {
+    "ambros": {
+      "command": "ambros",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+VS Code with GitHub Copilot (`.vscode/mcp.json`):
+```json
+{
+  "servers": {
+    "ambros": {
+      "command": "ambros",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+---
+
 # Ambros v3.2.8 - Streamlined Focus 🎯
 
 **Release Date**: December 2025
