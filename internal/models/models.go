@@ -59,15 +59,6 @@ type Command struct {
 	Variables map[string]string `json:"variables,omitempty"`
 }
 
-type CommandTemplate struct {
-	ID          string            `json:"id"`
-	Name        string            `json:"name"`
-	Description string            `json:"description"`
-	Command     string            `json:"command"`
-	Arguments   []string          `json:"arguments"`
-	Variables   map[string]string `json:"variables"`
-}
-
 type SearchQuery struct {
 	Text     string    `json:"text"`
 	Tags     []string  `json:"tags,omitempty"`

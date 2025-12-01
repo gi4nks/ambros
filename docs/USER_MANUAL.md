@@ -1,6 +1,6 @@
 # Ambros User Manual
 
-**Version 3.2.5**
+**Version 3.2.6**
 
 Ambros is a powerful command-line tool for storing, managing, and analyzing shell command executions. It captures command outputs, tracks success/failure status, and provides advanced analytics to help you understand your command-line workflow.
 
@@ -15,10 +15,10 @@ Ambros is a powerful command-line tool for storing, managing, and analyzing shel
    - [Running Commands](#running-commands)
    - [Viewing History](#viewing-history)
    - [Searching Commands](#searching-commands)
-   - [Templates](#templates)
    - [Plugins](#plugins)
    - [Analytics](#analytics)
    - [Import/Export](#importexport)
+   - [Database Cleanup](#database-cleanup)
    - [Configuration](#configuration)
 5. [Web Interface](#web-interface)
 6. [Advanced Usage](#advanced-usage)
@@ -98,16 +98,6 @@ Every command executed through Ambros is stored with:
 - **Tags**: Optional labels for organization
 - **Category**: Optional grouping
 
-### Templates
-Templates are reusable command patterns with variables:
-```bash
-# Create a template
-ambros template add deploy-app "kubectl apply -f {{file}}"
-
-# Use the template
-ambros template run deploy-app --var file=deployment.yaml
-```
-
 ### Plugins
 Plugins extend Ambros functionality with custom scripts:
 ```bash
@@ -155,7 +145,6 @@ ambros run --store=false -- curl https://api.example.com
 | `--auto` | | Enable TTY mode for interactive commands |
 | `--dry-run` | | Preview without executing |
 | `--store` | | Store command execution (default: true) |
-| `--template` | `-p` | Use a command template |
 
 > **Important:** Use `--` to separate Ambros flags from the command and its arguments.
 > This prevents flags like `-la` from being interpreted as Ambros flags.
@@ -241,44 +230,6 @@ ambros search --from "2024-01-01" --to "2024-12-31"
 | `--from` | Start date |
 | `--to` | End date |
 | `--output` | Include command output |
-
----
-
-### Templates
-
-#### `ambros template`
-Manage reusable command templates.
-
-```bash
-# List all templates
-ambros template list
-
-# Add a new template
-ambros template add <name> "<command with {{variables}}>"
-
-# Examples
-ambros template add docker-run "docker run -d --name {{name}} {{image}}"
-ambros template add k8s-logs "kubectl logs -f {{pod}} -n {{namespace}}"
-ambros template add ssh-connect "ssh {{user}}@{{host}}"
-
-# Run a template
-ambros template run <name> --var key1=value1 --var key2=value2
-
-# Example usage
-ambros template run docker-run --var name=myapp --var image=nginx:latest
-ambros template run k8s-logs --var pod=web-abc123 --var namespace=production
-
-# Show template details
-ambros template info <name>
-
-# Delete a template
-ambros template delete <name>
-```
-
-**Template Variables:**
-- Use `{{variable}}` syntax for placeholders
-- Provide values with `--var variable=value`
-- Variables are required unless they have defaults
 
 ---
 
@@ -400,20 +351,30 @@ ambros import --tag imported backup.json
 
 ---
 
-### Configuration
+### Database Cleanup
 
-#### `ambros env`
-Show environment and configuration information.
+#### `ambros interactive cleanup`
+Interactive database cleanup with TUI menu.
 
 ```bash
-ambros env
+# Start interactive cleanup
+ambros interactive cleanup
+
+# Or just
+ambros interactive
 ```
 
-**Output includes:**
-- Database location
-- Configuration file path
-- Plugin directory
-- Log level
+**Cleanup options:**
+1. Remove failed commands
+2. Remove commands older than 30 days
+3. Remove duplicate commands
+4. Full cleanup (all above)
+
+Features dry-run mode and confirmation prompts.
+
+---
+
+### Configuration
 
 #### `ambros db`
 Database management commands.
@@ -455,7 +416,6 @@ ambros server --host 0.0.0.0 --port 8080
 | `/api/commands/:id` | GET | Get command by ID |
 | `/api/commands` | POST | Execute command |
 | `/api/search` | GET | Search commands |
-| `/api/templates` | GET | List templates |
 | `/api/analytics` | GET | Basic analytics |
 | `/api/analytics/advanced` | GET | Advanced analytics |
 
@@ -469,7 +429,6 @@ Access the web interface at `http://localhost:8080` after starting the server.
 - **Dashboard**: Overview of recent commands and statistics
 - **Command History**: Browse and search all commands
 - **Search**: Advanced search with filters
-- **Templates**: Manage command templates
 - **Analytics**: Visual charts and insights
 
 ---
@@ -575,8 +534,6 @@ ambros integrate uninstall
 
 ### Manual Shell Aliases
 
-### Manual Shell Aliases
-
 If you prefer manual control instead of full integration, add to your `.bashrc` or `.zshrc`:
 
 ```bash
@@ -674,7 +631,6 @@ ambros --help
 
 # Command-specific help
 ambros run --help
-ambros template --help
 ambros plugin --help
 
 # Version info
@@ -714,20 +670,19 @@ Include:
 │   ambros search --tag <tag>     Search by tag                   │
 │   ambros search --status fail   Search failed commands          │
 │                                                                 │
-│ TEMPLATES                                                       │
-│   ambros template list          List templates                  │
-│   ambros template add <n> "c"   Create template                 │
-│   ambros template run <n>       Run template                    │
-│                                                                 │
 │ PLUGINS                                                         │
 │   ambros plugin list            List plugins                    │
 │   ambros plugin run <p> <cmd>   Run plugin command              │
 │   ambros plugin install <path>  Install plugin                  │
 │                                                                 │
+│ DATABASE                                                        │
+│   ambros interactive cleanup    Interactive cleanup wizard      │
+│   ambros export <file>          Export history                  │
+│   ambros import <file>          Import history                  │
+│                                                                 │
 │ OTHER                                                           │
 │   ambros analytics              Show statistics                 │
 │   ambros server                 Start web interface             │
-│   ambros export <file>          Export history                  │
 │   ambros --help                 Show help                       │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -740,4 +695,4 @@ Apache 2.0 - See [LICENSE](../LICENSE) for details.
 
 ---
 
-*Last updated: November 2025 - Ambros v3.2.2*
+*Last updated: December 2025 - Ambros v3.2.6*

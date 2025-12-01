@@ -457,6 +457,181 @@ If you want me to produce release artifacts (binaries + checksums) and attach th
 
 ---
 
+## Ambros v3.2.6 - Feature cleanup release
+
+**Release Date**: December 1, 2025
+
+This release focuses on removing features that duplicate existing OS/shell functionality, making Ambros more focused on its core purpose: command history storage, recall, and analytics.
+
+### Removed Features
+
+**Template Command** (~280 lines removed)
+- Shell aliases and functions (`alias`, `function`) provide the same functionality natively
+- The `~/.bashrc`/`~/.zshrc` are the standard place to manage reusable commands
+- Removal simplifies codebase without loss of capability
+
+**Environment Command** (~420 lines removed)
+- Tools like `direnv`, `dotenv`, and shell's `export` do this better
+- `.env` files and secrets managers are industry standard
+- Environment variable management doesn't belong in a command history tool
+
+**Interactive modes** (search/select/manage) (~400 lines removed)
+- `fzf` + shell history (`Ctrl+R`) provide better interactive search
+- Kept only `interactive cleanup` for database maintenance
+- Removed template/environment management UI since those features are gone
+
+**Server API endpoints** removed:
+- `/api/templates` - templates removed
+- `/api/environments` - environments removed
+
+### What's Kept
+
+The `interactive cleanup` command remains for database maintenance:
+```bash
+ambros interactive cleanup
+```
+- Remove failed commands
+- Remove commands older than 30 days
+- Remove duplicate commands
+- Full cleanup (all above)
+
+### Migration Notes
+
+If you were using these features, here are alternatives:
+
+**Templates → Shell aliases/functions:**
+```bash
+# Instead of: ambros template save deploy "kubectl apply -f deployment.yaml"
+# Use in ~/.zshrc:
+alias deploy="kubectl apply -f deployment.yaml"
+# Or:
+deploy() { kubectl apply -f "$1"; }
+```
+
+**Environments → direnv/dotenv:**
+```bash
+# Instead of: ambros env set prod API_URL https://api.example.com
+# Use .envrc with direnv:
+export API_URL=https://api.example.com
+```
+
+### Technical Changes
+
+- Removed `cmd/commands/template.go`, `template_test.go`
+- Removed `cmd/commands/env.go`
+- Removed `internal/templates/` package
+- Removed `CommandTemplate` struct from models
+- Simplified `interactive.go` to only cleanup mode
+- Updated server.go to remove template/environment endpoints
+- Updated web dashboard navigation
+
+### Stats
+
+- ~1,100 lines of code removed
+- Cleaner, more focused codebase
+- Tests all passing
+
+---
+
+## Ambros v3.2.5 - Chain removal release
+
+**Release Date**: December 1, 2025
+
+This release removes the command chains feature which duplicated shell functionality.
+
+### Removed Features
+
+**Chain Command** (~1,200 lines removed)
+- Shell's `&&` operator does the same thing: `cmd1 && cmd2 && cmd3`
+- Task runners like Make, npm scripts, Just are better suited for workflows
+- Removal simplifies codebase significantly
+
+### Migration Notes
+
+**Chains → Shell operators:**
+```bash
+# Instead of: ambros chain create build "go test" "go build"
+# Use shell operators:
+go test && go build
+# Or create a Makefile target
+```
+
+---
+
+## Ambros v3.2.4 - Scheduler removal release
+
+**Release Date**: December 1, 2025
+
+This release removes the scheduler feature which was incomplete and duplicated OS functionality.
+
+### Removed Features
+
+**Scheduler Command** (~774 lines removed)
+- OS schedulers (cron, launchd, systemd timers) are more robust
+- Scheduler was incomplete (no persistence across restarts)
+- Doesn't fit Ambros's core purpose of command history
+
+### Migration Notes
+
+**Scheduler → cron:**
+```bash
+# Instead of: ambros scheduler add "backup" "0 2 * * *" "ambros run -- backup.sh"
+# Use crontab -e:
+0 2 * * * /usr/local/bin/ambros run -- /path/to/backup.sh
+```
+
+---
+
+## Ambros v3.2.3 - Shell Integration Enhancement
+
+**Release Date**: November 30, 2025
+
+This release enhances shell integration with new tracking modes.
+
+### New Features
+
+**Shell Integration Modes**
+- **Whitelist Mode** (default): Only track specified commands
+- **All Commands Mode**: Track everything except blacklisted commands
+
+**Runtime Controls**
+- `ambros_status` - Check integration status
+- `ambros_disable` - Temporarily disable tracking
+- `ambros_enable` - Re-enable tracking
+- `ambros_blacklist_add` / `ambros_blacklist_remove` - Manage blacklist
+
+**Configurable Lists**
+- `AMBROS_INTERCEPTED_COMMANDS` - Whitelist of commands to track
+- `AMBROS_BLACKLIST` - Commands to never track (includes shell builtins)
+
+### Usage
+
+```bash
+# Enable all-commands mode
+export AMBROS_INTEGRATION_MODE="all"
+source ~/.ambros-integration.sh
+
+# Or customize whitelist before sourcing
+AMBROS_INTERCEPTED_COMMANDS=("git" "docker" "kubectl")
+source ~/.ambros-integration.sh
+```
+
+---
+
+## Ambros v3.2.2 - Documentation release
+
+**Release Date**: November 30, 2025
+
+Added comprehensive user manual documentation.
+
+### New Features
+- Added `docs/USER_MANUAL.md` with complete usage documentation
+- Shell integration documentation
+- Plugin system documentation
+- Quick reference card
+
+---
+
 ## Ambros v3.1.4 - Security and stability patch
 
 **Release Date**: September 16, 2025
