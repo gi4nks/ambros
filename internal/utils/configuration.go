@@ -34,6 +34,15 @@ type Configuration struct {
 		Enabled       bool
 		RetentionDays int
 	}
+	Redacting struct {
+		Enabled bool
+		Masks   []string // List of regex patterns to redact
+	}
+	AutoCleanup struct {
+		Enabled       bool
+		RetentionDays int // Max age of commands in days
+		MaxCommands   int // Max number of commands to keep (0 for unlimited)
+	}
 }
 
 func NewConfiguration(logger *zap.Logger) *Configuration {
@@ -63,6 +72,11 @@ func NewConfiguration(logger *zap.Logger) *Configuration {
 	viper.SetDefault("scheduler.checkInterval", "1m")
 	viper.SetDefault("analytics.enabled", true)
 	viper.SetDefault("analytics.retentionDays", 365)
+	viper.SetDefault("redacting.enabled", true)
+	viper.SetDefault("redacting.masks", []string{})
+	viper.SetDefault("autoCleanup.enabled", false)
+	viper.SetDefault("autoCleanup.retentionDays", 30)
+	viper.SetDefault("autoCleanup.maxCommands", 1000)
 
 	// Environment variables
 	viper.SetEnvPrefix("AMBROS")

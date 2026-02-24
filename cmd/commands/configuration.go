@@ -95,6 +95,15 @@ func (cc *ConfigurationCommand) outputJSON() error {
 			"enabled":       cc.globalConfig.Analytics.Enabled,
 			"retentionDays": cc.globalConfig.Analytics.RetentionDays,
 		},
+		"redacting": map[string]interface{}{
+			"enabled": cc.globalConfig.Redacting.Enabled,
+			"masks":   cc.globalConfig.Redacting.Masks,
+		},
+		"autoCleanup": map[string]interface{}{
+			"enabled":       cc.globalConfig.AutoCleanup.Enabled,
+			"retentionDays": cc.globalConfig.AutoCleanup.RetentionDays,
+			"maxCommands":   cc.globalConfig.AutoCleanup.MaxCommands,
+		},
 	}
 
 	jsonData, err := json.MarshalIndent(configData, "", "  ")
@@ -133,6 +142,15 @@ func (cc *ConfigurationCommand) outputText() error {
 	fmt.Printf("\n  Analytics:\n")
 	fmt.Printf("    Enabled: %t\n", cc.globalConfig.Analytics.Enabled)
 	fmt.Printf("    Retention Days: %d\n", cc.globalConfig.Analytics.RetentionDays)
+
+	fmt.Printf("\n  Redacting:\n")
+	fmt.Printf("    Enabled: %t\n", cc.globalConfig.Redacting.Enabled)
+	fmt.Printf("    Masks: %v\n", cc.globalConfig.Redacting.Masks)
+
+	fmt.Printf("\n  Auto-Cleanup:\n")
+	fmt.Printf("    Enabled: %t\n", cc.globalConfig.AutoCleanup.Enabled)
+	fmt.Printf("    Retention Days: %d\n", cc.globalConfig.AutoCleanup.RetentionDays)
+	fmt.Printf("    Max Commands: %d\n", cc.globalConfig.AutoCleanup.MaxCommands)
 
 	cc.logger.Debug("Configuration displayed in text format")
 	return nil

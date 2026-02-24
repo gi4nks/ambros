@@ -4,12 +4,15 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
 	"github.com/fatih/color"
 	"github.com/gi4nks/ambros/v3/internal/errors"
 	"github.com/gi4nks/ambros/v3/internal/plugins"
+	"github.com/gi4nks/ambros/v3/internal/tui"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
@@ -30,12 +33,14 @@ func NewInteractiveCommand(logger *zap.Logger, repo RepositoryInterface, api plu
 		Use:   "interactive",
 		Short: "Interactive command management",
 		Long: `Interactive command management with TUI menus.
-Provides user-friendly interface for database cleanup operations.
+Provides user-friendly interface for browsing history and management.
 
 Modes:
-  cleanup   Interactive cleanup of old/failed/duplicate commands
+  dashboard (default)  Interactive dashboard to browse and manage commands
+  cleanup              Interactive cleanup of old/failed/duplicate commands
 
 Examples:
+  ambros interactive
   ambros interactive cleanup`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: ic.runE,
@@ -53,17 +58,72 @@ func (ic *InteractiveCommand) runE(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(args) == 0 {
-		return ic.interactiveCleanup()
+		return ic.launchDashboard()
 	}
 
 	mode := args[0]
 	switch mode {
+	case "dashboard":
+		return ic.launchDashboard()
 	case "cleanup":
 		return ic.interactiveCleanup()
 	default:
 		return errors.NewError(errors.ErrInvalidCommand,
-			fmt.Sprintf("unknown mode: %s. Available mode: cleanup", mode), nil)
+			fmt.Sprintf("unknown mode: %s. Available modes: dashboard, cleanup", mode), nil)
 	}
+}
+
+func (ic *InteractiveCommand) launchDashboard() error {
+	m := tui.NewModel(ic.repository)
+	p := tea.NewProgram(m, tea.WithAltScreen())
+	if _, err := p.Run(); err != nil {
+		return errors.NewError(errors.ErrInternalServer, "failed to run TUI", err)
+	}
+
+	selected := m.GetChoice()
+	if selected != nil {
+		color.Cyan("\n🚀 Rerunning selected command: %s %s", selected.Command, strings.Join(selected.Arguments, " "))
+		
+		// Wait a bit so the user can see what's happening
+		time.Sleep(500 * time.Millisecond)
+
+		// Create a temporary rerun command to use its execution logic
+		// or just use the executor directly
+		output, errorMsg, success, err := ic.executeCommand(selected.Command, selected.Arguments)
+		if err != nil {
+			return errors.NewError(errors.ErrExecutionFailed, "failed to execute command", err)
+		}
+
+		if output != "" {
+			fmt.Print(output)
+		}
+		if errorMsg != "" {
+			fmt.Fprint(os.Stderr, errorMsg)
+		}
+
+		if !success {
+			os.Exit(1)
+		}
+	}
+
+	return nil
+}
+
+func (ic *InteractiveCommand) executeCommand(name string, args []string) (string, string, bool, error) {
+	if _, err := ic.executor.ResolveCommandPath(name); err != nil {
+		return "", err.Error(), false, err
+	}
+	
+	cmd := exec.Command(name, args...)
+	output, err := cmd.CombinedOutput()
+
+	success := err == nil
+	var errorMsg string
+	if err != nil {
+		errorMsg = err.Error()
+	}
+
+	return string(output), errorMsg, success, nil
 }
 
 func (ic *InteractiveCommand) interactiveCleanup() error {
