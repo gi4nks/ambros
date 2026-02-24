@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall" // Required for extractExitStatus
 	"time"
 
 	"github.com/creack/pty"
@@ -35,25 +34,6 @@ func NewExecutor(logger *zap.Logger) *Executor {
 // IsTerminal checks if the current stdin is a TTY.
 func (e *Executor) IsTerminal() bool {
 	return isatty.IsTerminal(os.Stdin.Fd())
-}
-
-// extractExitStatus extracts the exit status code from an error returned by exec.Command.Wait()
-// On Unix-like platforms this checks for syscall.WaitStatus.
-func (e *Executor) extractExitStatus(err error) (int, bool) {
-	if err == nil {
-		return 0, true
-	}
-	if exitErr, ok := err.(*exec.ExitError); ok {
-		if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
-			return status.ExitStatus(), true
-		}
-	}
-	return 1, false
-}
-
-// notifyWinch registers SIGWINCH into the provided channel on platforms that support it.
-func (e *Executor) notifyWinch(sig chan os.Signal) {
-	signal.Notify(sig, syscall.SIGWINCH)
 }
 
 // interactiveCmds is a small curated set of known interactive programs.
@@ -215,7 +195,7 @@ func (e *Executor) ExecuteCommandAuto(name string, args []string) (int, error) {
 		// Handle window size changes
 		sigwinch := make(chan os.Signal, 1)
 		// platform-specific registration: may be a no-op on Windows
-		e.notifyWinch(sigwinch)
+		notifyWinch(sigwinch)
 		go func() {
 			for range sigwinch {
 				_ = pty.InheritSize(os.Stdin, ptmx)
@@ -262,7 +242,7 @@ func (e *Executor) ExecuteCommandAuto(name string, args []string) (int, error) {
 		close(sigs)
 		<-done
 
-		if status, ok := e.extractExitStatus(err); ok {
+		if status, ok := extractExitStatus(err); ok {
 			return status, nil
 		}
 		return 1, err
@@ -298,7 +278,7 @@ func (e *Executor) ExecuteCommandAuto(name string, args []string) (int, error) {
 	close(sigs)
 	<-done
 
-	if status, ok := e.extractExitStatus(err); ok {
+	if status, ok := extractExitStatus(err); ok {
 		return status, nil
 	}
 	return 1, err
@@ -326,7 +306,7 @@ func (e *Executor) ExecuteCapture(name string, args []string) (int, string, erro
 		if err == nil {
 			return 0, string(out), nil
 		}
-		if status, ok := e.extractExitStatus(err); ok {
+		if status, ok := extractExitStatus(err); ok {
 			return status, string(out), nil
 		}
 		return 1, string(out), err
@@ -366,7 +346,7 @@ func (e *Executor) ExecuteCapture(name string, args []string) (int, string, erro
 	if err == nil {
 		return 0, buf.String(), nil
 	}
-	if status, ok := e.extractExitStatus(err); ok {
+	if status, ok := extractExitStatus(err); ok {
 		return status, buf.String(), nil
 	}
 	return 1, buf.String(), err
@@ -439,7 +419,7 @@ func (e *Executor) ExecutePipe(name string, args []string, opts PipeOptions) (Ex
 
 	exitCode := 0
 	if waitErr != nil {
-		if status, ok := e.extractExitStatus(waitErr); ok {
+		if status, ok := extractExitStatus(waitErr); ok {
 			exitCode = status
 		} else {
 			exitCode = 1
