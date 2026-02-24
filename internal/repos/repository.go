@@ -352,46 +352,87 @@ func (r *Repository) FindInStoreById(id string) (models.Command, error) {
 	return command, err
 }
 
-// Delete removes a command by ID
-func (r *Repository) Delete(id string) error {
-	return r.db.Update(func(txn *badger.Txn) error {
-		// First, get the command to get its timestamp for time index removal
-		cmdKey := []byte("cmd:" + id)
-		item, err := txn.Get(cmdKey)
-		if err != nil {
-			return err
-		}
+// DeleteOlderThan removes commands created more than the specified number of days ago
+func (r *Repository) DeleteOlderThan(days int) (int, error) {
+	if days <= 0 {
+		return 0, nil
+	}
 
-		var cmd models.Command
-		err = item.Value(func(val []byte) error {
-			return json.Unmarshal(val, &cmd)
-		})
-		if err != nil {
-			return err
-		}
+	cutoff := time.Now().AddDate(0, 0, -days)
+	deleted := 0
 
-		// Delete the main command entry
-		if err := txn.Delete(cmdKey); err != nil {
-			return err
-		}
+	err := r.db.Update(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.Prefix = []byte("cmd:")
+		it := txn.NewIterator(opts)
+		defer it.Close()
 
-		// Delete the time index entry
-		timeKey := []byte("time:" + cmd.CreatedAt.Format(time.RFC3339Nano))
-		if err := txn.Delete(timeKey); err != nil {
-			// Ignore error - continue even if time index deletion fails
-			r.logger.Warn("Failed to delete time index entry", zap.Error(err))
-		}
+		var idsToDelete []string
 
-		// Delete any tag entries for this command
-		for _, tag := range cmd.Tags {
-			tagKey := []byte("tag:" + tag + ":" + id)
-			if err := txn.Delete(tagKey); err != nil {
-				// Ignore error - continue even if tag deletion fails
-				r.logger.Warn("Failed to delete tag index entry", zap.Error(err), zap.String("tag", tag))
+		for it.Rewind(); it.Valid(); it.Next() {
+			err := it.Item().Value(func(val []byte) error {
+				var cmd models.Command
+				if err := json.Unmarshal(val, &cmd); err != nil {
+					return err
+				}
+
+				if cmd.CreatedAt.Before(cutoff) {
+					idsToDelete = append(idsToDelete, cmd.ID)
+				}
+				return nil
+			})
+			if err != nil {
+				return err
 			}
 		}
 
+		for _, id := range idsToDelete {
+			if err := r.deleteInternal(txn, id); err != nil {
+				r.logger.Warn("Failed to delete command during cleanup",
+					zap.String("id", id), zap.Error(err))
+				continue
+			}
+			deleted++
+		}
+
 		return nil
+	})
+
+	return deleted, err
+}
+
+// deleteInternal is a helper for deleting within an existing transaction
+func (r *Repository) deleteInternal(txn *badger.Txn, id string) error {
+	cmdKey := []byte("cmd:" + id)
+	item, err := txn.Get(cmdKey)
+	if err != nil {
+		return err
+	}
+
+	var cmd models.Command
+	err = item.Value(func(val []byte) error {
+		return json.Unmarshal(val, &cmd)
+	})
+	if err != nil {
+		return err
+	}
+
+	if err := txn.Delete(cmdKey); err != nil {
+		return err
+	}
+
+	timeKey := []byte(fmt.Sprintf("time:%s:%s", cmd.CreatedAt.Format("20060102T150405.999999999Z0700"), cmd.ID))
+	if err := txn.Delete(timeKey); err != nil {
+		r.logger.Warn("Failed to delete time index entry", zap.Error(err))
+	}
+
+	return nil
+}
+
+// Delete removes a command by ID
+func (r *Repository) Delete(id string) error {
+	return r.db.Update(func(txn *badger.Txn) error {
+		return r.deleteInternal(txn, id)
 	})
 }
 

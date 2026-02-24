@@ -97,3 +97,9 @@ func (m *MockRepository) Delete(id string) error {
 	args := m.Called(id)
 	return args.Error(0)
 }
+
+// DeleteOlderThan implements Repository.DeleteOlderThan
+func (m *MockRepository) DeleteOlderThan(days int) (int, error) {
+	args := m.Called(days)
+	return args.Int(0), args.Error(1)
+}

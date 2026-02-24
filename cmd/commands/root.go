@@ -2,6 +2,7 @@ package commands
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -31,6 +32,16 @@ Examples:
   ambros last                       # Show recent commands
   ambros search "grep"              # Search command history
   ambros export -o backup.json      # Export command history`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		// If no subcommand is provided, launch the interactive dashboard
+		// Find the interactive command and run its dashboard mode
+		for _, sub := range cmd.Commands() {
+			if sub.Name() == "interactive" {
+				return sub.RunE(sub, []string{"dashboard"})
+			}
+		}
+		return cmd.Help()
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -73,9 +84,25 @@ func InitializeRepository() error {
 	// Set CoreAPI in the global plugin registry
 	plugins.GetGlobalRegistry().SetCoreAPI(coreAPI)
 
+	// Perform auto-cleanup if enabled
+	if globalConfig.AutoCleanup.Enabled {
+		performAutoCleanup(logger, repo, globalConfig.AutoCleanup.RetentionDays)
+	}
+
 	// Add repository-dependent commands
 	addRepositoryCommands(logger, repo, coreAPI)
 	return nil
+}
+
+func performAutoCleanup(logger *zap.Logger, repo repos.RepositoryInterface, days int) {
+	deleted, err := repo.DeleteOlderThan(days)
+	if err != nil {
+		logger.Error("Auto-cleanup failed", zap.Error(err))
+		return
+	}
+	if deleted > 0 {
+		logger.Info("Auto-cleanup completed", zap.Int("deletedCommands", deleted))
+	}
 }
 
 func addRepositoryCommands(logger *zap.Logger, repo RepositoryInterface, api plugins.CoreAPI) {
@@ -83,6 +110,7 @@ func addRepositoryCommands(logger *zap.Logger, repo RepositoryInterface, api plu
 	rootCmd.AddCommand(NewIntegrateCommand(logger, api).Command())
 
 	// Add all command implementations that require repository
+	rootCmd.AddCommand(NewCaptureCommand(logger, repo, api).Command())
 	rootCmd.AddCommand(NewRunCommand(logger, repo, api).Command())
 	rootCmd.AddCommand(NewLastCommand(logger, repo, api).Command())
 	rootCmd.AddCommand(NewSearchCommand(logger, repo, api).Command())
@@ -97,6 +125,12 @@ func addRepositoryCommands(logger *zap.Logger, repo RepositoryInterface, api plu
 	rootCmd.AddCommand(NewDBCommand(logger, repo).Command())
 	// MCP server
 	rootCmd.AddCommand(NewMCPCommand(logger, repo, api).Command())
+	// Internal logs
+	rootCmd.AddCommand(NewLogsCommand(logger, repo, api).Command())
+	// Health checks
+	rootCmd.AddCommand(NewDoctorCommand(logger, repo, api).Command())
+	// Auto-completion
+	rootCmd.AddCommand(NewCompletionCommand(logger, repo, api))
 
 	// Plugin commands
 	pluginCmd = NewPluginCommand(logger, repo) // Store in package-level variable
@@ -113,14 +147,20 @@ func initLogger() *zap.Logger {
 	var logger *zap.Logger
 	var err error
 
+	home, _ := os.UserHomeDir()
+	logPath := filepath.Join(home, ".ambros", "ambros.log")
+
+	// Create directory if not exists
+	_ = os.MkdirAll(filepath.Join(home, ".ambros"), 0755)
+
 	if debug {
 		logger, err = zap.NewDevelopment()
 	} else {
-		// For CLI tools, we want quieter logging in production
-		// Only log warnings and errors to avoid cluttering user output
-		config := zap.NewProductionConfig()
-		config.Level = zap.NewAtomicLevelAt(zap.WarnLevel)
-		logger, err = config.Build()
+		cfg := zap.NewProductionConfig()
+		cfg.OutputPaths = []string{logPath}
+		cfg.ErrorOutputPaths = []string{logPath, "stderr"}
+		cfg.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
+		logger, err = cfg.Build()
 	}
 
 	if err != nil {
@@ -141,5 +181,10 @@ func initConfig() {
 		debug = true // Force debug mode on if enabled in config
 		globalConfig.Logger.Info("Debug mode enabled via config file, re-initializing logger")
 		initLogger() // Re-init logger to apply debug settings
+	}
+
+	// Initialize redactor with custom patterns
+	if globalConfig.Redacting.Enabled {
+		utils.AddCustomPatterns(globalConfig.Redacting.Masks)
 	}
 }

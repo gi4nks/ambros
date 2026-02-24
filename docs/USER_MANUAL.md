@@ -53,7 +53,23 @@ ambros version
 
 ## Quick Start
 
-### 1. Run Your First Command
+### 1. Interactive Dashboard (Recommended)
+
+Run `ambros` without arguments to launch the interactive TUI:
+
+```bash
+# Launch the TUI Dashboard
+ambros
+
+# Keybindings in TUI:
+# Enter    - View command details
+# r        - Rerun selected command
+# x        - Delete selected command
+# q / Esc  - Exit
+# /        - Start filtering
+```
+
+### 2. Run Your First Command
 
 ```bash
 # Run a command and store it
@@ -63,17 +79,17 @@ ambros run -- ls -la
 ambros run --tag project-x --tag deployment -- kubectl get pods
 ```
 
-### 2. View Recent Commands
+### 3. View Recent Commands
 
 ```bash
-# Show last 10 commands
+# Show last 10 commands (CLI mode)
 ambros last 10
 
-# Search for specific commands
+# Search for specific commands (CLI mode)
 ambros search "docker"
 ```
 
-### 3. Recall and Rerun
+### 4. Recall and Rerun
 
 ```bash
 # Recall a command by ID
@@ -86,6 +102,9 @@ ambros rerun <command-id>
 ---
 
 ## Core Concepts
+
+### TUI Dashboard
+The primary way to interact with Ambros is through the built-in TUI Dashboard. It provides a visual representation of your history, allowing you to quickly browse, search, and manage your commands without using CLI flags.
 
 ### Commands
 Every command executed through Ambros is stored with:
@@ -612,6 +631,33 @@ ambros --debug run -- ls -la
 
 # Or via environment
 AMBROS_LOG_LEVEL=debug ambros run -- ls -la
+```
+
+### Security (Redacting)
+
+Ambros automatically redacts sensitive information from command outputs and errors before storing them. This includes API keys (OpenAI, GitHub, AWS, Google Cloud), passwords, and private keys.
+
+You can enable/disable this feature or add your own custom regex patterns in `~/.ambros/.ambros.yaml`:
+
+```yaml
+redacting:
+  enabled: true
+  masks:
+    - "my-secret-pattern-[0-9]+"
+    - "CONFIDENTIAL: .*"
+```
+
+### Data Retention (Auto-cleanup)
+
+To prevent the database from growing indefinitely, Ambros supports automatic cleanup of old commands. When enabled, it will remove commands older than a specified number of days every time the application starts.
+
+Configuration in `~/.ambros/.ambros.yaml`:
+
+```yaml
+autoCleanup:
+  enabled: true
+  retentionDays: 30  # Keep commands for 30 days
+  maxCommands: 1000  # (Planned) Limit total number of commands
 ```
 
 ---

@@ -9,12 +9,14 @@ import (
 	"strings"
 	"sync"
 	"syscall" // Required for extractExitStatus
+	"time"
 
 	"github.com/creack/pty"
 	"github.com/mattn/go-isatty"
 	"go.uber.org/zap"
 
 	"github.com/gi4nks/ambros/v3/internal/errors"
+	"github.com/gi4nks/ambros/v3/internal/utils"
 )
 
 // Executor provides core functionality for executing commands,
@@ -368,4 +370,94 @@ func (e *Executor) ExecuteCapture(name string, args []string) (int, string, erro
 		return status, buf.String(), nil
 	}
 	return 1, buf.String(), err
+}
+
+// PipeOptions defines options for ExecutePipe
+type PipeOptions struct {
+	MaxBytes    int64
+	Redact      bool
+	PrintStderr bool
+}
+
+// ExecutePipeResult defines the result of ExecutePipe
+type ExecutePipeResult struct {
+	Stdout   string
+	Stderr   string
+	ExitCode int
+	Duration time.Duration
+}
+
+// ExecutePipe runs a command using pipes (not PTY) and captures output into buffers.
+// This is ported from Ecto's core logic.
+func (e *Executor) ExecutePipe(name string, args []string, opts PipeOptions) (ExecutePipeResult, error) {
+	e.logger.Debug("ExecutePipe invoked", zap.String("name", name), zap.Strings("args", args))
+
+	start := time.Now()
+	cmd := exec.Command(name, args...)
+
+	stdoutPipeReader, stdoutPipeWriter := io.Pipe()
+	stderrPipeReader, stderrPipeWriter := io.Pipe()
+
+	cmd.Stdout = stdoutPipeWriter
+	cmd.Stderr = stderrPipeWriter
+	cmd.Stdin = os.Stdin
+
+	stdoutBuf := utils.NewLimitedBuffer(opts.MaxBytes)
+	stderrBuf := utils.NewLimitedBuffer(opts.MaxBytes)
+
+	stdoutWriter := io.MultiWriter(os.Stdout, stdoutBuf)
+	stderrWriters := []io.Writer{stderrBuf}
+	if opts.PrintStderr {
+		stderrWriters = append([]io.Writer{os.Stderr}, stderrWriters...)
+	}
+	stderrWriter := io.MultiWriter(stderrWriters...)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		_, _ = io.Copy(stdoutWriter, stdoutPipeReader)
+		_ = stdoutPipeReader.Close()
+	}()
+	go func() {
+		defer wg.Done()
+		_, _ = io.Copy(stderrWriter, stderrPipeReader)
+		_ = stderrPipeReader.Close()
+	}()
+
+	err := cmd.Start()
+	if err != nil {
+		_ = stdoutPipeWriter.Close()
+		_ = stderrPipeWriter.Close()
+		return ExecutePipeResult{}, err
+	}
+
+	waitErr := cmd.Wait()
+	_ = stdoutPipeWriter.Close()
+	_ = stderrPipeWriter.Close()
+	wg.Wait()
+
+	exitCode := 0
+	if waitErr != nil {
+		if status, ok := e.extractExitStatus(waitErr); ok {
+			exitCode = status
+		} else {
+			exitCode = 1
+		}
+	}
+
+	stdout := stdoutBuf.String()
+	stderr := stderrBuf.String()
+
+	if opts.Redact {
+		stdout = utils.Redact(stdout)
+		stderr = utils.Redact(stderr)
+	}
+
+	return ExecutePipeResult{
+		Stdout:   stdout,
+		Stderr:   stderr,
+		ExitCode: exitCode,
+		Duration: time.Since(start),
+	}, waitErr
 }

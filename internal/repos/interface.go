@@ -18,4 +18,5 @@ type RepositoryInterface interface {
 	GetTemplate(name string) (*models.Template, error)
 	Push(command models.Command) error
 	Delete(id string) error
+	DeleteOlderThan(days int) (int, error)
 }

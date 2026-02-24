@@ -74,6 +74,10 @@ func (cw *CommandWrapper) InitializeCommands(cmds [][]string) []models.Command {
 func (cw *CommandWrapper) FinalizeCommand(command *models.Command) error {
 	command.TerminatedAt = time.Now()
 
+	// Redact sensitive information before storing
+	command.Output = utils.Redact(command.Output)
+	command.Error = utils.Redact(command.Error)
+
 	if err := cw.repository.Put(context.Background(), *command); err != nil {
 		cw.logger.Error("Failed to store command",
 			zap.String("id", command.ID),
@@ -92,6 +96,10 @@ func (cw *CommandWrapper) FinalizeCommands(commands []*models.Command) error {
 	for _, command := range commands {
 		command.TerminatedAt = time.Now()
 
+		// Redact sensitive information before storing
+		command.Output = utils.Redact(command.Output)
+		command.Error = utils.Redact(command.Error)
+
 		if err := cw.repository.Put(context.Background(), *command); err != nil {
 			cw.logger.Error("Failed to store command",
 				zap.String("id", command.ID),
@@ -109,6 +117,10 @@ func (cw *CommandWrapper) FinalizeCommands(commands []*models.Command) error {
 // PushCommand stores a command using the Push method
 func (cw *CommandWrapper) PushCommand(command *models.Command, showid bool) error {
 	command.TerminatedAt = time.Now()
+
+	// Redact sensitive information before storing
+	command.Output = utils.Redact(command.Output)
+	command.Error = utils.Redact(command.Error)
 
 	if err := cw.repository.Push(*command); err != nil {
 		cw.logger.Error("Failed to push command",
@@ -133,6 +145,10 @@ func (cw *CommandWrapper) PushCommands(commands []*models.Command, showid bool) 
 			zap.String("command", command.AsStoredCommand()))
 
 		command.TerminatedAt = time.Now()
+
+		// Redact sensitive information before storing
+		command.Output = utils.Redact(command.Output)
+		command.Error = utils.Redact(command.Error)
 
 		if err := cw.repository.Push(*command); err != nil {
 			cw.logger.Error("Failed to push command",
@@ -275,7 +291,8 @@ func (cw *CommandWrapper) ExecuteCommands(commands []*models.Command) error {
 		output = intermediate.Bytes()
 
 		cw.logger.Debug("Command output", zap.String("output", string(output)))
-		command.Output = string(output)
+		// Redact sensitive information before storing
+		command.Output = utils.Redact(string(output))
 		command.Error = ""
 
 		if err != nil {

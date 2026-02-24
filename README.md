@@ -1,19 +1,35 @@
 # Ambros - The Command Butler 🤖
 
 [![Build Status](https://github.com/gi4nks/ambros/workflows/CI/badge.svg)](https://github.com/gi4nks/ambros/actions)
-[![Go Version](https://img.shields.io/badge/go-1.23.0-blue.svg)](https://golang.org)
+[![Go Version](https://img.shields.io/badge/go-1.25.0-blue.svg)](https://golang.org)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/version-4.0.0-orange.svg)](https://github.com/gi4nks/ambros/releases)
 
-**Ambros** is a comprehensive command management and execution platform that transforms how you interact with command-line tools. It provides intelligent command tracking, workflow automation, analytics, and a complete plugin ecosystem - all wrapped in a sleek web dashboard and powerful CLI.
+**Ambros** (v4.0.0) is a comprehensive command management and execution platform that transforms how you interact with command-line tools. It provides intelligent command tracking, workflow automation, analytics, and a complete plugin ecosystem - all wrapped in a **powerful TUI (Terminal User Interface)**, a sleek web dashboard, and a feature-rich CLI.
 
 ## ✨ Key Features
 
-### 🚀 **Command Execution & Management**
-- **Smart Command Storage**: Automatically track command execution with detailed metadata
-- **Advanced Search**: Find commands by name, tags, status, date range, and more
-- **Command Templates**: Save and reuse command patterns with variable substitution
-- **Dry Run Mode**: Preview commands before execution
-- **Interactive Execution**: Step-by-step command execution with user prompts
+### 🖥️ **Interactive TUI Dashboard (Default)**
+- **Modern Terminal Interface**: A beautiful, interactive dashboard built with Bubble Tea.
+- **Visual Browsing & Fuzzy Search**: Navigate and filter your command history with ease.
+- **Instant Details**: View full command output and metadata with a single keypress.
+- **One-Key Rerun**: Execute previous commands directly from the dashboard (`r` key).
+
+### 🛡️ **Production-Ready Security**
+- **Automatic Redacting**: Masks API keys, passwords, and tokens from your history.
+- **Configurable Masks**: Add your own regex patterns to protect sensitive data.
+
+### 🧹 **Smart Data Retention**
+- **Auto-Cleanup**: Automatically keep your database lean by removing old commands based on retention days.
+
+### 🩺 **Observability & Health**
+- **Internal Logs**: Track application behavior in `~/.ambros/ambros.log`.
+- **System Doctor**: Run `ambros doctor` to diagnose configuration or environment issues.
+
+### 🚀 **Installation & Deployment**
+- **Multi-Platform**: Binaries available for Linux, macOS, and Windows.
+- **Docker Support**: Run the Ambros dashboard anywhere with our official Docker image.
+- **Shell Completion**: Native support for Bash, Zsh, Fish, and PowerShell.
 
 ### 🔗 **Workflow Automation**
 - **Command Chains**: Create complex workflows with sequential or parallel execution
